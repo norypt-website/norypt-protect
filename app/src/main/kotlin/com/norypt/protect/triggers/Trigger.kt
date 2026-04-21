@@ -20,5 +20,6 @@ interface Trigger {
 object TriggerRegistry {
     val all: List<Trigger> = listOf(
         PanicKitTrigger,
+        ExternalBroadcastTrigger,
     )
 }
