@@ -3,6 +3,9 @@ package com.norypt.protect.admin
 import android.app.admin.DeviceAdminReceiver
 import android.content.Context
 import android.content.Intent
+import com.norypt.protect.R
+import com.norypt.protect.panic.PanicHandler
+import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.ProtectForegroundService
 
 class ProtectAdminReceiver : DeviceAdminReceiver() {
@@ -18,7 +21,33 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
     }
 
     override fun onPasswordFailed(context: Context, intent: Intent) {
-        // Wired in Plan 2 (B1 max-failed-attempts trigger).
         super.onPasswordFailed(context, intent)
+        // B4 — failed-auth notification
+        postFailedAuthNotification(context)
+        // B1 — max failed attempts
+        if (!ProtectPrefs.isTriggerEnabled(context, "B1")) return
+        ProtectPrefs.incrementFailedAttempts(context)
+        val count = ProtectPrefs.failedAttempts(context)
+        val max = ProtectPrefs.maxFailedAttempts(context)
+        if (count >= max) {
+            PanicHandler.panic(context, reason = "max.failed")
+        }
+    }
+
+    override fun onPasswordSucceeded(context: Context, intent: Intent) {
+        super.onPasswordSucceeded(context, intent)
+        ProtectPrefs.resetFailedAttempts(context)
+    }
+
+    private fun postFailedAuthNotification(context: Context) {
+        if (!ProtectPrefs.isTriggerEnabled(context, "B4")) return
+        val nm = context.getSystemService(android.app.NotificationManager::class.java)
+        val notif = android.app.Notification.Builder(context, "auth-failed")
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Failed unlock attempt")
+            .setContentText("Norypt Protect detected a failed unlock.")
+            .setAutoCancel(true)
+            .build()
+        nm.notify(System.currentTimeMillis().toInt(), notif)
     }
 }

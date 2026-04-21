@@ -25,5 +25,7 @@ object TriggerRegistry {
         UsbLockedTrigger,
         UnlockedTimerTrigger,
         FakeMessengerTrigger,
+        MaxFailedTrigger,
+        FailedAuthNotifTrigger,
     )
 }
