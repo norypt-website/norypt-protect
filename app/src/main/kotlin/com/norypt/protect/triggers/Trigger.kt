@@ -22,5 +22,6 @@ object TriggerRegistry {
         PanicKitTrigger,
         SmsSecretTrigger,
         ExternalBroadcastTrigger,
+        UsbLockedTrigger,
     )
 }
