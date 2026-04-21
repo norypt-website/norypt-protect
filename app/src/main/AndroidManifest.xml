@@ -57,5 +57,15 @@
                 android:value="Runs the Norypt Protect arming monitors (unlocked-timer, fake-messenger, etc.)."/>
         </service>
 
+        <service android:name=".service.PanicTileService"
+                 android:label="Norypt Panic"
+                 android:icon="@mipmap/ic_launcher"
+                 android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+                 android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE"/>
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>
