@@ -2,4 +2,8 @@
     <string name="app_name">Norypt Protect</string>
     <string name="device_admin_label">Norypt Protect</string>
     <string name="device_admin_description">Allows Norypt Protect to lock the screen and factory-reset the device in a security emergency. No data leaves the device.</string>
+    <string name="shortcut_lock_short">Lock</string>
+    <string name="shortcut_lock_long">Lock device now</string>
+    <string name="shortcut_wipe_short">Wipe</string>
+    <string name="shortcut_wipe_long">Wipe device with PIN</string>
 </resources>
