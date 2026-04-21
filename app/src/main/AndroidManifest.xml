@@ -62,6 +62,14 @@
         </service>
 
         <receiver
+            android:name=".triggers.UserPresentReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.USER_PRESENT"/>
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".triggers.UsbLockedMonitor"
             android:exported="false">
             <intent-filter>

@@ -23,5 +23,6 @@ object TriggerRegistry {
         SmsSecretTrigger,
         ExternalBroadcastTrigger,
         UsbLockedTrigger,
+        UnlockedTimerTrigger,
     )
 }
