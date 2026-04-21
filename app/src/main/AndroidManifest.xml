@@ -58,6 +58,14 @@
                 android:value="Runs the Norypt Protect arming monitors (unlocked-timer, fake-messenger, etc.)."/>
         </service>
 
+        <receiver
+            android:name=".triggers.PanicKitReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="info.guardianproject.panic.action.TRIGGER"/>
+            </intent-filter>
+        </receiver>
+
         <service android:name=".service.PanicTileService"
                  android:label="Norypt Panic"
                  android:icon="@mipmap/ic_launcher"

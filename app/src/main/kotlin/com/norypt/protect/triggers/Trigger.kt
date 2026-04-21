@@ -18,5 +18,7 @@ interface Trigger {
  * The list is intentionally empty in Batch 2-A; Batch 2-B/C will extend it.
  */
 object TriggerRegistry {
-    val all: List<Trigger> = listOf()
+    val all: List<Trigger> = listOf(
+        PanicKitTrigger,
+    )
 }
