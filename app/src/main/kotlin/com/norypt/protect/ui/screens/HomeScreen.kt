@@ -3,17 +3,24 @@ package com.norypt.protect.ui.screens
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.norypt.protect.R
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Provisioning
@@ -32,37 +39,45 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
     var tier by remember { mutableStateOf(Provisioning.current(ctx)) }
     var showPinForWipe by remember { mutableStateOf(false) }
 
-    // Re-check tier on every recomposition triggered by resume
     LaunchedEffect(Unit) { tier = Provisioning.current(ctx) }
 
     Column(
         Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp, vertical = 24.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .background(NoryptColors.Bg)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_shield),
+        // Brand header — logo + wordmark + tier badge
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.norypt_logo),
                 contentDescription = null,
-                modifier = Modifier.size(32.dp),
-                tint = Color.Unspecified,
+                modifier = Modifier.size(40.dp),
             )
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text("Norypt Protect", color = NoryptColors.Text)
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
                 Text(
-                    when (tier) {
-                        Tier.None -> "Not enrolled"
-                        Tier.DeviceAdmin -> "Device Admin"
-                        Tier.DeviceOwner -> "Device Owner"
-                    },
+                    "Norypt Protect",
+                    color = NoryptColors.Text,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    "Local-only security — no logs, no server",
                     color = NoryptColors.Muted,
+                    fontSize = 12.sp,
                 )
             }
+            TierBadge(tier)
         }
 
+        // Status card
         StatusCard(
             level = when (tier) {
                 Tier.None -> StatusLevel.Disabled
@@ -71,34 +86,52 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
             },
             title = when (tier) {
                 Tier.None -> "Disabled"
-                Tier.DeviceAdmin -> "Armed (Device Admin tier)"
-                Tier.DeviceOwner -> "Fully armed"
+                Tier.DeviceAdmin -> "Armed — Device Admin tier"
+                Tier.DeviceOwner -> "Fully armed — Device Owner"
             },
             subtitle = when (tier) {
-                Tier.None -> "Tap Enable to grant device admin."
-                Tier.DeviceAdmin -> "Lock + Wipe available. Upgrade to Device Owner via ADB for full feature set."
+                Tier.None -> "Grant device admin to arm Lock + Wipe."
+                Tier.DeviceAdmin -> "Upgrade to Device Owner via ADB for the full feature set."
                 Tier.DeviceOwner -> "All protections active."
             },
         )
 
+        // Actions
         if (tier == Tier.None) {
-            Button(onClick = onRequestEnableAdmin, modifier = Modifier.fillMaxWidth()) {
-                Text("Enable device admin")
-            }
+            Text(
+                "To arm Norypt Protect, Android requires two one-time permissions. Step 2 won't show a button unless Step 1 is toggled on.",
+                color = NoryptColors.Muted,
+                fontSize = 13.sp,
+            )
+            StepCard(
+                index = 1,
+                title = "Allow restricted settings (Android 14+ only)",
+                body = "Settings → Apps → Norypt Protect → ⋮ menu or bottom tray → tap Restricted settings → confirm.",
+            )
+            StepCard(
+                index = 2,
+                title = "Activate device admin",
+                body = "Tap the button below. On the next screen, tap \"Activate this device admin app\".",
+            )
+            PrimaryButton(label = "Open device admin settings", onClick = onRequestEnableAdmin)
         } else {
-            Button(onClick = { lockNow(ctx) }, modifier = Modifier.fillMaxWidth()) {
-                Text("Lock now")
-            }
+            SectionLabel("Quick actions")
+            PrimaryButton(label = "Lock now", onClick = { lockNow(ctx) })
             LongPressHoldButton(
                 label = "Hold 3s to WIPE",
-                onComplete = {
-                    WipeEngine.wipe(ctx, reason = "home.longpress")
-                },
+                onComplete = { WipeEngine.wipe(ctx, reason = "home.longpress") },
             )
-            OutlinedButton(onClick = { showPinForWipe = true }, modifier = Modifier.fillMaxWidth()) {
-                Text("Wipe with PIN instead")
+            OutlinedButton(
+                onClick = { showPinForWipe = true },
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
+                border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
+            ) {
+                Text("Wipe with App PIN instead")
             }
         }
+
+        Spacer(Modifier.height(4.dp))
     }
 
     if (showPinForWipe) {
@@ -112,6 +145,77 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
             },
             onDismiss = { showPinForWipe = false },
         )
+    }
+}
+
+@Composable
+private fun TierBadge(tier: Tier) {
+    val (text, fg, bg) = when (tier) {
+        Tier.None -> Triple("NOT ENROLLED", NoryptColors.Red, NoryptColors.Red.copy(alpha = 0.12f))
+        Tier.DeviceAdmin -> Triple("DEVICE ADMIN", NoryptColors.Amber, NoryptColors.Amber.copy(alpha = 0.12f))
+        Tier.DeviceOwner -> Triple("DEVICE OWNER", NoryptColors.Green, NoryptColors.Green.copy(alpha = 0.14f))
+    }
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(bg)
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        Text(text, color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(
+        text.uppercase(),
+        color = NoryptColors.MutedDeep,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+@Composable
+private fun StepCard(index: Int, title: String, body: String) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(NoryptColors.Surface2)
+            .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
+            .padding(14.dp),
+    ) {
+        Box(
+            Modifier
+                .size(24.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(NoryptColors.AccentDim),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(index.toString(), color = NoryptColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(title, color = NoryptColors.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(body, color = NoryptColors.Muted, fontSize = 12.sp)
+        }
+    }
+}
+
+@Composable
+private fun PrimaryButton(label: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = NoryptColors.Accent,
+            contentColor = Color.White,
+        ),
+        shape = RoundedCornerShape(10.dp),
+    ) {
+        Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 

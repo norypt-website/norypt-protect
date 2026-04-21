@@ -3,6 +3,7 @@ package com.norypt.protect
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Intent
+import android.graphics.Color as AColor
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,6 +11,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.screens.HomeScreen
@@ -21,6 +24,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Edge-to-edge, matches Norypt MDM admin pattern.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = AColor.TRANSPARENT
+        window.navigationBarColor = AColor.TRANSPARENT
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
+
         setContent {
             NoryptProtectTheme {
                 Surface(
