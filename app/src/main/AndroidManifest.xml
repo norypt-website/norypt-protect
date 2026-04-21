@@ -40,5 +40,14 @@
             </intent-filter>
         </receiver>
 
+        <service
+            android:name=".service.ProtectForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Runs the Norypt Protect arming monitors (unlocked-timer, fake-messenger, etc.)."/>
+        </service>
+
     </application>
 </manifest>

@@ -1,5 +1,21 @@
 package com.norypt.protect
 
 import android.app.Application
+import android.app.NotificationChannel
+import android.app.NotificationManager
 
-class NoryptProtectApp : Application()
+class NoryptProtectApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel("service", "Norypt Protect service", NotificationManager.IMPORTANCE_LOW)
+        )
+        nm.createNotificationChannel(
+            NotificationChannel("auth-failed", "Failed unlock attempts", NotificationManager.IMPORTANCE_HIGH)
+        )
+        nm.createNotificationChannel(
+            NotificationChannel("panic-dryrun", "Panic dry-run events", NotificationManager.IMPORTANCE_DEFAULT)
+        )
+    }
+}

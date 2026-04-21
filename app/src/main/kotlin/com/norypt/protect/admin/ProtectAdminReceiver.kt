@@ -3,12 +3,13 @@ package com.norypt.protect.admin
 import android.app.admin.DeviceAdminReceiver
 import android.content.Context
 import android.content.Intent
+import com.norypt.protect.service.ProtectForegroundService
 
 class ProtectAdminReceiver : DeviceAdminReceiver() {
 
     override fun onEnabled(context: Context, intent: Intent) {
-        // No-op in v0.1.0; triggers are wired in Plan 2+.
         super.onEnabled(context, intent)
+        ProtectForegroundService.start(context)
     }
 
     override fun onDisabled(context: Context, intent: Intent) {
