@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="norypt_bg">#FF0D1117</color>
+    <color name="norypt_surface">#FF161B22</color>
+    <color name="norypt_border">#FF30363D</color>
+    <color name="norypt_text">#FFC9D1D9</color>
+    <color name="norypt_muted">#FF8B949E</color>
+    <color name="norypt_accent">#FF58A6FF</color>
+    <color name="norypt_green">#FF3FB950</color>
+    <color name="norypt_red">#FFF85149</color>
+    <color name="norypt_amber">#FFD29922</color>
+</resources>
