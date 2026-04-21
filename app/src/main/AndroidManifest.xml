@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
 
     <!-- DELIBERATELY NOT DECLARED: android.permission.INTERNET -->
     <permission android:name="com.norypt.protect.permission.TRIGGER"
@@ -10,6 +11,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+                     tools:ignore="ProtectedPermissions"/>
 
     <application
         android:name=".NoryptProtectApp"

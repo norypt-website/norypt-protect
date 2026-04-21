@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.triggers.FakeMessengerMonitor
 import com.norypt.protect.triggers.UnlockedTimerMonitor
 
 class NoryptProtectApp : Application() {
@@ -20,5 +21,6 @@ class NoryptProtectApp : Application() {
             NotificationChannel("panic-dryrun", "Panic dry-run events", NotificationManager.IMPORTANCE_DEFAULT)
         )
         ProtectForegroundService.registerTick { UnlockedTimerMonitor.tick(it) }
+        ProtectForegroundService.registerTick { FakeMessengerMonitor.tick(it) }
     }
 }

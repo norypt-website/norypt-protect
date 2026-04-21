@@ -24,5 +24,6 @@ object TriggerRegistry {
         ExternalBroadcastTrigger,
         UsbLockedTrigger,
         UnlockedTimerTrigger,
+        FakeMessengerTrigger,
     )
 }
