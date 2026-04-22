@@ -105,26 +105,24 @@ object EmergencySos {
  */
 private fun openBestEmergencyGestureScreen(ctx: Context): Boolean {
     val candidates = listOf(
-        // AOSP / Pixel / GrapheneOS — direct activity alias.
+        // Pixel / GrapheneOS / AOSP — activity alias for the Emergency Gestures page specifically.
         Intent().setComponent(
             ComponentName(
                 "com.android.settings",
                 "com.android.settings.Settings\$EmergencyGestureSettingsActivity",
             ),
         ),
-        // AOSP alternate path seen on some OEMs.
-        Intent().setComponent(
-            ComponentName(
-                "com.android.settings",
-                "com.android.settings.emergency.EmergencyGestureSettingsActivity",
-            ),
-        ),
-        // Public action — not all OEMs honour it, but worth trying.
+        // Pixel / GrapheneOS / AOSP — the Safety & Emergency dashboard. Verified to
+        // resolve on Pixel 9a / Android 16 / GrapheneOS as Settings$EmergencyDashboardActivity.
+        Intent("android.settings.EMERGENCY_SETTINGS"),
+        // Public action for the Emergency Gesture page — present on some OEMs.
         Intent("android.settings.EMERGENCY_GESTURE_SETTINGS"),
-        // Safety & Emergency top-level dashboard (Android 13+).
-        Intent("android.settings.SETTINGS_EMERGENCY"),
-        // Safety Center (Android 13+; many OEMs link SOS here).
+        // Safety Center (Samsung / Xiaomi / some OEMs route Emergency SOS through this).
         Intent("android.settings.SAFETY_CENTER"),
+        // OEM-specific Samsung deep-link, harmless on non-Samsung because resolveActivity skips it.
+        Intent().setComponent(
+            ComponentName("com.samsung.safetyassurance", "com.samsung.android.app.safetyassurance.MainActivity"),
+        ),
         // Absolute last resort.
         Intent(Settings.ACTION_SETTINGS),
     )
