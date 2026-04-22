@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Norypt Protect — Local-only Android Security</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0A0C10;
+      --surface:  #111520;
+      --border:   #1E2540;
+      --accent:   #4A9EFF;
+      --accent2:  #2D7FE0;
+      --text:     #E8EAF0;
+      --muted:    #8A90A8;
+      --danger:   #FF4C6A;
+      --success:  #3DDC84;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                   "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Layout ── */
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    section { padding: 4rem 0; border-bottom: 1px solid var(--border); }
+    section:last-of-type { border-bottom: none; }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 1.5rem;
+      color: var(--accent);
+    }
+
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 1.25rem 0 0.5rem;
+      color: var(--text);
+    }
+
+    p { margin-bottom: 1rem; color: var(--muted); }
+
+    ul { padding-left: 1.4rem; margin-bottom: 1rem; }
+    ul li { margin-bottom: 0.35rem; color: var(--muted); }
+    ul li strong { color: var(--text); }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 5rem 0 4rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .hero img {
+      width: 110px;
+      height: 110px;
+      border-radius: 24px;
+      margin-bottom: 1.5rem;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .hero h1 {
+      font-size: 2.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 0.75rem;
+    }
+
+    .hero .tagline {
+      font-size: 1.15rem;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 2rem;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.3rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+    }
+
+    .badge-gpl  { background: #1A2E1A; color: var(--success); border: 1px solid #2A4A2A; }
+    .badge-net  { background: #2E1A1A; color: var(--danger);  border: 1px solid #4A2A2A; }
+    .badge-api  { background: #1A1E2E; color: var(--accent);  border: 1px solid var(--border); }
+
+    /* ── Feature grid ── */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+    }
+
+    .feature-card .category {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+    .feature-card p  { font-size: 0.88rem; margin: 0; }
+
+    /* ── Get the app ── */
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn {
+      display: inline-block;
+      padding: 0.65rem 1.4rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s;
+    }
+
+    .btn:hover { opacity: 0.85; text-decoration: none; }
+
+    .btn-primary  { background: var(--accent);  color: #000; }
+    .btn-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1.5px solid var(--accent);
+    }
+
+    /* ── Verify ── */
+    .code-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.85rem;
+      color: var(--success);
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+
+    .sha-placeholder {
+      color: var(--accent);
+    }
+
+    /* ── Footer ── */
+    footer {
+      padding: 2.5rem 0;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    footer p { font-size: 0.85rem; margin: 0.3rem 0; }
+
+    @media (max-width: 560px) {
+      .hero h1 { font-size: 2rem; }
+      .feature-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <div class="container">
+    <img src="logo.png" alt="Norypt Protect shield logo">
+    <h1>Norypt Protect</h1>
+    <p class="tagline">
+      Local-only Android security. Lock, wipe, and harden your device —
+      with zero network access, zero logs, and zero cloud dependency.
+    </p>
+    <div class="badge-row">
+      <span class="badge badge-gpl">GPL-3.0</span>
+      <span class="badge badge-net">No Internet</span>
+      <span class="badge badge-api">Android 13+</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── What it does ── -->
+<section>
+  <div class="container">
+    <h2>What it does</h2>
+    <div class="feature-grid">
+
+      <div class="feature-card">
+        <div class="category">Panic</div>
+        <h3>5&times; Power Button</h3>
+        <p>Press the power button five times to instantly lock the screen or trigger a full device wipe.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Panic</div>
+        <h3>Dead-Man Switch</h3>
+        <p>If the device is not checked in within a set interval, it wipes automatically.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Panic</div>
+        <h3>Low-Battery Wipe</h3>
+        <p>Wipe when the battery drops below a threshold and the device has not been unlocked.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Hardening</div>
+        <h3>Device Admin / Owner</h3>
+        <p>Activate as Device Admin for lock enforcement. Escalate to Device Owner via ADB for full control.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Hardening</div>
+        <h3>Work-Profile Wipe</h3>
+        <p>Wipe only the work profile, leaving the personal profile intact when running as Device Owner.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Norypt</div>
+        <h3>Emergency SOS Disable</h3>
+        <p>Auto-disables Emergency SOS on Device Owner promotion to prevent accidental calls.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Norypt</div>
+        <h3>Hide from Launcher</h3>
+        <p>Toggle the launcher alias to hide the app icon from the app drawer.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="category">Norypt</div>
+        <h3>Notification Monitor</h3>
+        <p>Detect suspicious notification patterns and respond with configurable actions.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Get the app ── -->
+<section>
+  <div class="container">
+    <h2>Get the app</h2>
+
+    <h3>GitHub Releases</h3>
+    <p>Download the signed APK and SHA-256 checksum directly from the GitHub release page.</p>
+    <div class="btn-row">
+      <a class="btn btn-primary"
+         href="https://github.com/norypt-website/norypt-protect/releases/latest">
+        Download APK
+      </a>
+    </div>
+
+    <h3>F-Droid (main index)</h3>
+    <p>
+      Norypt Protect will be submitted to the official F-Droid repository.
+      Once listed, search for <strong>Norypt Protect</strong> in the F-Droid client.
+    </p>
+
+    <h3>Self-hosted F-Droid repo</h3>
+    <p>Add the Norypt F-Droid repo for faster updates:</p>
+    <div class="code-block">
+      https://fdroid.norypt.com/fdroid/repo?fingerprint=&lt;SHA256&gt;
+    </div>
+    <div class="btn-row">
+      <a class="btn btn-secondary"
+         href="fdroid://add-repo?address=https%3A%2F%2Ffdroid.norypt.com%2Ffdroid%2Frepo">
+        Add to F-Droid client
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Verify ── -->
+<section>
+  <div class="container">
+    <h2>Verify the APK</h2>
+    <p>
+      Every release APK is signed and has a published SHA-256 checksum.
+      Verify before installing:
+    </p>
+    <div class="code-block">sha256sum norypt-protect-1.0.0.apk</div>
+    <p>Latest release SHA-256:</p>
+    <div class="code-block sha-placeholder">
+      <code>LATEST_SHA256_PLACEHOLDER</code>
+    </div>
+    <p>
+      The checksum is also published in the GitHub Release and in the
+      attached <code>.sha256</code> file. Builds are reproducible — see
+      <a href="https://github.com/norypt-website/norypt-protect/blob/main/docs/reproducible-build.md">reproducible-build.md</a>.
+    </p>
+  </div>
+</section>
+
+<!-- ── Source + License ── -->
+<section>
+  <div class="container">
+    <h2>Source &amp; License</h2>
+    <p>
+      Norypt Protect is free and open-source software licensed under the
+      <a href="https://www.gnu.org/licenses/gpl-3.0.html">GNU General Public License v3.0 or later</a>.
+    </p>
+    <ul>
+      <li><strong>Source code:</strong>
+        <a href="https://github.com/norypt-website/norypt-protect">github.com/norypt-website/norypt-protect</a>
+      </li>
+      <li><strong>License:</strong> GPL-3.0-or-later</li>
+      <li><strong>Security model:</strong> No network, no logs, no telemetry</li>
+    </ul>
+    <div class="btn-row">
+      <a class="btn btn-secondary"
+         href="https://github.com/norypt-website/norypt-protect">
+        View source on GitHub
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <div class="container">
+    <p>&copy; 2026 Norypt &mdash; GPL-3.0-or-later</p>
+    <p>Contact: <a href="mailto:norypt@proton.me">norypt@proton.me</a></p>
+    <p><a href="https://norypt.com">norypt.com</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
