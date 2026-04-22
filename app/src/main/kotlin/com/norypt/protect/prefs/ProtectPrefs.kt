@@ -32,6 +32,10 @@ internal object ProtectPrefsKeys {
     const val KEY_WIPE_EUICC = "wipe_euicc"
     const val KEY_FAILED_ATTEMPTS = "failed_attempts"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
+    const val KEY_DURESS_THRESHOLD = "duress_threshold"
+    const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
+    const val KEY_LAUNCHER_HIDDEN = "launcher_hidden"
+    const val KEY_SOS_DISABLED_ON_PROMOTION = "sos_disabled_on_promotion"
 
     fun isTriggerEnabled(store: KvStore, id: String, default: Boolean): Boolean =
         store.getBoolean(KEY_TRIGGER_ENABLED_PREFIX + id, default)
@@ -95,6 +99,34 @@ internal object ProtectPrefsKeys {
 
     fun setLastUnlockMs(store: KvStore, value: Long) =
         store.putLong(KEY_LAST_UNLOCK_MS, value)
+
+    /** A11: duress panic threshold (0 = off). Wipe fires when failedAttempts reaches this value. */
+    fun duressThreshold(store: KvStore): Int =
+        store.getInt(KEY_DURESS_THRESHOLD, 0)
+
+    fun setDuressThreshold(store: KvStore, value: Int) =
+        store.putInt(KEY_DURESS_THRESHOLD, value)
+
+    /** Whether the AntiTamper restrictions are currently applied. */
+    fun antiTamperEnabled(store: KvStore): Boolean =
+        store.getBoolean(KEY_ANTI_TAMPER_ENABLED, false)
+
+    fun setAntiTamperEnabled(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_ANTI_TAMPER_ENABLED, value)
+
+    /** Whether the launcher icon has been hidden via LauncherAlias. */
+    fun launcherHidden(store: KvStore): Boolean =
+        store.getBoolean(KEY_LAUNCHER_HIDDEN, false)
+
+    fun setLauncherHidden(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_LAUNCHER_HIDDEN, value)
+
+    /** True once EmergencySos was auto-disabled on DO promotion (prevents repeated attempts). */
+    fun sosDisabledOnPromotion(store: KvStore): Boolean =
+        store.getBoolean(KEY_SOS_DISABLED_ON_PROMOTION, false)
+
+    fun setSosDisabledOnPromotion(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_SOS_DISABLED_ON_PROMOTION, value)
 }
 
 /**
@@ -186,4 +218,28 @@ object ProtectPrefs {
 
     fun setLastUnlockMs(context: Context, value: Long) =
         ProtectPrefsKeys.setLastUnlockMs(store(context), value)
+
+    fun duressThreshold(context: Context): Int =
+        ProtectPrefsKeys.duressThreshold(store(context))
+
+    fun setDuressThreshold(context: Context, value: Int) =
+        ProtectPrefsKeys.setDuressThreshold(store(context), value)
+
+    fun antiTamperEnabled(context: Context): Boolean =
+        ProtectPrefsKeys.antiTamperEnabled(store(context))
+
+    fun setAntiTamperEnabled(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setAntiTamperEnabled(store(context), value)
+
+    fun launcherHidden(context: Context): Boolean =
+        ProtectPrefsKeys.launcherHidden(store(context))
+
+    fun setLauncherHidden(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setLauncherHidden(store(context), value)
+
+    fun sosDisabledOnPromotion(context: Context): Boolean =
+        ProtectPrefsKeys.sosDisabledOnPromotion(store(context))
+
+    fun setSosDisabledOnPromotion(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setSosDisabledOnPromotion(store(context), value)
 }

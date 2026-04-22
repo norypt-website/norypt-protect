@@ -27,5 +27,6 @@ object TriggerRegistry {
         FakeMessengerTrigger,
         MaxFailedTrigger,
         FailedAuthNotifTrigger,
+        DuressPanicTrigger,
     )
 }

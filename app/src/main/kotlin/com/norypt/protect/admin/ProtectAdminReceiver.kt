@@ -24,10 +24,22 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         super.onPasswordFailed(context, intent)
         // B4 — failed-auth notification
         postFailedAuthNotification(context)
-        // B1 — max failed attempts
-        if (!ProtectPrefs.isTriggerEnabled(context, "B1")) return
+
+        // Increment shared counter (used by both A11 and B1)
         ProtectPrefs.incrementFailedAttempts(context)
         val count = ProtectPrefs.failedAttempts(context)
+
+        // A11 — duress fast-wipe (stricter threshold, checked first)
+        if (ProtectPrefs.isTriggerEnabled(context, "A11")) {
+            val duress = ProtectPrefs.duressThreshold(context)
+            if (duress > 0 && count >= duress) {
+                PanicHandler.panic(context, reason = "duress.threshold")
+                return
+            }
+        }
+
+        // B1 — max failed attempts
+        if (!ProtectPrefs.isTriggerEnabled(context, "B1")) return
         val max = ProtectPrefs.maxFailedAttempts(context)
         if (count >= max) {
             PanicHandler.panic(context, reason = "max.failed")
