@@ -32,5 +32,6 @@ object TriggerRegistry {
         PackageInternetTrigger,
         NotificationListenerTrigger,
         WorkProfileTrigger,
+        ShutdownTrigger,
     )
 }

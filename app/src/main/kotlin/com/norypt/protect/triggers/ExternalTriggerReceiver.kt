@@ -9,7 +9,12 @@ import com.norypt.protect.prefs.ProtectPrefs
 
 class ExternalTriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        if (!ProtectPrefs.isTriggerEnabled(context, "A7")) return
+        val sp = context.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+        sp.edit().putInt("a7_receiver_invocations", sp.getInt("a7_receiver_invocations", 0) + 1).apply()
+        if (!ProtectPrefs.isTriggerEnabled(context, "A7")) {
+            sp.edit().putInt("a7_skip_disabled", sp.getInt("a7_skip_disabled", 0) + 1).apply()
+            return
+        }
         PanicHandler.panic(context, "ext.broadcast")
     }
 }
