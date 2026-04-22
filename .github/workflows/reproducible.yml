@@ -1,0 +1,65 @@
+name: reproducible-build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-one:
+    runs-on: ubuntu-latest
+    outputs:
+      sha256: ${{ steps.hash.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build APK inside Docker
+        run: |
+          docker build -t norypt-builder .
+          docker run --rm -v "$PWD:/workspace" norypt-builder \
+            ./gradlew :app:assembleRelease
+
+      - name: Compute SHA-256 (run 1)
+        id: hash
+        run: |
+          SHA=$(sha256sum app/build/outputs/apk/release/app-release.apk | awk '{print $1}')
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact (run 1)
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-run-1
+          path: app/build/outputs/apk/release/app-release.apk
+
+  build-two:
+    runs-on: ubuntu-latest
+    needs: build-one
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build APK inside Docker
+        run: |
+          docker build -t norypt-builder .
+          docker run --rm -v "$PWD:/workspace" norypt-builder \
+            ./gradlew :app:assembleRelease
+
+      - name: Download run-1 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: apk-run-1
+          path: /tmp/apk-run-1
+
+      - name: Assert byte-for-byte equality
+        run: |
+          SHA1=$(sha256sum /tmp/apk-run-1/app-release.apk | awk '{print $1}')
+          SHA2=$(sha256sum app/build/outputs/apk/release/app-release.apk | awk '{print $1}')
+          printf 'Run 1: %s\n' "$SHA1"
+          printf 'Run 2: %s\n' "$SHA2"
+          if [ "$SHA1" != "$SHA2" ]; then
+            echo "REPRODUCIBILITY FAILURE: APK hashes differ between builds"
+            exit 1
+          fi
+          printf 'Reproducibility verified: %s\n' "$SHA1"

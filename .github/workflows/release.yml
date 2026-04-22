@@ -1,0 +1,64 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+
+      - name: Unit tests
+        run: ./gradlew :app:testDebugUnitTest
+
+      - name: Decode keystore
+        run: echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > /tmp/norypt-protect.keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+
+      - name: Assemble release APK
+        run: ./gradlew :app:assembleRelease
+        env:
+          RELEASE_KEYSTORE_PATH: /tmp/norypt-protect.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+
+      - name: Compute SHA-256
+        run: |
+          APK=app/build/outputs/apk/release/app-release.apk
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          echo "APK_SHA256=$SHA" >> "$GITHUB_ENV"
+          printf '%s  app-release.apk\n' "$SHA" > app-release.apk.sha256
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            app/build/outputs/apk/release/app-release.apk
+            app-release.apk.sha256
+          body: |
+            SHA-256 checksum is published in the attached `app-release.apk.sha256` file.
+
+            Verify before installing:
+            ```
+            sha256sum norypt-protect.apk
+            ```
+
+            See [docs/reproducible-build.md](docs/reproducible-build.md) for build reproduction steps.
