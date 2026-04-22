@@ -1,13 +1,19 @@
 package com.norypt.protect.ui.screens
 
 import android.Manifest
+import android.app.AppOpsManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Process
 import android.provider.Settings
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -199,17 +205,14 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                         ProtectPrefs.setFakeMessengerPackage(ctx, it.ifEmpty { null })
                     },
                 )
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        ctx.startActivity(intent)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
-                ) { Text("Grant usage access") }
+                Spacer(Modifier.height(12.dp))
+                UsageAccessToggleRow()
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Usage Access is a Special-Access permission — Android requires the user to flip it in system Settings (no API can auto-grant, even for Device Owner). The toggle deep-links there and reflects the current state when you return.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
             }
             "B1" -> {
                 var attempts by remember { mutableStateOf(ProtectPrefs.maxFailedAttempts(ctx).toString()) }
@@ -574,6 +577,63 @@ private fun setPermissionViaDpm(ctx: Context, permission: String, grant: Boolean
                 else DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED
     dpm.setPermissionGrantState(admin, ctx.packageName, permission, state)
 }.getOrDefault(false)
+
+/**
+ * Special-Access toggle for PACKAGE_USAGE_STATS (used by the fake-messenger trap).
+ * Cannot be granted programmatically by any app — even Device Owner — so the
+ * toggle deep-links to system Settings and re-reads the AppOps state on resume.
+ */
+@Composable
+private fun UsageAccessToggleRow() {
+    val ctx = LocalContext.current
+    var granted by remember { mutableStateOf(hasUsageAccess(ctx)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) granted = hasUsageAccess(ctx)
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Usage Access (PACKAGE_USAGE_STATS)", color = NoryptColors.Text, fontSize = 13.sp)
+            Text(
+                if (granted) "Granted" else "Not granted",
+                color = if (granted) NoryptColors.Green else NoryptColors.MutedDeep,
+                fontSize = 11.sp,
+            )
+        }
+        Switch(
+            checked = granted,
+            onCheckedChange = {
+                val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                ctx.startActivity(intent)
+            },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = NoryptColors.Bg,
+                checkedTrackColor = NoryptColors.Accent,
+                uncheckedThumbColor = NoryptColors.Muted,
+                uncheckedTrackColor = NoryptColors.Surface1,
+                uncheckedBorderColor = NoryptColors.Border,
+            ),
+        )
+    }
+}
+
+private fun hasUsageAccess(ctx: Context): Boolean {
+    val ops = ctx.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+    val mode = ops.unsafeCheckOpNoThrow(
+        AppOpsManager.OPSTR_GET_USAGE_STATS,
+        Process.myUid(),
+        ctx.packageName,
+    )
+    return mode == AppOpsManager.MODE_ALLOWED
+}
 
 @Composable
 private fun ToggleConfigRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
