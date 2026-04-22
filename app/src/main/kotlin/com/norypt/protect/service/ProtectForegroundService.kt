@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import com.norypt.protect.R
+import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.triggers.PowerGestureMonitor
 import com.norypt.protect.triggers.UsbLockedMonitor
 
@@ -39,6 +40,7 @@ class ProtectForegroundService : Service() {
         startForeground(NOTIFICATION_ID, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         PowerGestureMonitor.start(this)
         UsbLockedMonitor.start(this)
+        PowerMenuGuard.start(this)
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)
     }
 
@@ -49,6 +51,7 @@ class ProtectForegroundService : Service() {
         handler.removeCallbacks(tickRunnable)
         PowerGestureMonitor.stop(this)
         UsbLockedMonitor.stop(this)
+        PowerMenuGuard.stop(this)
         super.onDestroy()
     }
 

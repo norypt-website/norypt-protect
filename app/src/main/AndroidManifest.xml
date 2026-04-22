@@ -36,6 +36,14 @@
         android:dataExtractionRules="@xml/data_extraction_rules">
 
         <activity
+            android:name=".service.PowerMenuBlockerActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
+
+        <activity
             android:name=".service.WipeCountdownActivity"
             android:exported="false"
             android:showWhenLocked="true"

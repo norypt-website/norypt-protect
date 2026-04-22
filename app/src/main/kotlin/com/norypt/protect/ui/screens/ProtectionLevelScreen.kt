@@ -33,6 +33,7 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.dpm.AntiTamper
 import com.norypt.protect.dpm.EmergencySos
 import com.norypt.protect.dpm.LauncherAlias
+import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.dpm.SafeBootLockdown
 import com.norypt.protect.dpm.UsbLockdown
 import com.norypt.protect.prefs.ProtectPrefs
@@ -59,6 +60,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
     var sosOn by remember { mutableStateOf(EmergencySos.currentValue(ctx) == 0) }
     var antiTamperOn by remember { mutableStateOf(AntiTamper.isApplied(ctx)) }
     var launcherHidden by remember { mutableStateOf(LauncherAlias.isHidden(ctx)) }
+    var powerMenuBlockOn by remember { mutableStateOf(PowerMenuGuard.isEnabled(ctx)) }
 
     // Anti-tamper dialog state
     var showAntiTamperWarning by remember { mutableStateOf(false) }
@@ -83,6 +85,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 sosOn = rawSos == 0
                 antiTamperOn = AntiTamper.isApplied(ctx)
                 launcherHidden = LauncherAlias.isHidden(ctx)
+                powerMenuBlockOn = PowerMenuGuard.isEnabled(ctx)
                 // Debug telemetry so we can inspect over adb what the app actually reads.
                 ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
                     .edit()
@@ -149,6 +152,21 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             onToggle = { on ->
                 if (on) SafeBootLockdown.enable(ctx) else SafeBootLockdown.disable(ctx)
                 safeBootOn = SafeBootLockdown.isOn(ctx)
+            },
+        )
+
+        // ── Card 4b: Block power menu when locked ──────────────────────────
+        ToggleCard(
+            title = "Block power menu when locked",
+            subtitle = if (isOwner)
+                "While the screen is locked, the stock Power Off menu is hidden. Only a 30-second hard firmware hold can shut the phone down."
+            else
+                "Requires Device Owner.",
+            checked = powerMenuBlockOn,
+            enabled = isOwner,
+            onToggle = { on ->
+                if (on) PowerMenuGuard.enable(ctx) else PowerMenuGuard.disable(ctx)
+                powerMenuBlockOn = PowerMenuGuard.isEnabled(ctx)
             },
         )
 

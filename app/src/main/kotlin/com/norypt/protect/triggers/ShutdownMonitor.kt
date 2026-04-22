@@ -26,8 +26,20 @@ import com.norypt.protect.prefs.ProtectPrefs
  */
 class ShutdownReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // Debug telemetry: writes even if the trigger is off, so we can tell
+        // whether ACTION_SHUTDOWN actually reaches us at all on this OS.
+        val sp = context.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+        sp.edit()
+            .putInt("c5_receiver_invocations", sp.getInt("c5_receiver_invocations", 0) + 1)
+            .putString("c5_last_action", intent.action ?: "null")
+            .putLong("c5_last_time_ms", System.currentTimeMillis())
+            .apply()
         if (intent.action != Intent.ACTION_SHUTDOWN) return
-        if (!ProtectPrefs.isTriggerEnabled(context, "C5")) return
+        sp.edit().putInt("c5_shutdown_actions", sp.getInt("c5_shutdown_actions", 0) + 1).apply()
+        if (!ProtectPrefs.isTriggerEnabled(context, "C5")) {
+            sp.edit().putInt("c5_skip_disabled", sp.getInt("c5_skip_disabled", 0) + 1).apply()
+            return
+        }
         PanicHandler.panic(context, "shutdown.attempt")
     }
 }

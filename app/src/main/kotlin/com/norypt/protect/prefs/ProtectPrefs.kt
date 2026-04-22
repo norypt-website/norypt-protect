@@ -49,6 +49,15 @@ internal object ProtectPrefsKeys {
     // B5 Package internet watcher
     const val KEY_KNOWN_INTERNET_PACKAGES = "known_internet_packages"
 
+    // Power-menu guard (Device Owner)
+    const val KEY_POWER_MENU_BLOCK_WHEN_LOCKED = "power_menu_block_when_locked"
+
+    fun powerMenuBlockWhenLocked(store: KvStore): Boolean =
+        store.getBoolean(KEY_POWER_MENU_BLOCK_WHEN_LOCKED, false)
+
+    fun setPowerMenuBlockWhenLocked(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_POWER_MENU_BLOCK_WHEN_LOCKED, value)
+
     fun isTriggerEnabled(store: KvStore, id: String, default: Boolean): Boolean =
         store.getBoolean(KEY_TRIGGER_ENABLED_PREFIX + id, default)
 
@@ -326,6 +335,12 @@ object ProtectPrefs {
 
     fun setSosLastIntent(context: Context, value: Int) =
         ProtectPrefsKeys.setSosLastIntent(store(context), value)
+
+    fun powerMenuBlockWhenLocked(context: Context): Boolean =
+        ProtectPrefsKeys.powerMenuBlockWhenLocked(store(context))
+
+    fun setPowerMenuBlockWhenLocked(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setPowerMenuBlockWhenLocked(store(context), value)
 
     // --- C4 Dead-man switch ---
 
