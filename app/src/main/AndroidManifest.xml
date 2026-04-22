@@ -14,6 +14,8 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
                      tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
 
     <!-- ADB-granted only (signature|privileged — cannot be requested at runtime).
          Needed so the app can read AND write protected Settings.Secure keys,

@@ -38,15 +38,21 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
     private fun grantNotificationPermission(context: Context) {
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = ComponentName(context, ProtectAdminReceiver::class.java)
+        val runtimePermissions = listOf(
+            Manifest.permission.POST_NOTIFICATIONS,
+            Manifest.permission.RECEIVE_SMS,
+            Manifest.permission.BLUETOOTH_CONNECT,
+        )
         runCatching {
-            dpm.setPermissionGrantState(
-                admin,
-                context.packageName,
-                Manifest.permission.POST_NOTIFICATIONS,
-                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
-            )
-            // Also auto-grant any future runtime permissions Norypt Protect requests
-            // so the user is never asked again.
+            runtimePermissions.forEach { perm ->
+                dpm.setPermissionGrantState(
+                    admin,
+                    context.packageName,
+                    perm,
+                    DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
+                )
+            }
+            // Auto-grant every future runtime permission so the user is never prompted.
             dpm.setPermissionPolicy(admin, DevicePolicyManager.PERMISSION_POLICY_AUTO_GRANT)
         }
     }

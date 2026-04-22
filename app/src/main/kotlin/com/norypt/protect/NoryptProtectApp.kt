@@ -25,6 +25,20 @@ class NoryptProtectApp : Application() {
         nm.createNotificationChannel(
             NotificationChannel("alerts", "Norypt Protect alerts", NotificationManager.IMPORTANCE_HIGH)
         )
+        // Maximum importance — required for setFullScreenIntent to actually take over the lockscreen.
+        nm.createNotificationChannel(
+            NotificationChannel(
+                "deadman",
+                "Dead-man countdown",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Full-screen alert when the low-battery dead-man switch trips."
+                enableLights(true)
+                enableVibration(true)
+                setBypassDnd(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+        )
         ProtectForegroundService.registerTick { UnlockedTimerMonitor.tick(it) }
         ProtectForegroundService.registerTick { FakeMessengerMonitor.tick(it) }
         ProtectForegroundService.registerTick { DeadmanMonitor.tick(it) }

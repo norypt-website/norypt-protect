@@ -24,6 +24,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Tier
+import com.norypt.protect.service.ProtectForegroundService
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.components.MainScaffold
@@ -57,6 +58,16 @@ class MainActivity : ComponentActivity() {
             != PackageManager.PERMISSION_GRANTED
         ) {
             requestNotifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        // Re-start the foreground service whenever the user opens the app.
+        // Android kills the FGS on reinstall / force-stop / app-data clear and
+        // neither ProtectAdminReceiver.onEnabled nor BootCompletedReceiver fire
+        // in those cases, so the screen-on/off + USB_STATE receivers would stay
+        // unregistered until the next reboot without this. The call is a no-op
+        // when the service is already running.
+        if (Provisioning.current(this) != Tier.None) {
+            ProtectForegroundService.start(this)
         }
 
         val shortcutAction = intent.getStringExtra("action")

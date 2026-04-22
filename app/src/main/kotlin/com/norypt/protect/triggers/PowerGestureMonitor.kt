@@ -23,11 +23,22 @@ object PowerGestureMonitor {
 
     fun start(ctx: Context) {
         if (receiver != null) return
+        debugBump(ctx, "c3_start_calls")
         receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
-                if (!ProtectPrefs.isTriggerEnabled(c, "C3")) return
+                debugBump(c, "c3_screen_events_total")
+                when (i.action) {
+                    Intent.ACTION_SCREEN_ON -> debugBump(c, "c3_screen_on")
+                    Intent.ACTION_SCREEN_OFF -> debugBump(c, "c3_screen_off")
+                }
+                if (!ProtectPrefs.isTriggerEnabled(c, "C3")) {
+                    debugBump(c, "c3_disabled_skips")
+                    return
+                }
+                debugBump(c, "c3_events_when_enabled")
                 if (counter.onEvent(System.currentTimeMillis())) {
                     counter.reset()
+                    debugBump(c, "c3_threshold_hits")
                     PanicHandler.panic(c, "power.gesture")
                 }
             }
@@ -37,6 +48,11 @@ object PowerGestureMonitor {
             addAction(Intent.ACTION_SCREEN_OFF)
         }
         ctx.registerReceiver(receiver, filter)
+    }
+
+    private fun debugBump(ctx: Context, key: String) {
+        val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+        sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
     }
 
     fun stop(ctx: Context) {

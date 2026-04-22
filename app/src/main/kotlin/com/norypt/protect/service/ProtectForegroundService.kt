@@ -17,7 +17,14 @@ class ProtectForegroundService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
-            tickListeners.forEach { fn -> fn(this@ProtectForegroundService) }
+            val sp = getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+            sp.edit()
+                .putInt("fgs_ticks_total", sp.getInt("fgs_ticks_total", 0) + 1)
+                .putInt("fgs_listeners_size", tickListeners.size)
+                .apply()
+            tickListeners.forEach { fn ->
+                runCatching { fn(this@ProtectForegroundService) }
+            }
             handler.postDelayed(this, TICK_INTERVAL_MS)
         }
     }
