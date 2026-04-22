@@ -79,9 +79,16 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 tier = Provisioning.current(ctx)
                 usbOn = UsbLockdown.isOn(ctx)
                 safeBootOn = SafeBootLockdown.isOn(ctx)
-                sosOn = EmergencySos.currentValue(ctx) == 0
+                val rawSos = EmergencySos.currentValue(ctx)
+                sosOn = rawSos == 0
                 antiTamperOn = AntiTamper.isApplied(ctx)
                 launcherHidden = LauncherAlias.isHidden(ctx)
+                // Debug telemetry so we can inspect over adb what the app actually reads.
+                ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+                    .edit()
+                    .putInt("sos_raw_value", rawSos)
+                    .putInt("sos_read_count", (ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE).getInt("sos_read_count", 0) + 1))
+                    .apply()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)

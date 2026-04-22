@@ -59,16 +59,19 @@ object EmergencySos {
     fun enableIfPossible(ctx: Context): DisableResult =
         selectPath(contextState(ctx), 1)
 
-    /** Returns the current value of the emergency_gesture_enabled secure setting. */
+    /** Returns the current value of the emergency_gesture_enabled secure setting.
+     *  Returns -1 only when the setting genuinely cannot be read (e.g. the key is
+     *  not exposed on this OEM). Uses the 3-arg getInt to avoid SettingNotFoundException
+     *  for keys that are present but return unusual integer encodings. */
     fun currentValue(ctx: Context): Int =
-        runCatching { Settings.Secure.getInt(ctx.contentResolver, KEY) }.getOrDefault(-1)
+        runCatching { Settings.Secure.getInt(ctx.contentResolver, KEY, -1) }.getOrDefault(-1)
 
     private fun contextState(ctx: Context): SosState = object : SosState {
         private val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         private val admin = ComponentName(ctx, ProtectAdminReceiver::class.java)
 
         override fun currentValue(): Int =
-            runCatching { Settings.Secure.getInt(ctx.contentResolver, KEY) }.getOrDefault(-1)
+            runCatching { Settings.Secure.getInt(ctx.contentResolver, KEY, -1) }.getOrDefault(-1)
 
         override fun hasWriteSecureSettings(): Boolean =
             ctx.checkSelfPermission(android.Manifest.permission.WRITE_SECURE_SETTINGS) ==

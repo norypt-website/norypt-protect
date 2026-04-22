@@ -15,6 +15,14 @@
                      tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
 
+    <!-- ADB-granted only (signature|privileged — cannot be requested at runtime).
+         Needed so the app can read AND write protected Settings.Secure keys,
+         specifically emergency_gesture_enabled used by C2 auto-disable SOS.
+         Grant with:
+           adb shell pm grant com.norypt.protect android.permission.WRITE_SECURE_SETTINGS -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+                     tools:ignore="ProtectedPermissions"/>
+
     <application
         android:name=".NoryptProtectApp"
         android:icon="@mipmap/ic_launcher"
