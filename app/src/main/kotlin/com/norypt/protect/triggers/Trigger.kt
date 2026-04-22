@@ -13,13 +13,12 @@ interface Trigger {
 }
 
 /**
- * Central registry of all available triggers.
- * Later tasks add their Trigger instances to [all].
- * The list is intentionally empty in Batch 2-A; Batch 2-B/C will extend it.
+ * Central registry of every Trigger Norypt Protect ships.
+ * Each Trigger module appends its singleton here.
  */
 object TriggerRegistry {
     val all: List<Trigger> = listOf(
-        PanicKitTrigger,
+        ExternalPanicTrigger,
         SmsSecretTrigger,
         ExternalBroadcastTrigger,
         UsbLockedTrigger,

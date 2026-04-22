@@ -7,17 +7,19 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 
-class PanicKitReceiver : BroadcastReceiver() {
+// Listens for the cross-app emergency-panic broadcast standard so external
+// emergency apps can fire Norypt Protect.
+class ExternalPanicReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (!ProtectPrefs.isTriggerEnabled(context, "A5")) return
-        PanicHandler.panic(context, "panickit")
+        PanicHandler.panic(context, "external.panic")
     }
 }
 
-object PanicKitTrigger : Trigger {
+object ExternalPanicTrigger : Trigger {
     override val id = "A5"
-    override val label = "PanicKit"
-    override val description = "Respond to PanicKit triggers from other apps (Ripple, etc.)."
+    override val label = "External panic interop"
+    override val description = "Respond to the cross-app emergency-panic broadcast so other emergency apps can trigger Norypt Protect."
     override val requiredTier = Tier.DeviceAdmin
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A5", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A5", false)
