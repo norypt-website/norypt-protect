@@ -50,6 +50,12 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        jniLibs.useLegacyPackaging = false
+    }
+
+    androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
+        variant.packaging.resources.excludes.add("**/kotlin/**")
+        variant.packaging.resources.excludes.add("META-INF/*.version")
     }
 }
 
