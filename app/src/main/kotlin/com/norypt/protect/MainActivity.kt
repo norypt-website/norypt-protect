@@ -25,9 +25,9 @@ import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.components.MainScaffold
 import com.norypt.protect.ui.components.NavTab
 import com.norypt.protect.ui.components.PinEntryDialog
-import com.norypt.protect.ui.screens.AboutScreen
 import com.norypt.protect.ui.screens.HomeScreen
 import com.norypt.protect.ui.screens.PinSetupScreen
+import com.norypt.protect.ui.screens.ProtectionLevelScreen
 import com.norypt.protect.ui.screens.TriggersScreen
 import com.norypt.protect.ui.screens.WipeOptionsScreen
 import com.norypt.protect.ui.theme.NoryptColors
@@ -114,7 +114,7 @@ private fun AppShell(onRequestEnableAdmin: () -> Unit) {
             NavTab.HOME -> HomeScreen(padding = padding, onRequestEnableAdmin = onRequestEnableAdmin)
             NavTab.TRIGGERS -> TriggersScreen(padding = padding)
             NavTab.WIPE -> WipeOptionsScreen(padding = padding)
-            NavTab.ABOUT -> AboutScreen(padding = padding)
+            NavTab.PROTECT -> ProtectionLevelScreen(padding = padding)
         }
     }
 }

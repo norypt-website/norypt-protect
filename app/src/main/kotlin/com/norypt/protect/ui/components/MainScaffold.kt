@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -25,7 +25,7 @@ enum class NavTab(val label: String, val icon: ImageVector) {
     HOME("Home", Icons.Filled.Home),
     TRIGGERS("Triggers", Icons.Filled.Settings),
     WIPE("Wipe", Icons.Filled.Delete),
-    ABOUT("About", Icons.Filled.Info),
+    PROTECT("Protect", Icons.Filled.Lock),
 }
 
 @Composable
