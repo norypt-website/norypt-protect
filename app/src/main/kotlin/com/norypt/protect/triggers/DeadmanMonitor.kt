@@ -84,8 +84,9 @@ object DeadmanTrigger : Trigger {
     override val id = "C4"
     override val label = "Low-battery dead-man switch"
     override val description =
-        "Starts a wipe countdown when battery is low and all monitored connections are lost."
-    override val requiredTier = Tier.DeviceAdmin
+        "Starts a wipe countdown when battery is low and all monitored connections are lost. " +
+        "Requires Device Owner — the wipe call is denied for non-DO admins on Android 13+."
+    override val requiredTier = Tier.DeviceOwner
 
     override fun arm(context: Context) =
         ProtectPrefs.setTriggerEnabled(context, id, true)

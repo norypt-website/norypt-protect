@@ -49,8 +49,9 @@ object PowerGestureTrigger : Trigger {
     override val id = "C3"
     override val label = "5× power-button gesture"
     override val description =
-        "Press the power button 5 times within 3 seconds to trigger an immediate wipe."
-    override val requiredTier = Tier.DeviceAdmin
+        "Press the power button 5 times within 3 seconds to trigger an immediate wipe. " +
+        "Requires Device Owner — the wipe call is denied for non-DO admins on Android 13+."
+    override val requiredTier = Tier.DeviceOwner
 
     override fun arm(context: Context) =
         ProtectPrefs.setTriggerEnabled(context, id, true)

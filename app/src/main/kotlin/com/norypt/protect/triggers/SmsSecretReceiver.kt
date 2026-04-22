@@ -26,8 +26,9 @@ class SmsSecretReceiver : BroadcastReceiver() {
 object SmsSecretTrigger : Trigger {
     override val id = "A6"
     override val label = "Secret SMS"
-    override val description = "Wipe device when an SMS containing your secret code is received."
-    override val requiredTier = Tier.DeviceAdmin
+    override val description = "Wipe device when an SMS containing your secret code is received. " +
+        "Requires Device Owner — the wipe call is denied for non-DO admins on Android 13+."
+    override val requiredTier = Tier.DeviceOwner
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A6", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A6", false)
 }

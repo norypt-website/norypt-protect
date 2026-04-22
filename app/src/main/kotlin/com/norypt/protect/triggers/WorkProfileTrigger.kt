@@ -20,8 +20,8 @@ object WorkProfileTrigger : Trigger {
     override val id = "A12"
     override val label = "Work-profile wipe"
     override val description =
-        "Wipe only the managed work profile on trigger. Requires profile owner."
-    override val requiredTier = Tier.DeviceAdmin
+        "Wipe only the managed work profile on trigger. Requires Device Owner or Profile Owner."
+    override val requiredTier = Tier.DeviceOwner
 
     override fun arm(context: Context) {
         if (!Provisioning.isProfileOwner(context)) {
