@@ -28,5 +28,6 @@ object TriggerRegistry {
         MaxFailedTrigger,
         FailedAuthNotifTrigger,
         DuressPanicTrigger,
+        PowerGestureTrigger,
     )
 }

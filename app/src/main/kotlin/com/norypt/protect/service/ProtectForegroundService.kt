@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import com.norypt.protect.R
+import com.norypt.protect.triggers.PowerGestureMonitor
 
 class ProtectForegroundService : Service() {
 
@@ -28,6 +29,7 @@ class ProtectForegroundService : Service() {
             .setOngoing(true)
             .build()
         startForeground(NOTIFICATION_ID, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        PowerGestureMonitor.start(this)
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)
     }
 
@@ -36,6 +38,7 @@ class ProtectForegroundService : Service() {
 
     override fun onDestroy() {
         handler.removeCallbacks(tickRunnable)
+        PowerGestureMonitor.stop(this)
         super.onDestroy()
     }
 
