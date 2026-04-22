@@ -55,6 +55,7 @@ fun TriggersScreen(padding: PaddingValues) {
             TriggerRegistry.all.forEach { put(it.id, ProtectPrefs.isTriggerEnabled(ctx, it.id)) }
         }
     }
+    val currentTier = remember { Provisioning.current(ctx) }
 
     Column(
         Modifier
@@ -76,6 +77,7 @@ fun TriggersScreen(padding: PaddingValues) {
             TriggerRow(
                 trigger = trigger,
                 enabled = enabledMap[trigger.id] == true,
+                tierMet = trigger.requiredTier <= currentTier,
                 onToggle = { newValue ->
                     enabledMap[trigger.id] = newValue
                     if (newValue) trigger.arm(ctx) else trigger.disarm(ctx)
@@ -101,6 +103,7 @@ fun TriggersScreen(padding: PaddingValues) {
 private fun TriggerRow(
     trigger: Trigger,
     enabled: Boolean,
+    tierMet: Boolean,
     onToggle: (Boolean) -> Unit,
     onConfigure: () -> Unit,
 ) {
@@ -128,12 +131,29 @@ private fun TriggerRow(
                     color = NoryptColors.MutedDeep,
                     fontSize = 11.sp,
                 )
+                if (!tierMet) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(NoryptColors.Amber.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            "DEVICE OWNER",
+                            color = NoryptColors.Amber,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(2.dp))
             Text(trigger.description, color = NoryptColors.Muted, fontSize = 12.sp)
         }
         Switch(
             checked = enabled,
+            enabled = tierMet,
             onCheckedChange = onToggle,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = NoryptColors.Bg,
@@ -141,6 +161,11 @@ private fun TriggerRow(
                 uncheckedThumbColor = NoryptColors.Muted,
                 uncheckedTrackColor = NoryptColors.Surface1,
                 uncheckedBorderColor = NoryptColors.Border,
+                disabledCheckedThumbColor = NoryptColors.MutedDeep,
+                disabledCheckedTrackColor = NoryptColors.AccentDim,
+                disabledUncheckedThumbColor = NoryptColors.MutedDeep,
+                disabledUncheckedTrackColor = NoryptColors.Surface1,
+                disabledUncheckedBorderColor = NoryptColors.Border,
             ),
         )
     }
