@@ -59,12 +59,20 @@ object EmergencySos {
     fun enableIfPossible(ctx: Context): DisableResult =
         selectPath(contextState(ctx), 1)
 
-    /** Returns the current value of the emergency_gesture_enabled secure setting.
-     *  Returns -1 only when the setting genuinely cannot be read (e.g. the key is
-     *  not exposed on this OEM). Uses the 3-arg getInt to avoid SettingNotFoundException
-     *  for keys that are present but return unusual integer encodings. */
-    fun currentValue(ctx: Context): Int =
-        runCatching { Settings.Secure.getInt(ctx.contentResolver, KEY, -1) }.getOrDefault(-1)
+    /** Returns the best-effort current value of the emergency_gesture_enabled secure setting.
+     *  Order:
+     *    1. Direct Settings.Secure.getInt — works on stock AOSP / most OEMs.
+     *    2. Local cache of the last value Norypt Protect successfully wrote — used on
+     *       GrapheneOS where Secure reads of this key are scoped out even with
+     *       WRITE_SECURE_SETTINGS granted.
+     *    3. -1 if neither path knows. */
+    fun currentValue(ctx: Context): Int {
+        val direct = runCatching {
+            Settings.Secure.getInt(ctx.contentResolver, KEY, -1)
+        }.getOrDefault(-1)
+        if (direct != -1) return direct
+        return com.norypt.protect.prefs.ProtectPrefs.sosLastIntent(ctx)
+    }
 
     private fun contextState(ctx: Context): SosState = object : SosState {
         private val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
@@ -82,11 +90,15 @@ object EmergencySos {
 
         override fun applyViaSecureSettings(value: Int): Boolean = runCatching {
             Settings.Secure.putInt(ctx.contentResolver, KEY, value)
+            // Cache the intent so the UI can display state even when the read
+            // path is scoped out (GrapheneOS).
+            com.norypt.protect.prefs.ProtectPrefs.setSosLastIntent(ctx, value)
             true
         }.getOrDefault(false)
 
         override fun applyViaDpm(value: Int): Boolean = runCatching {
             dpm.setSecureSetting(admin, KEY, value.toString())
+            com.norypt.protect.prefs.ProtectPrefs.setSosLastIntent(ctx, value)
             true
         }.getOrDefault(false)
 

@@ -159,9 +159,20 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             checked = sosOn,
             enabled = true,
             onToggle = { on ->
-                if (on) EmergencySos.disableIfPossible(ctx)
-                else EmergencySos.enableIfPossible(ctx)
-                sosOn = EmergencySos.currentValue(ctx) == 0
+                val before = EmergencySos.currentValue(ctx)
+                val result = if (on) EmergencySos.disableIfPossible(ctx)
+                             else EmergencySos.enableIfPossible(ctx)
+                val after = EmergencySos.currentValue(ctx)
+                val dbg = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+                val n = dbg.getInt("sos_click_count", 0) + 1
+                dbg.edit()
+                    .putInt("sos_click_count", n)
+                    .putString("sos_click_${n}_wanted_disable", on.toString())
+                    .putInt("sos_click_${n}_before", before)
+                    .putInt("sos_click_${n}_after", after)
+                    .putString("sos_click_${n}_path", result.name)
+                    .apply()
+                sosOn = after == 0
             },
         )
 

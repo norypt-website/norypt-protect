@@ -36,6 +36,7 @@ internal object ProtectPrefsKeys {
     const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
     const val KEY_LAUNCHER_HIDDEN = "launcher_hidden"
     const val KEY_SOS_DISABLED_ON_PROMOTION = "sos_disabled_on_promotion"
+    const val KEY_SOS_LAST_INTENT = "sos_last_intent_value"
 
     // C4 Dead-man switch keys
     const val KEY_DEADMAN_BATTERY_PCT = "deadman_battery_pct"
@@ -138,6 +139,15 @@ internal object ProtectPrefsKeys {
 
     fun setSosDisabledOnPromotion(store: KvStore, value: Boolean) =
         store.putBoolean(KEY_SOS_DISABLED_ON_PROMOTION, value)
+
+    /** Local cache of the last SOS value we successfully wrote via the app. Used
+     *  as UI state when Settings.Secure.getInt returns -1 (GrapheneOS scopes
+     *  reads tighter than AOSP even with WRITE_SECURE_SETTINGS). -1 = unknown. */
+    fun sosLastIntent(store: KvStore): Int =
+        store.getInt(KEY_SOS_LAST_INTENT, -1)
+
+    fun setSosLastIntent(store: KvStore, value: Int) =
+        store.putInt(KEY_SOS_LAST_INTENT, value)
 
     // --- C4 Dead-man switch ---
 
@@ -310,6 +320,12 @@ object ProtectPrefs {
 
     fun setSosDisabledOnPromotion(context: Context, value: Boolean) =
         ProtectPrefsKeys.setSosDisabledOnPromotion(store(context), value)
+
+    fun sosLastIntent(context: Context): Int =
+        ProtectPrefsKeys.sosLastIntent(store(context))
+
+    fun setSosLastIntent(context: Context, value: Int) =
+        ProtectPrefsKeys.setSosLastIntent(store(context), value)
 
     // --- C4 Dead-man switch ---
 
