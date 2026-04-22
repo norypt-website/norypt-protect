@@ -299,6 +299,98 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     ProtectPrefs.setDeadmanRequireWifi(ctx, it)
                 }
             }
+            "A7" -> {
+                InfoBlock(
+                    title = "What this is",
+                    body = "A signed entry point so a trusted companion app on this same phone can fire the wipe " +
+                        "remotely (e.g. a smart-watch tile, a Tasker shortcut, or another Norypt app).",
+                )
+                Spacer(Modifier.height(8.dp))
+                InfoBlock(
+                    title = "How to fire it",
+                    body = "From any app holding the signature permission " +
+                        "com.norypt.protect.permission.TRIGGER, broadcast the action " +
+                        "com.norypt.protect.action.TRIGGER. With dry-run ON, you can test " +
+                        "from a computer over ADB without wiping:",
+                )
+                Spacer(Modifier.height(6.dp))
+                CodeBlock(
+                    "adb shell am broadcast -a com.norypt.protect.action.TRIGGER " +
+                        "-n ${ctx.packageName}/com.norypt.protect.triggers.ExternalTriggerReceiver"
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Because the receiver is gated by a signature-level permission, only apps signed with the " +
+                        "Norypt Protect release key can fire it. ADB is the only exception; it bypasses the " +
+                        "permission for the lifetime of the cable.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
+            }
+            "A5" -> {
+                InfoBlock(
+                    title = "What this is",
+                    body = "Implements the cross-app emergency-panic broadcast standard. Other emergency apps " +
+                        "(panic-button apps, smart watches, NFC tags, hardware kill-switch dongles) that " +
+                        "implement the same standard can fire Norypt Protect's wipe without any further config.",
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Action: info.guardianproject.panic.action.TRIGGER. The receiver checks this trigger's " +
+                        "switch — if OFF, the broadcast is ignored.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
+            }
+            "B5" -> {
+                InfoBlock(
+                    title = "What this is",
+                    body = "Watches every installed app. Posts a notification if any app silently gains the " +
+                        "INTERNET permission after an update — a common stealth-tracking pattern. No wipe.",
+                )
+            }
+            "B6" -> {
+                InfoBlock(
+                    title = "What this is",
+                    body = "Registers a Notification Listener so Norypt Protect can react to lock/package events. " +
+                        "Granting Notification Access in system Settings is required.",
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        ctx.startActivity(intent)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
+                ) { Text("Open Notification Access settings") }
+            }
+            "A12" -> {
+                InfoBlock(
+                    title = "What this is",
+                    body = "When Norypt Protect is installed inside an Android Work Profile, this trigger limits " +
+                        "wipe to the work profile only — personal data is preserved. Has no effect outside a " +
+                        "work profile.",
+                )
+            }
+            "C3" -> {
+                InfoBlock(
+                    title = "What this is",
+                    body = "Press the physical power button 5 times within 3 seconds (any mix of screen-on and " +
+                        "screen-off events). This bypasses the lockscreen — the wipe fires whether the phone " +
+                        "is unlocked, locked, or asleep.",
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Important: Android's built-in Emergency SOS uses the same gesture by default and steals " +
+                        "the events before they reach Norypt Protect. Use the Protect tab → \"Auto-disable " +
+                        "Emergency SOS\" toggle to free the gesture for our wipe.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
+            }
             else -> {
                 Text("No additional settings.", color = NoryptColors.Muted, fontSize = 12.sp)
             }
@@ -362,6 +454,50 @@ private fun ConfigNumberField(label: String, value: String, onChange: (String) -
 // Tiny curry helper so trigger configs can write back to ProtectPrefs concisely.
 private fun ((android.content.Context, Int) -> Unit).curry(ctx: android.content.Context): (Int) -> Unit =
     { v -> this(ctx, v) }
+
+@Composable
+private fun InfoBlock(title: String, body: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+            .background(NoryptColors.Surface1)
+            .padding(12.dp),
+    ) {
+        Text(title.uppercase(), color = NoryptColors.Accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text(body, color = NoryptColors.Text, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun CodeBlock(text: String) {
+    val cm = LocalContext.current.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+            .background(NoryptColors.Bg)
+            .padding(10.dp),
+    ) {
+        Text(
+            text,
+            color = NoryptColors.Text,
+            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+            fontSize = 10.sp,
+        )
+        Spacer(Modifier.height(6.dp))
+        OutlinedButton(
+            onClick = {
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("norypt", text))
+            },
+            modifier = Modifier.fillMaxWidth().height(36.dp),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
+            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp),
+        ) { Text("Copy", fontSize = 12.sp) }
+    }
+}
 
 /**
  * Toggle that grants/revokes a runtime permission.
