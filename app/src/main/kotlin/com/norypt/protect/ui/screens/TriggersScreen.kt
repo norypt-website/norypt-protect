@@ -210,13 +210,90 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
             "B1" -> {
                 var attempts by remember { mutableStateOf(ProtectPrefs.maxFailedAttempts(ctx).toString()) }
                 ConfigNumberField(
-                    label = "Max failed unlock attempts",
+                    label = "Max failed unlock attempts (default 10)",
                     value = attempts,
                     onChange = {
                         attempts = it
                         it.toIntOrNull()?.let(ProtectPrefs::setMaxFailedAttempts.curry(ctx))
                     },
                 )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Wipe fires after this many failed system unlock attempts. Set to 3 for paranoia, 10 for normal use.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
+            }
+            "A11" -> {
+                var duress by remember { mutableStateOf(ProtectPrefs.duressThreshold(ctx).toString()) }
+                ConfigNumberField(
+                    label = "Duress fast-wipe threshold (0 = off)",
+                    value = duress,
+                    onChange = {
+                        duress = it
+                        it.toIntOrNull()?.let(ProtectPrefs::setDuressThreshold.curry(ctx))
+                    },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Stricter than B1: wipe at this exact failed-attempt count. Use a low number (e.g. 3) so coercion is detected before the standard threshold. Must be ≤ B1.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
+            }
+            "C4" -> {
+                var pct by remember { mutableStateOf(ProtectPrefs.deadmanBatteryPct(ctx).toString()) }
+                var grace by remember { mutableStateOf(ProtectPrefs.deadmanGraceSeconds(ctx).toString()) }
+                var disarm by remember { mutableStateOf(ProtectPrefs.deadmanDisarmMinutesAfterUnlock(ctx).toString()) }
+                var requireBt by remember { mutableStateOf(ProtectPrefs.deadmanRequireBt(ctx)) }
+                var requireGsm by remember { mutableStateOf(ProtectPrefs.deadmanRequireGsm(ctx)) }
+                var requireWifi by remember { mutableStateOf(ProtectPrefs.deadmanRequireWifi(ctx)) }
+
+                ConfigNumberField(
+                    label = "Battery threshold % (default 5)",
+                    value = pct,
+                    onChange = {
+                        pct = it
+                        it.toIntOrNull()?.let(ProtectPrefs::setDeadmanBatteryPct.curry(ctx))
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                ConfigNumberField(
+                    label = "Countdown seconds before wipe (default 60)",
+                    value = grace,
+                    onChange = {
+                        grace = it
+                        it.toIntOrNull()?.let(ProtectPrefs::setDeadmanGraceSeconds.curry(ctx))
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                ConfigNumberField(
+                    label = "Disarm minutes after unlock (default 0)",
+                    value = disarm,
+                    onChange = {
+                        disarm = it
+                        it.toIntOrNull()?.let(ProtectPrefs::setDeadmanDisarmMinutesAfterUnlock.curry(ctx))
+                    },
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    "Trigger fires only if ALL enabled connectivity checks below are simultaneously DOWN.",
+                    color = NoryptColors.Muted,
+                    fontSize = 12.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+                ToggleConfigRow("Require Bluetooth check", requireBt) {
+                    requireBt = it
+                    ProtectPrefs.setDeadmanRequireBt(ctx, it)
+                }
+                ToggleConfigRow("Require cellular check", requireGsm) {
+                    requireGsm = it
+                    ProtectPrefs.setDeadmanRequireGsm(ctx, it)
+                }
+                ToggleConfigRow("Require Wi-Fi check", requireWifi) {
+                    requireWifi = it
+                    ProtectPrefs.setDeadmanRequireWifi(ctx, it)
+                }
             }
             else -> {
                 Text("No additional settings.", color = NoryptColors.Muted, fontSize = 12.sp)
@@ -281,3 +358,24 @@ private fun ConfigNumberField(label: String, value: String, onChange: (String) -
 // Tiny curry helper so trigger configs can write back to ProtectPrefs concisely.
 private fun ((android.content.Context, Int) -> Unit).curry(ctx: android.content.Context): (Int) -> Unit =
     { v -> this(ctx, v) }
+
+@Composable
+private fun ToggleConfigRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, color = NoryptColors.Text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = NoryptColors.Bg,
+                checkedTrackColor = NoryptColors.Accent,
+                uncheckedThumbColor = NoryptColors.Muted,
+                uncheckedTrackColor = NoryptColors.Surface1,
+                uncheckedBorderColor = NoryptColors.Border,
+            ),
+        )
+    }
+}

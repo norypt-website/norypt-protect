@@ -1,6 +1,9 @@
 package com.norypt.protect.admin
 
+import android.Manifest
 import android.app.admin.DeviceAdminReceiver
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import com.norypt.protect.R
@@ -14,13 +17,37 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
     override fun onEnabled(context: Context, intent: Intent) {
         super.onEnabled(context, intent)
         ProtectForegroundService.start(context)
-        // T3.8: if this is a Device Owner promotion and SOS hasn't been auto-disabled yet, do it now.
-        if (Provisioning.current(context) == Tier.DeviceOwner &&
-            !ProtectPrefs.sosDisabledOnPromotion(context) &&
-            EmergencySos.currentValue(context) == 1
-        ) {
-            EmergencySos.disableIfPossible(context)
-            ProtectPrefs.setSosDisabledOnPromotion(context, true)
+
+        // Auto-grant POST_NOTIFICATIONS so failed-auth alerts and the persistent
+        // armed-status notification cannot be silently suppressed by the user.
+        // Only Device Owner can self-grant runtime permissions; Device Admin
+        // tier still has to ask the user once via the in-app prompt.
+        if (Provisioning.current(context) == Tier.DeviceOwner) {
+            grantNotificationPermission(context)
+
+            // T3.8: if SOS hasn't been auto-disabled yet, do it now.
+            if (!ProtectPrefs.sosDisabledOnPromotion(context) &&
+                EmergencySos.currentValue(context) == 1
+            ) {
+                EmergencySos.disableIfPossible(context)
+                ProtectPrefs.setSosDisabledOnPromotion(context, true)
+            }
+        }
+    }
+
+    private fun grantNotificationPermission(context: Context) {
+        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val admin = ComponentName(context, ProtectAdminReceiver::class.java)
+        runCatching {
+            dpm.setPermissionGrantState(
+                admin,
+                context.packageName,
+                Manifest.permission.POST_NOTIFICATIONS,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
+            )
+            // Also auto-grant any future runtime permissions Norypt Protect requests
+            // so the user is never asked again.
+            dpm.setPermissionPolicy(admin, DevicePolicyManager.PERMISSION_POLICY_AUTO_GRANT)
         }
     }
 

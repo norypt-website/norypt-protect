@@ -5,8 +5,12 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color as AColor
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -35,6 +39,9 @@ import com.norypt.protect.ui.theme.NoryptProtectTheme
 
 class MainActivity : ComponentActivity() {
 
+    private val requestNotifLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* user choice; we don't re-prompt */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -44,6 +51,12 @@ class MainActivity : ComponentActivity() {
         WindowInsetsControllerCompat(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
             isAppearanceLightNavigationBars = false
+        }
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestNotifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
         val shortcutAction = intent.getStringExtra("action")

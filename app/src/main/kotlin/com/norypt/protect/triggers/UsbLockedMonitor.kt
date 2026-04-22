@@ -42,18 +42,32 @@ object UsbLockedMonitor {
         if (receiver != null) return
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
+                // Debug telemetry stays local — increments a prefs counter so we can
+                // verify the receiver is actually firing without adding logcat output.
+                debugIncrement(ctx, "a9_usb_state_total")
                 if (!ProtectPrefs.isTriggerEnabled(ctx, "A9")) return
+                debugIncrement(ctx, "a9_usb_state_when_enabled")
                 val connected = intent.getBooleanExtra(EXTRA_CONNECTED, false)
                 if (!connected) return
-                if (!isUsbDataActive(intent)) return
+                debugIncrement(ctx, "a9_usb_state_connected")
                 val km = ctx.getSystemService(KeyguardManager::class.java)
-                if (km.isKeyguardLocked) {
-                    PanicHandler.panic(ctx, "usb.data.while.locked")
-                }
+                val locked = km.isKeyguardLocked
+                if (locked) debugIncrement(ctx, "a9_usb_state_locked")
+                val dataActive = isUsbDataActive(intent)
+                if (dataActive) debugIncrement(ctx, "a9_usb_state_data_active")
+                if (!dataActive) return
+                if (!locked) return
+                debugIncrement(ctx, "a9_panic_fired")
+                PanicHandler.panic(ctx, "usb.data.while.locked")
             }
         }
         receiver = r
         context.applicationContext.registerReceiver(r, IntentFilter(ACTION_USB_STATE))
+    }
+
+    private fun debugIncrement(ctx: Context, key: String) {
+        val sp = ctx.getSharedPreferences("norypt_a9_debug", Context.MODE_PRIVATE)
+        sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
     }
 
     fun stop(context: Context) {
