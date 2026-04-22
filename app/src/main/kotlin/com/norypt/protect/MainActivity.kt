@@ -10,11 +10,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.norypt.protect.admin.Provisioning
@@ -22,9 +22,14 @@ import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.security.AppPin
+import com.norypt.protect.ui.components.MainScaffold
+import com.norypt.protect.ui.components.NavTab
 import com.norypt.protect.ui.components.PinEntryDialog
+import com.norypt.protect.ui.screens.AboutScreen
 import com.norypt.protect.ui.screens.HomeScreen
 import com.norypt.protect.ui.screens.PinSetupScreen
+import com.norypt.protect.ui.screens.TriggersScreen
+import com.norypt.protect.ui.screens.WipeOptionsScreen
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
 
@@ -33,7 +38,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Edge-to-edge, matches Norypt MDM admin pattern.
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AColor.TRANSPARENT
         window.navigationBarColor = AColor.TRANSPARENT
@@ -55,39 +59,35 @@ class MainActivity : ComponentActivity() {
                             AppPin.set(this, pin)
                             recreate()
                         })
-                    } else {
-                        when (shortcutAction) {
-                            "lock" -> {
-                                // Lock shortcut: lock immediately if DeviceAdmin or higher, then finish.
-                                val tier = Provisioning.current(this)
-                                if (tier >= Tier.DeviceAdmin) {
-                                    val dpm = getSystemService(DevicePolicyManager::class.java)
-                                    dpm.lockNow()
-                                }
-                                finish()
+                    } else when (shortcutAction) {
+                        "lock" -> {
+                            val tier = Provisioning.current(this)
+                            if (tier >= Tier.DeviceAdmin) {
+                                val dpm = getSystemService(DevicePolicyManager::class.java)
+                                dpm.lockNow()
                             }
-                            "wipe" -> {
-                                // Wipe shortcut: require PIN before executing panic.
-                                var showDialog by remember { mutableStateOf(true) }
-                                if (showDialog) {
-                                    PinEntryDialog(
-                                        title = "Confirm Wipe",
-                                        onConfirm = { pin ->
-                                            showDialog = false
-                                            if (AppPin.verify(this, pin)) {
-                                                PanicHandler.panic(this, "shortcut.wipe")
-                                            }
-                                            finish()
-                                        },
-                                        onDismiss = {
-                                            showDialog = false
-                                            finish()
-                                        }
-                                    )
-                                }
-                            }
-                            else -> HomeScreen(onRequestEnableAdmin = { launchDeviceAdminSettings() })
+                            finish()
                         }
+                        "wipe" -> {
+                            var showDialog by remember { mutableStateOf(true) }
+                            if (showDialog) {
+                                PinEntryDialog(
+                                    title = "Confirm Wipe",
+                                    onConfirm = { pin ->
+                                        showDialog = false
+                                        if (AppPin.verify(this, pin)) {
+                                            PanicHandler.panic(this, "shortcut.wipe")
+                                        }
+                                        finish()
+                                    },
+                                    onDismiss = {
+                                        showDialog = false
+                                        finish()
+                                    }
+                                )
+                            }
+                        }
+                        else -> AppShell(onRequestEnableAdmin = { launchDeviceAdminSettings() })
                     }
                 }
             }
@@ -103,5 +103,18 @@ class MainActivity : ComponentActivity() {
                 "Norypt Protect needs device admin to lock and wipe the device in a security emergency. No data leaves the device.",
             )
         startActivity(intent)
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun AppShell(onRequestEnableAdmin: () -> Unit) {
+    var selected by remember { mutableStateOf(NavTab.HOME) }
+    MainScaffold(selected = selected, onSelect = { selected = it }) { padding ->
+        when (selected) {
+            NavTab.HOME -> HomeScreen(padding = padding, onRequestEnableAdmin = onRequestEnableAdmin)
+            NavTab.TRIGGERS -> TriggersScreen(padding = padding)
+            NavTab.WIPE -> WipeOptionsScreen(padding = padding)
+            NavTab.ABOUT -> AboutScreen(padding = padding)
+        }
     }
 }

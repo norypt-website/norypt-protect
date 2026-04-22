@@ -5,7 +5,6 @@ import android.content.ComponentName
 import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,16 +24,16 @@ import com.norypt.protect.R
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
+import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.components.LongPressHoldButton
 import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.components.StatusCard
 import com.norypt.protect.ui.components.StatusLevel
 import com.norypt.protect.ui.theme.NoryptColors
-import com.norypt.protect.wipe.WipeEngine
 
 @Composable
-fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
+fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     val ctx = LocalContext.current
     var tier by remember { mutableStateOf(Provisioning.current(ctx)) }
     var showPinForWipe by remember { mutableStateOf(false) }
@@ -46,11 +45,11 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
             .fillMaxSize()
             .background(NoryptColors.Bg)
             .windowInsetsPadding(WindowInsets.safeDrawing)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 16.dp),
+            .padding(padding)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        // Brand header — logo + wordmark + tier badge
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
@@ -77,7 +76,6 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
             TierBadge(tier)
         }
 
-        // Status card
         StatusCard(
             level = when (tier) {
                 Tier.None -> StatusLevel.Disabled
@@ -96,30 +94,14 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
             },
         )
 
-        // Actions
         if (tier == Tier.None) {
-            Text(
-                "To arm Norypt Protect, Android requires two one-time permissions. Step 2 won't show a button unless Step 1 is toggled on.",
-                color = NoryptColors.Muted,
-                fontSize = 13.sp,
-            )
-            StepCard(
-                index = 1,
-                title = "Allow restricted settings (Android 14+ only)",
-                body = "Settings → Apps → Norypt Protect → ⋮ menu or bottom tray → tap Restricted settings → confirm.",
-            )
-            StepCard(
-                index = 2,
-                title = "Activate device admin",
-                body = "Tap the button below. On the next screen, tap \"Activate this device admin app\".",
-            )
-            PrimaryButton(label = "Open device admin settings", onClick = onRequestEnableAdmin)
+            EnableAdminScreen(onRequestEnableAdmin = onRequestEnableAdmin)
         } else {
             SectionLabel("Quick actions")
             PrimaryButton(label = "Lock now", onClick = { lockNow(ctx) })
             LongPressHoldButton(
                 label = "Hold 3s to WIPE",
-                onComplete = { WipeEngine.wipe(ctx, reason = "home.longpress") },
+                onComplete = { PanicHandler.panic(ctx, reason = "home.longpress") },
             )
             OutlinedButton(
                 onClick = { showPinForWipe = true },
@@ -140,7 +122,7 @@ fun HomeScreen(onRequestEnableAdmin: () -> Unit) {
             onConfirm = { pin ->
                 if (AppPin.verify(ctx, pin)) {
                     showPinForWipe = false
-                    WipeEngine.wipe(ctx, reason = "home.pin")
+                    PanicHandler.panic(ctx, reason = "home.pin")
                 }
             },
             onDismiss = { showPinForWipe = false },
@@ -174,34 +156,6 @@ private fun SectionLabel(text: String) {
         fontWeight = FontWeight.SemiBold,
         modifier = Modifier.padding(top = 4.dp),
     )
-}
-
-@Composable
-private fun StepCard(index: Int, title: String, body: String) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
-            .padding(14.dp),
-    ) {
-        Box(
-            Modifier
-                .size(24.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(NoryptColors.AccentDim),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(index.toString(), color = NoryptColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(title, color = NoryptColors.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(4.dp))
-            Text(body, color = NoryptColors.Muted, fontSize = 12.sp)
-        }
-    }
 }
 
 @Composable
