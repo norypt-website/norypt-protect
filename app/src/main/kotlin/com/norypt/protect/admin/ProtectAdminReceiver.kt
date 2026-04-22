@@ -4,6 +4,7 @@ import android.app.admin.DeviceAdminReceiver
 import android.content.Context
 import android.content.Intent
 import com.norypt.protect.R
+import com.norypt.protect.dpm.EmergencySos
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.ProtectForegroundService
@@ -13,6 +14,14 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
     override fun onEnabled(context: Context, intent: Intent) {
         super.onEnabled(context, intent)
         ProtectForegroundService.start(context)
+        // T3.8: if this is a Device Owner promotion and SOS hasn't been auto-disabled yet, do it now.
+        if (Provisioning.current(context) == Tier.DeviceOwner &&
+            !ProtectPrefs.sosDisabledOnPromotion(context) &&
+            EmergencySos.currentValue(context) == 1
+        ) {
+            EmergencySos.disableIfPossible(context)
+            ProtectPrefs.setSosDisabledOnPromotion(context, true)
+        }
     }
 
     override fun onDisabled(context: Context, intent: Intent) {
