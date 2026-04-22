@@ -122,6 +122,14 @@
             </intent-filter>
         </receiver>
 
+        <service android:name=".service.NoryptNotificationListenerService"
+                 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+                 android:exported="false">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+
         <service android:name=".service.PanicTileService"
                  android:label="Norypt Panic"
                  android:icon="@mipmap/ic_launcher"

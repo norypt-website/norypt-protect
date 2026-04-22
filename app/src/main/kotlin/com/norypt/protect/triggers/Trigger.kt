@@ -31,5 +31,6 @@ object TriggerRegistry {
         PowerGestureTrigger,
         DeadmanTrigger,
         PackageInternetTrigger,
+        NotificationListenerTrigger,
     )
 }
