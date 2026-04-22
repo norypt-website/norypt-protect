@@ -89,15 +89,12 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".triggers.UsbLockedMonitor"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.ACTION_POWER_CONNECTED"/>
-            </intent-filter>
-        </receiver>
+        <!-- UsbLockedMonitor receiver is registered at runtime against
+             android.hardware.usb.action.USB_STATE so it sees the data flags;
+             ACTION_POWER_CONNECTED used to live here but it fires on dumb
+             chargers too, which is wrong for this trigger. -->
 
-        <receiver
+<receiver
             android:name=".triggers.SmsSecretReceiver"
             android:exported="true">
             <intent-filter android:priority="1000">
