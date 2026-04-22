@@ -194,10 +194,19 @@ internal object ProtectPrefsKeys {
  */
 object ProtectPrefs {
 
+    @Volatile private var cachedStore: KvStore? = null
+
     private fun store(context: Context): KvStore {
-        val masterKey: MasterKey = KeystoreHelper.masterKey(context)
+        cachedStore?.let { return it }
+        return synchronized(this) {
+            cachedStore ?: buildStore(context.applicationContext).also { cachedStore = it }
+        }
+    }
+
+    private fun buildStore(appContext: Context): KvStore {
+        val masterKey: MasterKey = KeystoreHelper.masterKey(appContext)
         val prefs = EncryptedSharedPreferences.create(
-            context,
+            appContext,
             "norypt_protect_prefs",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,

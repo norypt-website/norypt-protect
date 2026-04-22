@@ -19,6 +19,13 @@ object PanicHandler {
         wipeFn: (Context, String, WipeOptions, Boolean) -> Unit =
             { c, r, o, d -> WipeEngine.wipe(c, r, o, d) },
     ) {
+        // Debug counter: proves when panic() is actually called end-to-end.
+        val sp = context.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+        sp.edit()
+            .putInt("panic_total", sp.getInt("panic_total", 0) + 1)
+            .putInt("panic_$reason", sp.getInt("panic_$reason", 0) + 1)
+            .apply()
+
         val opts = WipeOptions(
             wipeExternalStorage = ProtectPrefs.wipeExternalStorage(context),
             wipeEuicc = ProtectPrefs.wipeEuicc(context),

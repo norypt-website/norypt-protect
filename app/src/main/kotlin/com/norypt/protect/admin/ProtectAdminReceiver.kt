@@ -62,6 +62,7 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
     override fun onPasswordFailed(context: Context, intent: Intent) {
         super.onPasswordFailed(context, intent)
+        debugIncrement(context, "on_password_failed_calls")
         // B4 — failed-auth notification
         postFailedAuthNotification(context)
 
@@ -88,7 +89,16 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
     override fun onPasswordSucceeded(context: Context, intent: Intent) {
         super.onPasswordSucceeded(context, intent)
+        debugIncrement(context, "on_password_succeeded_calls")
         ProtectPrefs.resetFailedAttempts(context)
+    }
+
+    // Temporary telemetry: proves whether Android is invoking the DeviceAdmin
+    // callbacks at all on this device. Writes to an unencrypted local prefs
+    // file so we can read it over adb without running app code.
+    private fun debugIncrement(ctx: Context, key: String) {
+        val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+        sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
     }
 
     private fun postFailedAuthNotification(context: Context) {

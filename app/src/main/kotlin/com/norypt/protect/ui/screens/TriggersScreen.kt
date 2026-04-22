@@ -55,7 +55,22 @@ fun TriggersScreen(padding: PaddingValues) {
             TriggerRegistry.all.forEach { put(it.id, ProtectPrefs.isTriggerEnabled(ctx, it.id)) }
         }
     }
-    val currentTier = remember { Provisioning.current(ctx) }
+    var currentTier by remember { mutableStateOf(Provisioning.current(ctx)) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                currentTier = Provisioning.current(ctx)
+                // Also re-read trigger enabled states in case they were changed
+                // elsewhere (e.g. by a DO restriction policy).
+                TriggerRegistry.all.forEach {
+                    enabledMap[it.id] = ProtectPrefs.isTriggerEnabled(ctx, it.id)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         Modifier
