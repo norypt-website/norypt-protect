@@ -30,5 +30,6 @@ object TriggerRegistry {
         DuressPanicTrigger,
         PowerGestureTrigger,
         DeadmanTrigger,
+        PackageInternetTrigger,
     )
 }
