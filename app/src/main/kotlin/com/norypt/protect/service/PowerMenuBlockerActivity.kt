@@ -28,8 +28,10 @@ class PowerMenuBlockerActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setShowWhenLocked(true)
-        setTurnScreenOn(false)
+        // DO NOT setShowWhenLocked(true) — that puts this invisible activity
+        // on top of the keyguard and blocks the user from reaching the PIN
+        // pad. Lock Task mode suppresses the power menu system-wide; we do
+        // not need to be visible above the lockscreen for that effect.
         runCatching { startLockTask() }
         registerReceiver(
             stopReceiver,
