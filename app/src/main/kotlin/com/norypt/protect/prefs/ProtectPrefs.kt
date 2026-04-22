@@ -37,6 +37,17 @@ internal object ProtectPrefsKeys {
     const val KEY_LAUNCHER_HIDDEN = "launcher_hidden"
     const val KEY_SOS_DISABLED_ON_PROMOTION = "sos_disabled_on_promotion"
 
+    // C4 Dead-man switch keys
+    const val KEY_DEADMAN_BATTERY_PCT = "deadman_battery_pct"
+    const val KEY_DEADMAN_GRACE_SECONDS = "deadman_grace_seconds"
+    const val KEY_DEADMAN_REQUIRE_BT = "deadman_require_bt"
+    const val KEY_DEADMAN_REQUIRE_GSM = "deadman_require_gsm"
+    const val KEY_DEADMAN_REQUIRE_WIFI = "deadman_require_wifi"
+    const val KEY_DEADMAN_DISARM_MINUTES_AFTER_UNLOCK = "deadman_disarm_minutes_after_unlock"
+
+    // B5 Package internet watcher
+    const val KEY_KNOWN_INTERNET_PACKAGES = "known_internet_packages"
+
     fun isTriggerEnabled(store: KvStore, id: String, default: Boolean): Boolean =
         store.getBoolean(KEY_TRIGGER_ENABLED_PREFIX + id, default)
 
@@ -127,6 +138,54 @@ internal object ProtectPrefsKeys {
 
     fun setSosDisabledOnPromotion(store: KvStore, value: Boolean) =
         store.putBoolean(KEY_SOS_DISABLED_ON_PROMOTION, value)
+
+    // --- C4 Dead-man switch ---
+
+    fun deadmanBatteryPct(store: KvStore): Int =
+        store.getInt(KEY_DEADMAN_BATTERY_PCT, 5)
+
+    fun setDeadmanBatteryPct(store: KvStore, value: Int) =
+        store.putInt(KEY_DEADMAN_BATTERY_PCT, value)
+
+    fun deadmanGraceSeconds(store: KvStore): Int =
+        store.getInt(KEY_DEADMAN_GRACE_SECONDS, 60)
+
+    fun setDeadmanGraceSeconds(store: KvStore, value: Int) =
+        store.putInt(KEY_DEADMAN_GRACE_SECONDS, value)
+
+    fun deadmanRequireBt(store: KvStore): Boolean =
+        store.getBoolean(KEY_DEADMAN_REQUIRE_BT, true)
+
+    fun setDeadmanRequireBt(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_DEADMAN_REQUIRE_BT, value)
+
+    fun deadmanRequireGsm(store: KvStore): Boolean =
+        store.getBoolean(KEY_DEADMAN_REQUIRE_GSM, true)
+
+    fun setDeadmanRequireGsm(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_DEADMAN_REQUIRE_GSM, value)
+
+    fun deadmanRequireWifi(store: KvStore): Boolean =
+        store.getBoolean(KEY_DEADMAN_REQUIRE_WIFI, true)
+
+    fun setDeadmanRequireWifi(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_DEADMAN_REQUIRE_WIFI, value)
+
+    fun deadmanDisarmMinutesAfterUnlock(store: KvStore): Int =
+        store.getInt(KEY_DEADMAN_DISARM_MINUTES_AFTER_UNLOCK, 0)
+
+    fun setDeadmanDisarmMinutesAfterUnlock(store: KvStore, value: Int) =
+        store.putInt(KEY_DEADMAN_DISARM_MINUTES_AFTER_UNLOCK, value)
+
+    // --- B5 Known internet packages ---
+
+    fun knownInternetPackages(store: KvStore): Set<String> {
+        val raw = store.getString(KEY_KNOWN_INTERNET_PACKAGES, null) ?: return emptySet()
+        return raw.split(",").filter { it.isNotBlank() }.toSet()
+    }
+
+    fun setKnownInternetPackages(store: KvStore, packages: Set<String>) =
+        store.putString(KEY_KNOWN_INTERNET_PACKAGES, packages.joinToString(","))
 }
 
 /**
@@ -242,4 +301,50 @@ object ProtectPrefs {
 
     fun setSosDisabledOnPromotion(context: Context, value: Boolean) =
         ProtectPrefsKeys.setSosDisabledOnPromotion(store(context), value)
+
+    // --- C4 Dead-man switch ---
+
+    fun deadmanBatteryPct(context: Context): Int =
+        ProtectPrefsKeys.deadmanBatteryPct(store(context))
+
+    fun setDeadmanBatteryPct(context: Context, value: Int) =
+        ProtectPrefsKeys.setDeadmanBatteryPct(store(context), value)
+
+    fun deadmanGraceSeconds(context: Context): Int =
+        ProtectPrefsKeys.deadmanGraceSeconds(store(context))
+
+    fun setDeadmanGraceSeconds(context: Context, value: Int) =
+        ProtectPrefsKeys.setDeadmanGraceSeconds(store(context), value)
+
+    fun deadmanRequireBt(context: Context): Boolean =
+        ProtectPrefsKeys.deadmanRequireBt(store(context))
+
+    fun setDeadmanRequireBt(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setDeadmanRequireBt(store(context), value)
+
+    fun deadmanRequireGsm(context: Context): Boolean =
+        ProtectPrefsKeys.deadmanRequireGsm(store(context))
+
+    fun setDeadmanRequireGsm(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setDeadmanRequireGsm(store(context), value)
+
+    fun deadmanRequireWifi(context: Context): Boolean =
+        ProtectPrefsKeys.deadmanRequireWifi(store(context))
+
+    fun setDeadmanRequireWifi(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setDeadmanRequireWifi(store(context), value)
+
+    fun deadmanDisarmMinutesAfterUnlock(context: Context): Int =
+        ProtectPrefsKeys.deadmanDisarmMinutesAfterUnlock(store(context))
+
+    fun setDeadmanDisarmMinutesAfterUnlock(context: Context, value: Int) =
+        ProtectPrefsKeys.setDeadmanDisarmMinutesAfterUnlock(store(context), value)
+
+    // --- B5 Known internet packages ---
+
+    fun knownInternetPackages(context: Context): Set<String> =
+        ProtectPrefsKeys.knownInternetPackages(store(context))
+
+    fun setKnownInternetPackages(context: Context, packages: Set<String>) =
+        ProtectPrefsKeys.setKnownInternetPackages(store(context), packages)
 }

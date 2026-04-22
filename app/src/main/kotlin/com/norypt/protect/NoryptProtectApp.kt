@@ -4,7 +4,9 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
+import com.norypt.protect.triggers.PackageInternetWatcher
 import com.norypt.protect.triggers.UnlockedTimerMonitor
 
 class NoryptProtectApp : Application() {
@@ -20,7 +22,12 @@ class NoryptProtectApp : Application() {
         nm.createNotificationChannel(
             NotificationChannel("panic-dryrun", "Panic dry-run events", NotificationManager.IMPORTANCE_DEFAULT)
         )
+        nm.createNotificationChannel(
+            NotificationChannel("alerts", "Norypt Protect alerts", NotificationManager.IMPORTANCE_HIGH)
+        )
         ProtectForegroundService.registerTick { UnlockedTimerMonitor.tick(it) }
         ProtectForegroundService.registerTick { FakeMessengerMonitor.tick(it) }
+        ProtectForegroundService.registerTick { DeadmanMonitor.tick(it) }
+        ProtectForegroundService.registerTick { PackageInternetWatcher.tick(it) }
     }
 }

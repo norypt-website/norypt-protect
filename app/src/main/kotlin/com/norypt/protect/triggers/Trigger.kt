@@ -29,5 +29,6 @@ object TriggerRegistry {
         FailedAuthNotifTrigger,
         DuressPanicTrigger,
         PowerGestureTrigger,
+        DeadmanTrigger,
     )
 }
