@@ -25,6 +25,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.dpm.AntiTamper
@@ -64,6 +67,26 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
     var antiTamperPinForDisable by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { tier = Provisioning.current(ctx) }
+
+    // Re-read every device-visible state when the user returns to the screen.
+    // Deep-links to system Settings (SOS, Usage Access, app details, etc.) mean
+    // the user can flip values outside our UI; without this observer the
+    // Switches stay on the stale value until next cold launch.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                tier = Provisioning.current(ctx)
+                usbOn = UsbLockdown.isOn(ctx)
+                safeBootOn = SafeBootLockdown.isOn(ctx)
+                sosOn = EmergencySos.currentValue(ctx) == 0
+                antiTamperOn = AntiTamper.isApplied(ctx)
+                launcherHidden = LauncherAlias.isHidden(ctx)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val isOwner = tier == Tier.DeviceOwner
 
