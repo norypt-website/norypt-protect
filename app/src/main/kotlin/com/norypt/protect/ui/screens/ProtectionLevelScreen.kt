@@ -237,6 +237,35 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             },
         )
 
+        // ── Quick Settings tile helper ─────────────────────────────────────
+        Spacer(Modifier.height(4.dp))
+        OutlinedButton(
+            onClick = {
+                val sbm = ctx.getSystemService(android.app.StatusBarManager::class.java)
+                val component = android.content.ComponentName(
+                    ctx,
+                    com.norypt.protect.service.PanicTileService::class.java,
+                )
+                val icon = android.graphics.drawable.Icon.createWithResource(
+                    ctx,
+                    com.norypt.protect.R.mipmap.ic_launcher,
+                )
+                runCatching {
+                    sbm.requestAddTileService(
+                        component,
+                        "Norypt Panic",
+                        icon,
+                        ctx.mainExecutor,
+                    ) { /* ignore result */ }
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
+            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
+        ) {
+            Text("Add Panic tile to Quick Settings")
+        }
+
         // ── About button ───────────────────────────────────────────────────
         Spacer(Modifier.height(4.dp))
         OutlinedButton(
