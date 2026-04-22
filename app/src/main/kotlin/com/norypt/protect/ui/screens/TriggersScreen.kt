@@ -73,9 +73,6 @@ fun TriggersScreen(padding: PaddingValues) {
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
         )
-        if (currentTier != Tier.DeviceOwner) {
-            TierAdvisoryBanner()
-        }
         TriggerRegistry.all.forEach { trigger ->
             TriggerRow(
                 trigger = trigger,
@@ -485,41 +482,6 @@ private fun ConfigNumberField(label: String, value: String, onChange: (String) -
 // Tiny curry helper so trigger configs can write back to ProtectPrefs concisely.
 private fun ((android.content.Context, Int) -> Unit).curry(ctx: android.content.Context): (Int) -> Unit =
     { v -> this(ctx, v) }
-
-@Composable
-private fun TierAdvisoryBanner() {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(NoryptColors.Amber.copy(alpha = 0.10f))
-            .border(1.dp, NoryptColors.Amber.copy(alpha = 0.40f), RoundedCornerShape(10.dp))
-            .padding(12.dp),
-    ) {
-        Text(
-            "DEVICE ADMIN TIER — ANDROID 13+ LIMITATIONS",
-            color = NoryptColors.Amber,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "Two AOSP changes affect what this app can do at this tier:\n\n" +
-                "1) onPasswordFailed callback: not delivered to non-Device-Owner Device " +
-                "Admins. B1, B4, A11 are therefore Device Owner only and the switches " +
-                "are locked off.\n\n" +
-                "2) wipeData() may be denied for non-Device-Owner Device Admins. The other " +
-                "wipe-capable triggers (A2, A3, A4, A5, A6, A7, A8, A9, A10, C3, C4) " +
-                "detect the event correctly, but the actual wipe call may be silently " +
-                "rejected by Android. Verify with a throwaway device or upgrade to " +
-                "Device Owner for guaranteed operation.\n\n" +
-                "Open the Protect tab → Upgrade to Device Owner card for the one-line " +
-                "ADB command.",
-            color = NoryptColors.Text,
-            fontSize = 12.sp,
-        )
-    }
-}
 
 @Composable
 private fun InfoBlock(title: String, body: String) {

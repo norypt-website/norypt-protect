@@ -85,7 +85,7 @@ object UsbLockedTrigger : Trigger {
     override val id = "A9"
     override val label = "USB data while locked"
     override val description = "Wipe if a USB DATA cable (MTP/PTP/ADB/etc.) is negotiated while the screen is locked. Plain charging cables and dumb wall chargers do NOT trigger this."
-    override val requiredTier = Tier.DeviceAdmin
+    override val requiredTier = Tier.DeviceOwner
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A9", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A9", false)
 }

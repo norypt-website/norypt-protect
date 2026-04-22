@@ -20,7 +20,7 @@ object ExternalPanicTrigger : Trigger {
     override val id = "A5"
     override val label = "External panic interop"
     override val description = "Respond to the cross-app emergency-panic broadcast so other emergency apps can trigger Norypt Protect."
-    override val requiredTier = Tier.DeviceAdmin
+    override val requiredTier = Tier.DeviceOwner
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A5", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A5", false)
 }
