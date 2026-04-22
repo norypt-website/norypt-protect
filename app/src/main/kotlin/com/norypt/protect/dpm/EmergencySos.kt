@@ -87,12 +87,55 @@ object EmergencySos {
             true
         }.getOrDefault(false)
 
-        override fun openSettingsFallback(): Boolean = runCatching {
-            ctx.startActivity(
-                Intent(Settings.ACTION_SETTINGS)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            true
-        }.getOrDefault(false)
+        override fun openSettingsFallback(): Boolean = openBestEmergencyGestureScreen(ctx)
     }
+}
+
+/**
+ * Tries multiple known intents to land the user on the Emergency SOS settings
+ * screen directly, in order of specificity. Falls back to general Settings if
+ * nothing resolves.
+ *
+ * Verified paths (ordered most specific → least specific):
+ *  1. AOSP / GrapheneOS / Pixel 9a — activity-alias exposed by Settings.apk
+ *  2. AOSP / generic — package-level action present on Android 13+
+ *  3. Android 12+ — Safety & Emergency dashboard
+ *  4. Android 12+ — Safety Center (covers OEMs that moved SOS inside it)
+ *  5. Last resort — top-level Settings
+ */
+private fun openBestEmergencyGestureScreen(ctx: Context): Boolean {
+    val candidates = listOf(
+        // AOSP / Pixel / GrapheneOS — direct activity alias.
+        Intent().setComponent(
+            ComponentName(
+                "com.android.settings",
+                "com.android.settings.Settings\$EmergencyGestureSettingsActivity",
+            ),
+        ),
+        // AOSP alternate path seen on some OEMs.
+        Intent().setComponent(
+            ComponentName(
+                "com.android.settings",
+                "com.android.settings.emergency.EmergencyGestureSettingsActivity",
+            ),
+        ),
+        // Public action — not all OEMs honour it, but worth trying.
+        Intent("android.settings.EMERGENCY_GESTURE_SETTINGS"),
+        // Safety & Emergency top-level dashboard (Android 13+).
+        Intent("android.settings.SETTINGS_EMERGENCY"),
+        // Safety Center (Android 13+; many OEMs link SOS here).
+        Intent("android.settings.SAFETY_CENTER"),
+        // Absolute last resort.
+        Intent(Settings.ACTION_SETTINGS),
+    )
+
+    val pm = ctx.packageManager
+    for (intent in candidates) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (intent.resolveActivity(pm) != null) {
+            val ok = runCatching { ctx.startActivity(intent) }.isSuccess
+            if (ok) return true
+        }
+    }
+    return false
 }
