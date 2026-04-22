@@ -1,8 +1,19 @@
 package com.norypt.protect.ui.screens
 
+import android.Manifest
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.norypt.protect.admin.ProtectAdminReceiver
+import com.norypt.protect.admin.Provisioning
+import com.norypt.protect.admin.Tier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -155,24 +166,17 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                         ProtectPrefs.setSmsSecretCode(ctx, it.ifEmpty { null })
                     },
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(12.dp))
+                PermissionToggleRow(
+                    label = "SMS permission (RECEIVE_SMS)",
+                    permission = Manifest.permission.RECEIVE_SMS,
+                )
+                Spacer(Modifier.height(6.dp))
                 Text(
-                    "Grant Norypt Protect the SMS permission in system Settings before incoming SMS messages can fire this trigger.",
+                    "On Device Owner tier the permission is auto-granted with no prompt. On Device Admin tier the toggle launches the standard system dialog; revoke from system Settings if needed.",
                     color = NoryptColors.MutedDeep,
                     fontSize = 11.sp,
                 )
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                            Uri.parse("package:${ctx.packageName}"))
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        ctx.startActivity(intent)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
-                ) { Text("Open app permission settings") }
             }
             "A8" -> {
                 var minutes by remember { mutableStateOf(ProtectPrefs.maxUnlockedMinutes(ctx).toString()) }
@@ -358,6 +362,82 @@ private fun ConfigNumberField(label: String, value: String, onChange: (String) -
 // Tiny curry helper so trigger configs can write back to ProtectPrefs concisely.
 private fun ((android.content.Context, Int) -> Unit).curry(ctx: android.content.Context): (Int) -> Unit =
     { v -> this(ctx, v) }
+
+/**
+ * Toggle that grants/revokes a runtime permission.
+ *
+ * Behavior depends on tier:
+ * - Device Owner → flipping ON calls dpm.setPermissionGrantState(GRANTED), no dialog.
+ *   Flipping OFF calls dpm.setPermissionGrantState(DENIED).
+ * - Device Admin / None → flipping ON launches the standard system permission dialog.
+ *   Flipping OFF opens app-details settings (Android does not allow apps to self-revoke
+ *   without DO).
+ */
+@Composable
+private fun PermissionToggleRow(label: String, permission: String) {
+    val ctx = LocalContext.current
+    var granted by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(ctx, permission) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        granted = ok
+    }
+    val tier = remember { Provisioning.current(ctx) }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = NoryptColors.Text, fontSize = 13.sp)
+            Text(
+                if (granted) "Granted" else "Not granted",
+                color = if (granted) NoryptColors.Green else NoryptColors.MutedDeep,
+                fontSize = 11.sp,
+            )
+        }
+        Switch(
+            checked = granted,
+            onCheckedChange = { wantOn ->
+                if (wantOn && !granted) {
+                    if (tier == Tier.DeviceOwner) {
+                        if (setPermissionViaDpm(ctx, permission, grant = true)) granted = true
+                        else launcher.launch(permission)
+                    } else {
+                        launcher.launch(permission)
+                    }
+                } else if (!wantOn && granted) {
+                    if (tier == Tier.DeviceOwner) {
+                        if (setPermissionViaDpm(ctx, permission, grant = false)) granted = false
+                    } else {
+                        // Without DO we cannot self-revoke; deep-link to app settings.
+                        val intent = Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.parse("package:${ctx.packageName}"),
+                        ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        ctx.startActivity(intent)
+                    }
+                }
+            },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = NoryptColors.Bg,
+                checkedTrackColor = NoryptColors.Accent,
+                uncheckedThumbColor = NoryptColors.Muted,
+                uncheckedTrackColor = NoryptColors.Surface1,
+                uncheckedBorderColor = NoryptColors.Border,
+            ),
+        )
+    }
+}
+
+private fun setPermissionViaDpm(ctx: Context, permission: String, grant: Boolean): Boolean = runCatching {
+    val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+    val admin = ComponentName(ctx, ProtectAdminReceiver::class.java)
+    val state = if (grant) DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+                else DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED
+    dpm.setPermissionGrantState(admin, ctx.packageName, permission, state)
+}.getOrDefault(false)
 
 @Composable
 private fun ToggleConfigRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
