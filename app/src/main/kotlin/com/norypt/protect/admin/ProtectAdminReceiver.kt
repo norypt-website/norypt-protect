@@ -16,8 +16,12 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
     }
 
     override fun onDisabled(context: Context, intent: Intent) {
-        // v0.1.0: admin deactivated by user is allowed; aggressive response is Plan 3 (DO tier).
         super.onDisabled(context, intent)
+        // DO tier: admin being revoked is treated as a tamper event — wipe immediately.
+        // Device Admin tier: allow graceful removal (v0.1.0 behaviour).
+        if (Provisioning.current(context) == Tier.DeviceOwner) {
+            PanicHandler.panic(context, reason = "admin.disabled")
+        }
     }
 
     override fun onPasswordFailed(context: Context, intent: Intent) {
