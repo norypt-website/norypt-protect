@@ -1,0 +1,49 @@
+Norypt Protect is a local-only Android security application that combines panic triggers, device hardening, and Norypt-specific features into a single GPL-licensed app. It never connects to the internet — the INTERNET permission is not declared.
+
+== Panic Triggers ==
+
+* 5x power-button press — instant screen lock or full device wipe
+* Dead-man switch — wipe if the device is not unlocked within a configurable interval
+* Low-battery dead-man switch — wipe when battery drops below a threshold and device is not checked in
+* Notification listener monitor — detect and respond to suspicious notification patterns
+* App-internet permission monitor — alert when apps gain unexpected network access
+
+== Device Hardening ==
+
+* Lock screen enforcement via Device Admin or Device Owner
+* Work-profile-only wipe (leaves personal profile intact)
+* Auto-disable Emergency SOS on Device Owner promotion
+* Hide app from launcher (alias toggle)
+* ADB upgrade card for Device Owner escalation
+
+== Norypt-Specific Features ==
+
+* Full device wipe path for both Device Admin and Device Owner modes
+* Lockdown toggle (screen pinning / lockdown API on Android 9+)
+* Protection level screen with DO-gated toggles
+* Full-screen wipe countdown activity with cancel window
+
+== Threat Model ==
+
+Norypt Protect is designed for users who face physical seizure of their device. It provides last-resort data destruction and hardening without relying on any remote server, cloud service, or internet connectivity. All state is stored locally.
+
+== Requirements ==
+
+* Android 13 or later (API 33 minimum)
+* Device Admin activation for basic features
+* Device Owner (via ADB) for full feature set
+
+== Permissions ==
+
+* RECEIVE_BOOT_COMPLETED — restart triggers after reboot
+* BIND_NOTIFICATION_LISTENER_SERVICE — notification monitoring
+* BATTERY_STATS — low-battery dead-man switch
+* No INTERNET permission
+
+== License ==
+
+GPL-3.0-or-later. Source code: https://github.com/norypt-website/norypt-protect
+
+== Contact ==
+
+norypt@proton.me

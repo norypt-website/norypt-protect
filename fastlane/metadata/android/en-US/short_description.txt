@@ -1,0 +1,1 @@
+Local-only Android security: lock, wipe, harden. No network. No logs.
