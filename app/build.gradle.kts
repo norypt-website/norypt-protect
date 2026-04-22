@@ -1,10 +1,27 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
 }
 
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+
 android {
+    signingConfigs {
+        create("release") {
+            keyAlias = keystoreProps.getProperty("keyAlias") ?: System.getenv("RELEASE_KEY_ALIAS")
+            keyPassword = keystoreProps.getProperty("keyPassword") ?: System.getenv("RELEASE_KEY_PASSWORD")
+            storeFile = (keystoreProps.getProperty("storeFile") ?: System.getenv("RELEASE_KEYSTORE_PATH"))?.let(::file)
+            storePassword = keystoreProps.getProperty("storePassword") ?: System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
     namespace = "com.norypt.protect"
     compileSdk = 35
 
@@ -28,7 +45,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Signing config added in Task 31
+            signingConfig = if (signingConfigs.getByName("release").storeFile != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
 
