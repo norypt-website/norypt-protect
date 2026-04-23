@@ -37,9 +37,18 @@ object UsbLockedMonitor {
     )
 
     private var receiver: BroadcastReceiver? = null
+    private var startedAtMs: Long = 0L
+
+    // Window after registration during which we suppress panic because Android
+    // replays the sticky ACTION_USB_STATE to freshly-registered receivers. Without
+    // this, re-installing the APK with the cable plugged while the device is
+    // locked would wipe the phone as the sticky broadcast arrives to the new
+    // receiver before any real plug event.
+    private const val STICKY_REPLAY_WINDOW_MS = 3_000L
 
     fun start(context: Context) {
         if (receiver != null) return
+        startedAtMs = System.currentTimeMillis()
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 // Debug telemetry stays local — increments a prefs counter so we can
@@ -50,8 +59,20 @@ object UsbLockedMonitor {
                 val connected = intent.getBooleanExtra(EXTRA_CONNECTED, false)
                 if (!connected) return
                 debugIncrement(ctx, "a9_usb_state_connected")
+                // Drop sticky replays arriving in the window right after registration.
+                if (System.currentTimeMillis() - startedAtMs < STICKY_REPLAY_WINDOW_MS) {
+                    debugIncrement(ctx, "a9_sticky_replay_suppressed")
+                    return
+                }
                 val km = ctx.getSystemService(KeyguardManager::class.java)
-                val locked = km.isKeyguardLocked
+                // isKeyguardLocked briefly lies to false during USB-wake transitions.
+                // isDeviceLocked tracks "credentials required" which is stable across
+                // wakeups. Treat either signal as "locked" to avoid missing events.
+                val keyguardLocked = km.isKeyguardLocked
+                val deviceLocked = km.isDeviceLocked
+                val locked = keyguardLocked || deviceLocked
+                if (keyguardLocked) debugIncrement(ctx, "a9_usb_state_keyguard_locked")
+                if (deviceLocked) debugIncrement(ctx, "a9_usb_state_device_locked")
                 if (locked) debugIncrement(ctx, "a9_usb_state_locked")
                 val dataActive = isUsbDataActive(intent)
                 if (dataActive) debugIncrement(ctx, "a9_usb_state_data_active")
@@ -86,6 +107,12 @@ object UsbLockedTrigger : Trigger {
     override val label = "USB data while locked"
     override val description = "Wipe if a USB DATA cable (MTP/PTP/ADB/etc.) is negotiated while the screen is locked. Plain charging cables and dumb wall chargers do NOT trigger this."
     override val requiredTier = Tier.DeviceOwner
+    override val grapheneOsNote: String =
+        "On GrapheneOS, the default 'USB peripherals when locked → Disabled' already blocks the " +
+        "data handshake before A9 can see it, so no panic fires. If you want A9 to wipe on " +
+        "insertion attempts, set Settings → Security & privacy → Device unlock → USB peripherals " +
+        "when locked → Enabled so the data negotiation can happen. Stock Android has no such " +
+        "gating, so A9 works out of the box there."
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A9", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A9", false)
 }

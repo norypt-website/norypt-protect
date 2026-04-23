@@ -31,9 +31,11 @@ fun EnableAdminScreen(onRequestEnableAdmin: () -> Unit) {
     val isGraphene = remember { GrapheneDetect.isGrapheneOS() }
 
     Column(
-        Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+        // This composable is embedded inside HomeScreen's verticalScroll. Having
+        // our own verticalScroll here would create nested scrollables with
+        // infinite height constraints — Compose throws IllegalStateException at
+        // measure time.
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Text(

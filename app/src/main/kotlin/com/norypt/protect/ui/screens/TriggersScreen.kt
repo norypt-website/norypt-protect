@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.norypt.protect.platform.PlatformInfo
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.triggers.Trigger
 import com.norypt.protect.triggers.TriggerRegistry
@@ -146,17 +147,18 @@ private fun TriggerRow(
                     color = NoryptColors.MutedDeep,
                     fontSize = 11.sp,
                 )
-                if (!tierMet) {
+                if (trigger.requiredTier == Tier.DeviceOwner) {
                     Spacer(Modifier.width(8.dp))
+                    val badgeColor = if (tierMet) NoryptColors.MutedDeep else NoryptColors.Amber
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(NoryptColors.Amber.copy(alpha = 0.15f))
+                            .background(badgeColor.copy(alpha = 0.15f))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
                         Text(
                             "DEVICE OWNER",
-                            color = NoryptColors.Amber,
+                            color = badgeColor,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                         )
@@ -165,6 +167,23 @@ private fun TriggerRow(
             }
             Spacer(Modifier.height(2.dp))
             Text(trigger.description, color = NoryptColors.Muted, fontSize = 12.sp)
+            val grapheneNote = trigger.grapheneOsNote
+            if (grapheneNote != null && PlatformInfo.isGrapheneOS(LocalContext.current)) {
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(NoryptColors.Amber.copy(alpha = 0.10f))
+                        .border(1.dp, NoryptColors.Amber.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                ) {
+                    Text(
+                        "GrapheneOS: $grapheneNote",
+                        color = NoryptColors.Amber,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
         }
         Switch(
             checked = enabled,
@@ -199,6 +218,23 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
         )
         Spacer(Modifier.height(4.dp))
         Text(trigger.description, color = NoryptColors.Muted, fontSize = 12.sp)
+        val grapheneNote = trigger.grapheneOsNote
+        if (grapheneNote != null && PlatformInfo.isGrapheneOS(ctx)) {
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(NoryptColors.Amber.copy(alpha = 0.10f))
+                    .border(1.dp, NoryptColors.Amber.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    "GrapheneOS: $grapheneNote",
+                    color = NoryptColors.Amber,
+                    fontSize = 12.sp,
+                )
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         when (trigger.id) {

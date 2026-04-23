@@ -27,6 +27,7 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.service.ProtectForegroundService
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.security.AppPin
+import com.norypt.protect.security.SelfVerification
 import com.norypt.protect.ui.components.MainScaffold
 import com.norypt.protect.ui.components.NavTab
 import com.norypt.protect.ui.components.PinEntryDialog
@@ -45,6 +46,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Self-verification: if a release-cert pin is set and the running APK
+        // doesn't match, refuse to launch. Catches repackaged binaries before
+        // any UI or prefs are touched. Unpinned debug/dev builds pass through.
+        if (!SelfVerification.isTrustedCert(this)) {
+            val sp = getSharedPreferences("norypt_admin_debug", android.content.Context.MODE_PRIVATE)
+            sp.edit()
+                .putString("self_verify_result", "FAIL cert=${SelfVerification.currentCertSha256(this)}")
+                .apply()
+            finishAndRemoveTask()
+            return
+        }
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AColor.TRANSPARENT
@@ -78,12 +91,17 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize().background(NoryptColors.Bg),
                     color = NoryptColors.Bg,
                 ) {
+                    var launchUnlocked by remember { mutableStateOf(false) }
                     if (!AppPin.isSet(this)) {
                         PinSetupScreen(onPinSet = { pin ->
                             AppPin.set(this, pin)
                             recreate()
                         })
                     } else when (shortcutAction) {
+                        // Shortcut actions bypass the launch gate intentionally:
+                        // Lock is harmless (just locks the device); Wipe has its own
+                        // PIN confirmation dialog, so requiring the PIN twice would
+                        // be redundant.
                         "lock" -> {
                             val tier = Provisioning.current(this)
                             if (tier >= Tier.DeviceAdmin) {
@@ -111,7 +129,15 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
-                        else -> AppShell(onRequestEnableAdmin = { launchDeviceAdminSettings() })
+                        else -> {
+                            if (!launchUnlocked) {
+                                com.norypt.protect.ui.screens.LaunchGateScreen(
+                                    onUnlocked = { launchUnlocked = true },
+                                )
+                            } else {
+                                AppShell(onRequestEnableAdmin = { launchDeviceAdminSettings() })
+                            }
+                        }
                     }
                 }
             }

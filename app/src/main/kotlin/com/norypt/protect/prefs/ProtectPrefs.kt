@@ -49,6 +49,9 @@ internal object ProtectPrefsKeys {
     // B5 Package internet watcher
     const val KEY_KNOWN_INTERNET_PACKAGES = "known_internet_packages"
 
+    // Launch gate
+    const val KEY_LAUNCH_BIOMETRIC_ENABLED = "launch_biometric_enabled"
+
     // Power-menu guard (Device Owner)
     const val KEY_POWER_MENU_BLOCK_WHEN_LOCKED = "power_menu_block_when_locked"
 
@@ -205,6 +208,13 @@ internal object ProtectPrefsKeys {
 
     fun setKnownInternetPackages(store: KvStore, packages: Set<String>) =
         store.putString(KEY_KNOWN_INTERNET_PACKAGES, packages.joinToString(","))
+
+    // --- Launch gate biometric preference ---
+    fun launchBiometricEnabled(store: KvStore): Boolean =
+        store.getBoolean(KEY_LAUNCH_BIOMETRIC_ENABLED, false)
+
+    fun setLaunchBiometricEnabled(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_LAUNCH_BIOMETRIC_ENABLED, value)
 }
 
 /**
@@ -387,4 +397,12 @@ object ProtectPrefs {
 
     fun setKnownInternetPackages(context: Context, packages: Set<String>) =
         ProtectPrefsKeys.setKnownInternetPackages(store(context), packages)
+
+    // --- Launch gate biometric ---
+
+    fun launchBiometricEnabled(context: Context): Boolean =
+        ProtectPrefsKeys.launchBiometricEnabled(store(context))
+
+    fun setLaunchBiometricEnabled(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setLaunchBiometricEnabled(store(context), value)
 }

@@ -3,6 +3,8 @@ package com.norypt.protect.service
 import android.app.Activity
 import android.app.KeyguardManager
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
@@ -106,15 +108,26 @@ class WipeCountdownActivity : ComponentActivity() {
         return false
     }
 
+    // Reads from ACTION_BATTERY_CHANGED sticky broadcast (matches DeadmanMonitor).
+    // BATTERY_PROPERTY_CAPACITY would read hardware directly and ignore
+    // `dumpsys battery set level`, which makes the cancel-check race against
+    // the tick-side check and dismiss the countdown before it can wipe.
     private fun batteryLevel(ctx: Context): Int {
-        val bm = ctx.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        return bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val intent = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            ?: return 100
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        if (level < 0 || scale <= 0) return 100
+        return (level * 100) / scale
     }
 
-    private fun isBluetoothConnected(ctx: Context): Boolean {
-        val bm = ctx.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager
-        return bm.adapter?.bondedDevices?.isNotEmpty() == true
-    }
+    // "Bluetooth up" = adapter enabled now (not just historically paired).
+    // `bondedDevices.isNotEmpty()` returns true for any past pairing even with
+    // BT off — causing the cancel check to prematurely abort the countdown.
+    private fun isBluetoothConnected(ctx: Context): Boolean = runCatching {
+        val bm = ctx.getSystemService(Context.BLUETOOTH_SERVICE) as android.bluetooth.BluetoothManager?
+        bm?.adapter?.isEnabled == true
+    }.getOrDefault(false)
 
     private fun isCellularConnected(ctx: Context): Boolean = hasTransport(ctx, NetworkCapabilities.TRANSPORT_CELLULAR)
     private fun isWifiConnected(ctx: Context): Boolean = hasTransport(ctx, NetworkCapabilities.TRANSPORT_WIFI)

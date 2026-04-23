@@ -46,9 +46,15 @@ import com.norypt.protect.util.AdbInstructions
 fun ProtectionLevelScreen(padding: PaddingValues) {
     val ctx = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
+    var showTrust by remember { mutableStateOf(false) }
 
     if (showAbout) {
         AboutSubScreen(onBack = { showAbout = false }, padding = padding)
+        return
+    }
+
+    if (showTrust) {
+        TrustReportSubScreen(onBack = { showTrust = false }, padding = padding)
         return
     }
 
@@ -138,6 +144,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 if (on) UsbLockdown.enable(ctx) else UsbLockdown.disable(ctx)
                 usbOn = UsbLockdown.isOn(ctx)
             },
+            requiresDeviceOwner = true,
         )
 
         // ── Card 4: Safe-boot block ────────────────────────────────────────
@@ -153,6 +160,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 if (on) SafeBootLockdown.enable(ctx) else SafeBootLockdown.disable(ctx)
                 safeBootOn = SafeBootLockdown.isOn(ctx)
             },
+            requiresDeviceOwner = true,
         )
 
         // ── Card 4b: Block power menu when locked ──────────────────────────
@@ -168,6 +176,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 if (on) PowerMenuGuard.enable(ctx) else PowerMenuGuard.disable(ctx)
                 powerMenuBlockOn = PowerMenuGuard.isEnabled(ctx)
             },
+            requiresDeviceOwner = true,
         )
 
         // ── Card 5: Auto-disable Emergency SOS ────────────────────────────
@@ -214,6 +223,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                     showAntiTamperPin = true
                 }
             },
+            requiresDeviceOwner = true,
         )
 
         // ── Card 7: Hide launcher icon ─────────────────────────────────────
@@ -235,13 +245,41 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 }
                 launcherHidden = LauncherAlias.isHidden(ctx)
             },
+            requiresDeviceOwner = true,
+        )
+
+        // ── Card 8: Biometric for app unlock ───────────────────────────────
+        val biometricAvailable = remember {
+            ctx.getSystemService(android.hardware.biometrics.BiometricManager::class.java)
+                ?.canAuthenticate(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
+                android.hardware.biometrics.BiometricManager.BIOMETRIC_SUCCESS
+        }
+        var biometricUnlockOn by remember { mutableStateOf(ProtectPrefs.launchBiometricEnabled(ctx)) }
+        ToggleCard(
+            title = "Use biometric to unlock app",
+            subtitle = if (biometricAvailable)
+                "Speeds up app open with fingerprint or face. App PIN remains the fallback and is always required when biometrics fail."
+            else
+                "No enrolled fingerprint or face on this device. Add one in Settings → Security to enable.",
+            checked = biometricUnlockOn,
+            enabled = biometricAvailable,
+            onToggle = { on ->
+                ProtectPrefs.setLaunchBiometricEnabled(ctx, on)
+                biometricUnlockOn = on
+            },
         )
 
         // ── Quick Settings tile helper ─────────────────────────────────────
         Spacer(Modifier.height(4.dp))
         OutlinedButton(
             onClick = {
+                val dbg = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+                dbg.edit().putInt("qs_tile_button_clicks", dbg.getInt("qs_tile_button_clicks", 0) + 1).apply()
                 val sbm = ctx.getSystemService(android.app.StatusBarManager::class.java)
+                if (sbm == null) {
+                    dbg.edit().putString("qs_tile_last_error", "StatusBarManager null").apply()
+                    return@OutlinedButton
+                }
                 val component = android.content.ComponentName(
                     ctx,
                     com.norypt.protect.service.PanicTileService::class.java,
@@ -256,7 +294,12 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                         "Norypt Panic",
                         icon,
                         ctx.mainExecutor,
-                    ) { /* ignore result */ }
+                    ) { resultCode ->
+                        ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+                            .edit().putInt("qs_tile_result_code", resultCode).apply()
+                    }
+                }.onFailure { e ->
+                    dbg.edit().putString("qs_tile_last_error", "${e::class.simpleName}: ${e.message}").apply()
                 }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -264,6 +307,17 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
         ) {
             Text("Add Panic tile to Quick Settings")
+        }
+
+        // ── Trust report button ─────────────────────────────────────────────
+        Spacer(Modifier.height(4.dp))
+        OutlinedButton(
+            onClick = { showTrust = true },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Green),
+            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Green.copy(alpha = 0.4f)),
+        ) {
+            Text("Trust report — verify permissions & signer")
         }
 
         // ── About button ───────────────────────────────────────────────────
@@ -463,7 +517,9 @@ private fun ToggleCard(
     checked: Boolean,
     enabled: Boolean,
     onToggle: (Boolean) -> Unit,
+    requiresDeviceOwner: Boolean = false,
 ) {
+    val ctxIsOwner = enabled // for DO-required cards, enabled mirrors DO tier
     Row(
         Modifier
             .fillMaxWidth()
@@ -475,12 +531,31 @@ private fun ToggleCard(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(
-                title,
-                color = if (enabled) NoryptColors.Text else NoryptColors.Muted,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title,
+                    color = if (enabled) NoryptColors.Text else NoryptColors.Muted,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                if (requiresDeviceOwner) {
+                    Spacer(Modifier.width(8.dp))
+                    val badgeColor = if (ctxIsOwner) NoryptColors.MutedDeep else NoryptColors.Amber
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(badgeColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                    ) {
+                        Text(
+                            "DEVICE OWNER",
+                            color = badgeColor,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                }
+            }
             Text(
                 subtitle,
                 color = NoryptColors.Muted,
@@ -531,5 +606,177 @@ private fun AboutSubScreen(onBack: () -> Unit, padding: PaddingValues) {
             )
         }
         AboutScreen(padding = PaddingValues(0.dp))
+    }
+}
+
+// ── Trust report sub-screen ─────────────────────────────────────────────────
+
+@Composable
+private fun TrustReportSubScreen(onBack: () -> Unit, padding: PaddingValues) {
+    val ctx = LocalContext.current
+    val pm = ctx.packageManager
+    val pkgInfo = runCatching {
+        pm.getPackageInfo(ctx.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
+    }.getOrNull()
+    val requestedPerms = pkgInfo?.requestedPermissions?.toList().orEmpty()
+    val certSha = com.norypt.protect.security.SelfVerification.currentCertSha256(ctx) ?: "unavailable"
+    val pinned = com.norypt.protect.security.SelfVerification.pinnedCertSha256()
+
+    val internetDeclared = requestedPerms.contains(android.Manifest.permission.INTERNET)
+    val locationDeclared = requestedPerms.any {
+        it == android.Manifest.permission.ACCESS_COARSE_LOCATION ||
+            it == android.Manifest.permission.ACCESS_FINE_LOCATION ||
+            it == android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
+    }
+    val contactsDeclared = requestedPerms.contains(android.Manifest.permission.READ_CONTACTS)
+    val micDeclared = requestedPerms.contains(android.Manifest.permission.RECORD_AUDIO)
+    val cameraDeclared = requestedPerms.contains(android.Manifest.permission.CAMERA)
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(NoryptColors.Bg)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
+            .padding(padding),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = NoryptColors.Text)
+            }
+            Text(
+                "Trust report",
+                color = NoryptColors.Text,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                "Norypt Protect operates entirely on-device. This report lists the " +
+                "permissions it declares and its signing cert so you can verify it " +
+                "does not talk to the internet or collect data.",
+                color = NoryptColors.Muted,
+                fontSize = 12.sp,
+            )
+
+            TrustCheckRow("No INTERNET permission", !internetDeclared)
+            TrustCheckRow("No location permission", !locationDeclared)
+            TrustCheckRow("No contacts permission", !contactsDeclared)
+            TrustCheckRow("No microphone permission", !micDeclared)
+            TrustCheckRow("No camera permission", !cameraDeclared)
+
+            Spacer(Modifier.height(8.dp))
+            Text("Declared permissions (${requestedPerms.size})", color = NoryptColors.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(NoryptColors.Surface2)
+                    .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (requestedPerms.isEmpty()) {
+                        Text("(none)", color = NoryptColors.Muted, fontSize = 11.sp)
+                    } else {
+                        requestedPerms.forEach { perm ->
+                            Text(
+                                perm.removePrefix("android.permission."),
+                                color = NoryptColors.Muted,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+            Text("APK signing certificate (SHA-256)", color = NoryptColors.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Compare to the fingerprint published on norypt.com or the F-Droid " +
+                "build page. Mismatch = repackaged APK.",
+                color = NoryptColors.Muted,
+                fontSize = 11.sp,
+            )
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(NoryptColors.Surface2)
+                    .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
+                    .padding(12.dp),
+            ) {
+                Text(
+                    certSha,
+                    color = NoryptColors.Text,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+            if (pinned.isBlank()) {
+                Text(
+                    "⚠ No release fingerprint pinned in this build. The running APK " +
+                    "is debug-signed; a production build will pin the Norypt signing " +
+                    "cert and refuse to launch if the cert changes.",
+                    color = NoryptColors.Amber,
+                    fontSize = 11.sp,
+                )
+            } else {
+                Text(
+                    "Pinned: $pinned",
+                    color = NoryptColors.Green,
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+            val pkgName = ctx.packageName
+            val versionName = pkgInfo?.versionName ?: "?"
+            Text("Package", color = NoryptColors.Muted, fontSize = 11.sp)
+            Text(pkgName, color = NoryptColors.Text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            Spacer(Modifier.height(4.dp))
+            Text("Version", color = NoryptColors.Muted, fontSize = 11.sp)
+            Text(versionName, color = NoryptColors.Text, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+private fun TrustCheckRow(label: String, ok: Boolean) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(NoryptColors.Surface2)
+            .border(1.dp, NoryptColors.Border, RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (ok) "✓" else "✗",
+            color = if (ok) NoryptColors.Green else NoryptColors.Red,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            label,
+            color = if (ok) NoryptColors.Text else NoryptColors.Red,
+            fontSize = 13.sp,
+        )
     }
 }

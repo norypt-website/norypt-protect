@@ -21,15 +21,27 @@ object PackageInternetWatcher {
     private var notificationId = 5000
 
     fun tick(ctx: Context) {
-        if (!ProtectPrefs.isTriggerEnabled(ctx, "B5")) return
+        val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
+        sp.edit().putInt("b5_tick_entered", sp.getInt("b5_tick_entered", 0) + 1).apply()
+
+        if (!ProtectPrefs.isTriggerEnabled(ctx, "B5")) {
+            sp.edit().putInt("b5_tick_disabled", sp.getInt("b5_tick_disabled", 0) + 1).apply()
+            return
+        }
 
         val current = currentInternetPackages(ctx)
         val known = ProtectPrefs.knownInternetPackages(ctx)
 
         val newEntries = current - known
 
+        sp.edit()
+            .putInt("b5_current_size", current.size)
+            .putInt("b5_known_size", known.size)
+            .putInt("b5_new_size", newEntries.size)
+            .apply()
+
         if (known.isEmpty()) {
-            // First run — seed the known set without alerting
+            sp.edit().putInt("b5_seeded", sp.getInt("b5_seeded", 0) + 1).apply()
             ProtectPrefs.setKnownInternetPackages(ctx, current)
             return
         }
@@ -37,6 +49,7 @@ object PackageInternetWatcher {
         if (newEntries.isNotEmpty()) {
             newEntries.forEach { pkg ->
                 postAlert(ctx, pkg)
+                sp.edit().putInt("b5_alerts_posted", sp.getInt("b5_alerts_posted", 0) + 1).apply()
             }
             ProtectPrefs.setKnownInternetPackages(ctx, current)
         }
@@ -78,7 +91,9 @@ object PackageInternetTrigger : Trigger {
     override val id = "B5"
     override val label = "Internet permission monitor"
     override val description =
-        "Alert when a newly installed app gains internet access permission."
+        "Alert when a newly installed app gains internet access permission. " +
+        "Detection runs on the background tick (~10 s cadence) — Android 14+ blocks " +
+        "instant PACKAGE_ADDED delivery to third-party receivers on both stock and GrapheneOS."
     override val requiredTier = Tier.DeviceAdmin
 
     override fun arm(context: Context) =

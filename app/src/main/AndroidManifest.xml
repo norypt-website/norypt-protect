@@ -17,6 +17,13 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
 
+    <!-- Required by B5 (package-internet watcher) on Android 11+. Without this,
+         getInstalledPackages() hides 3rd-party apps and PACKAGE_ADDED broadcasts
+         for those apps are never delivered to our receiver. No Play Store target,
+         so we take the honest route instead of splitting into <queries> filters. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+                     tools:ignore="QueryAllPackagesPermission"/>
+
     <!-- ADB-granted only (signature|privileged — cannot be requested at runtime).
          Needed so the app can read AND write protected Settings.Secure keys,
          specifically emergency_gesture_enabled used by C2 auto-disable SOS.
@@ -54,9 +61,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.NoryptProtect">
-            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>
-        </activity>
+            android:theme="@style/Theme.NoryptProtect"/>
 
         <activity-alias
             android:name=".LauncherAlias"
@@ -67,6 +72,7 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>
         </activity-alias>
 
         <receiver
@@ -86,14 +92,6 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
-            </intent-filter>
-        </receiver>
-
-        <receiver
-            android:name=".triggers.ShutdownReceiver"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.ACTION_SHUTDOWN"/>
             </intent-filter>
         </receiver>
 
