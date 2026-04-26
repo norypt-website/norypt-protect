@@ -1,5 +1,6 @@
 package com.norypt.protect.triggers
 
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -10,13 +11,22 @@ import com.norypt.protect.prefs.ProtectPrefs
 object UnlockedTimerMonitor {
     fun tick(context: Context) {
         if (!ProtectPrefs.isTriggerEnabled(context, "A8")) return
+
+        // No real USER_PRESENT has been recorded yet — nothing to measure
+        // against. Do NOT bootstrap to "now": that would cause the timer to
+        // count from FGS start and panic after `maxUnlockedMinutes` even
+        // though the user never actually unlocked.
         val lastUnlock = ProtectPrefs.lastUnlockMs(context)
-        val now = System.currentTimeMillis()
-        if (lastUnlock == 0L) {
-            ProtectPrefs.setLastUnlockMs(context, now)
-            return
-        }
+        if (lastUnlock <= 0L) return
+
+        // If the device is currently locked, the user is not "leaving it
+        // unlocked too long". A8's whole premise is "phone is unlocked and
+        // forgotten"; if it's locked, skip.
+        val km = context.getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+        if (km?.isDeviceLocked == true) return
+
         val maxMs = ProtectPrefs.maxUnlockedMinutes(context) * 60_000L
+        val now = System.currentTimeMillis()
         if (now - lastUnlock > maxMs) {
             PanicHandler.panic(context, "unlocked.timer")
         }
@@ -25,6 +35,7 @@ object UnlockedTimerMonitor {
 
 class UserPresentReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_USER_PRESENT) return
         ProtectPrefs.setLastUnlockMs(context, System.currentTimeMillis())
     }
 }

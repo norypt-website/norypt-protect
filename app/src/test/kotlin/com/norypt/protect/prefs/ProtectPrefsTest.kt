@@ -47,8 +47,11 @@ class ProtectPrefsTest {
         assertEquals(360, ProtectPrefsKeys.maxUnlockedMinutes(store))
         assertEquals(0, ProtectPrefsKeys.failedAttempts(store))
         assertEquals(0L, ProtectPrefsKeys.lastUnlockMs(store))
-        // Boolean defaults
-        assertFalse(ProtectPrefsKeys.dryRun(store))
+        // Boolean defaults — dry-run defaults to TRUE so that any unintended
+        // panic on a fresh install only broadcasts a test intent, never a
+        // real factory reset. Users flip this to false in Wipe Options once
+        // they've validated their trigger setup.
+        assertTrue(ProtectPrefsKeys.dryRun(store))
         assertTrue(ProtectPrefsKeys.wipeExternalStorage(store))
         assertTrue(ProtectPrefsKeys.wipeEuicc(store))
         assertFalse(ProtectPrefsKeys.isTriggerEnabled(store, "any_trigger", false))

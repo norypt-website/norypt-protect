@@ -1,18 +1,18 @@
 package com.norypt.protect.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import com.norypt.protect.ui.theme.NoryptColors
@@ -20,8 +20,12 @@ import kotlinx.coroutines.launch
 
 /**
  * A destructive-action button that requires the user to hold for [holdMillis]
- * milliseconds. Releases early = cancel (calls [onCancel]). Completes full
- * hold = triggers [onComplete] exactly once.
+ * milliseconds. Releasing early = cancel ([onCancel]). Completes full hold =
+ * triggers [onComplete] exactly once.
+ *
+ * The gesture loop consumes every pointer event while the finger is down so a
+ * surrounding `Modifier.verticalScroll` can't steal the press on the slightest
+ * movement and prematurely cancel the hold.
  */
 @Composable
 fun LongPressHoldButton(
@@ -33,24 +37,46 @@ fun LongPressHoldButton(
 ) {
     val progress = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    val onCompleteState = rememberUpdatedState(onComplete)
+    val onCancelState = rememberUpdatedState(onCancel)
 
     Box(
         modifier
             .fillMaxWidth()
             .height(56.dp)
             .background(NoryptColors.Red.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-            .pointerInput(Unit) {
+            .pointerInput(holdMillis) {
                 awaitEachGesture {
-                    awaitFirstDown()
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+
+                    var completed = false
                     val holdJob = scope.launch {
-                        progress.animateTo(1f, tween(durationMillis = holdMillis, easing = androidx.compose.animation.core.LinearEasing))
-                        onComplete()
+                        progress.animateTo(
+                            targetValue = 1f,
+                            animationSpec = tween(durationMillis = holdMillis, easing = LinearEasing),
+                        )
+                        if (progress.value >= 1f) {
+                            completed = true
+                            onCompleteState.value()
+                        }
                     }
-                    val up = waitForUpOrCancellation()
-                    if (progress.value < 1f) {
+
+                    // Consume every pointer event in the Initial pass so the
+                    // surrounding scrollable can never claim this gesture.
+                    var released = false
+                    while (!released) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        event.changes.forEach { it.consume() }
+                        if (event.changes.all { !it.pressed }) {
+                            released = true
+                        }
+                    }
+
+                    if (!completed) {
                         holdJob.cancel()
                         scope.launch { progress.snapTo(0f) }
-                        if (up != null) onCancel()
+                        onCancelState.value()
                     }
                 }
             },

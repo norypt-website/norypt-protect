@@ -136,6 +136,7 @@
 
         <receiver
             android:name=".triggers.ExternalPanicReceiver"
+            android:permission="com.norypt.protect.permission.TRIGGER"
             android:exported="true">
             <intent-filter>
                 <action android:name="info.guardianproject.panic.action.TRIGGER"/>

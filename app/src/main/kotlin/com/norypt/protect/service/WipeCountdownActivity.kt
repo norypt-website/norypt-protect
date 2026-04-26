@@ -132,12 +132,12 @@ class WipeCountdownActivity : ComponentActivity() {
     private fun isCellularConnected(ctx: Context): Boolean = hasTransport(ctx, NetworkCapabilities.TRANSPORT_CELLULAR)
     private fun isWifiConnected(ctx: Context): Boolean = hasTransport(ctx, NetworkCapabilities.TRANSPORT_WIFI)
 
-    private fun hasTransport(ctx: Context, transport: Int): Boolean {
+    private fun hasTransport(ctx: Context, transport: Int): Boolean = runCatching {
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = cm.activeNetwork ?: return false
-        val caps = cm.getNetworkCapabilities(network) ?: return false
-        return caps.hasTransport(transport)
-    }
+        val network = cm.activeNetwork ?: return@runCatching false
+        val caps = cm.getNetworkCapabilities(network) ?: return@runCatching false
+        caps.hasTransport(transport)
+    }.getOrDefault(false)
 }
 
 @Composable

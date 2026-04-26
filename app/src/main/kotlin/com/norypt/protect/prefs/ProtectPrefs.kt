@@ -91,8 +91,14 @@ internal object ProtectPrefsKeys {
     fun setFakeMessengerPackage(store: KvStore, value: String?) =
         store.putString(KEY_FAKE_MESSENGER_PACKAGE, value)
 
+    /**
+     * Dry-run defaults to `true` on first install: any trigger that fires before
+     * the user has explicitly disabled dry-run only broadcasts a test intent,
+     * never a real factory reset. The Wipe-options screen flips this to `false`
+     * once the user confirms they want real wipes.
+     */
     fun dryRun(store: KvStore): Boolean =
-        store.getBoolean(KEY_DRY_RUN, false)
+        store.getBoolean(KEY_DRY_RUN, true)
 
     fun setDryRun(store: KvStore, value: Boolean) =
         store.putBoolean(KEY_DRY_RUN, value)

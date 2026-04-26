@@ -25,6 +25,12 @@ class ProtectForegroundService : Service() {
                 .apply()
             tickListeners.forEach { fn ->
                 runCatching { fn(this@ProtectForegroundService) }
+                    .onFailure { t ->
+                        sp.edit()
+                            .putInt("fgs_tick_errors", sp.getInt("fgs_tick_errors", 0) + 1)
+                            .putString("fgs_tick_last_error", "${t.javaClass.simpleName}: ${t.message}")
+                            .apply()
+                    }
             }
             handler.postDelayed(this, TICK_INTERVAL_MS)
         }
