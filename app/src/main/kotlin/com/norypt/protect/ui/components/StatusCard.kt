@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.norypt.protect.ui.theme.NoryptColors
 
@@ -36,9 +37,9 @@ fun StatusCard(level: StatusLevel, title: String, subtitle: String, modifier: Mo
                 .background(dotColor, CircleShape)
         )
         Spacer(Modifier.width(12.dp))
-        Column {
-            Text(title, color = NoryptColors.Text)
-            Text(subtitle, color = NoryptColors.Muted)
+        Column(Modifier.weight(1f)) {
+            Text(title, color = NoryptColors.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = NoryptColors.Muted, maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
     }
 }

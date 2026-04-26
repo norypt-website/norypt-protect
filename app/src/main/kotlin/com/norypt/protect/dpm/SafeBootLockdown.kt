@@ -14,10 +14,10 @@ object SafeBootLockdown {
     private fun admin(ctx: Context): ComponentName =
         ComponentName(ctx, ProtectAdminReceiver::class.java)
 
-    fun isOn(ctx: Context): Boolean {
-        val restrictions = dpm(ctx).getUserRestrictions(admin(ctx))
-        return restrictions?.getBoolean(UserManager.DISALLOW_SAFE_BOOT, false) == true
-    }
+    fun isOn(ctx: Context): Boolean = runCatching {
+        dpm(ctx).getUserRestrictions(admin(ctx))
+            ?.getBoolean(UserManager.DISALLOW_SAFE_BOOT, false) == true
+    }.getOrDefault(false)
 
     /**
      * Applies DISALLOW_SAFE_BOOT via DPM (requires Device Owner).

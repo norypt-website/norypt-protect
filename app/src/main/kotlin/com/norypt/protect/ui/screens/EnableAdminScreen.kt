@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.ui.theme.NoryptColors
@@ -140,10 +141,23 @@ private fun StepCard(index: Int, title: String, body: String) {
             Text(index.toString(), color = NoryptColors.Accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
-        Column {
-            Text(title, color = NoryptColors.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                color = NoryptColors.Text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
             Spacer(Modifier.height(4.dp))
-            Text(body, color = NoryptColors.Muted, fontSize = 12.sp)
+            Text(
+                body,
+                color = NoryptColors.Muted,
+                fontSize = 12.sp,
+                maxLines = 6,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.platform.PlatformInfo
@@ -140,12 +141,17 @@ private fun TriggerRow(
                     color = NoryptColors.Text,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     trigger.id,
                     color = NoryptColors.MutedDeep,
                     fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (trigger.requiredTier == Tier.DeviceOwner) {
                     Spacer(Modifier.width(8.dp))
@@ -161,12 +167,21 @@ private fun TriggerRow(
                             color = badgeColor,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Visible,
                         )
                     }
                 }
             }
             Spacer(Modifier.height(2.dp))
-            Text(trigger.description, color = NoryptColors.Muted, fontSize = 12.sp)
+            Text(
+                trigger.description,
+                color = NoryptColors.Muted,
+                fontSize = 12.sp,
+                maxLines = 6,
+                overflow = TextOverflow.Ellipsis,
+            )
             val grapheneNote = trigger.grapheneOsNote
             if (grapheneNote != null && PlatformInfo.isGrapheneOS(LocalContext.current)) {
                 Spacer(Modifier.height(6.dp))

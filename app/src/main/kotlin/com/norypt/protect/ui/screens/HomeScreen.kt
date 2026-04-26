@@ -18,8 +18,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.norypt.protect.R
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Provisioning
@@ -39,6 +43,17 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     var showPinForWipe by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { tier = Provisioning.current(ctx) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                tier = Provisioning.current(ctx)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         Modifier
@@ -66,6 +81,8 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
                     color = NoryptColors.Text,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     "Local-only security — no logs, no server",
@@ -143,7 +160,15 @@ private fun TierBadge(tier: Tier) {
             .background(bg)
             .padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        Text(text, color = fg, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(
+            text,
+            color = fg,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Visible,
+        )
     }
 }
 

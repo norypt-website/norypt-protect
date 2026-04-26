@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -458,12 +459,26 @@ private fun UpgradeCard(ctx: Context) {
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            "Run these ADB commands on a PC. The device must have no Google or manufacturer accounts.",
+            "Run these ADB commands on a PC. Before step 2, the device must have:",
             color = NoryptColors.Muted,
             fontSize = 12.sp,
         )
-        CopyableCommand(label = "1. Set Device Owner", command = AdbInstructions.setDeviceOwner, ctx = ctx)
-        CopyableCommand(label = "2. Grant write secure settings", command = AdbInstructions.grantWriteSecureSettings, ctx = ctx)
+        Text(
+            "• No other Device Owner (Knox, Intune, etc.)\n" +
+                "• No Google, Samsung, email, or work accounts\n" +
+                "• No managed / work profile\n" +
+                "• Only user 0 (no secondary users)",
+            color = NoryptColors.Muted,
+            fontSize = 12.sp,
+        )
+        CopyableCommand(label = "1. Check no Device Owner is set (output must be empty)", command = AdbInstructions.checkOwners, ctx = ctx)
+        CopyableCommand(label = "2. Set Device Owner", command = AdbInstructions.setDeviceOwner, ctx = ctx)
+        CopyableCommand(label = "3. Grant write secure settings", command = AdbInstructions.grantWriteSecureSettings, ctx = ctx)
+        Text(
+            "If step 2 fails: \"already set\" → an old MDM/Knox owner is still active; remove it via ADB or factory reset. \"already accounts\" → remove every account in Settings → Passwords & accounts. \"Unknown admin\" → the package above doesn't match the installed APK; reinstall.",
+            color = NoryptColors.Muted,
+            fontSize = 11.sp,
+        )
         OutlinedButton(
             onClick = {
                 ctx.startActivity(
@@ -537,6 +552,9 @@ private fun ToggleCard(
                     color = if (enabled) NoryptColors.Text else NoryptColors.Muted,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f, fill = false),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 if (requiresDeviceOwner) {
                     Spacer(Modifier.width(8.dp))
@@ -552,6 +570,9 @@ private fun ToggleCard(
                             color = badgeColor,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Visible,
                         )
                     }
                 }
@@ -560,6 +581,8 @@ private fun ToggleCard(
                 subtitle,
                 color = NoryptColors.Muted,
                 fontSize = 12.sp,
+                maxLines = 4,
+                overflow = TextOverflow.Ellipsis,
             )
         }
         Switch(

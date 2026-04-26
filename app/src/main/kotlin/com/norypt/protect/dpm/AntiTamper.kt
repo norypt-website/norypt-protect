@@ -25,8 +25,9 @@ object AntiTamper {
     fun isApplied(ctx: Context): Boolean {
         val d = dpm(ctx)
         val admin = admin(ctx)
-        val restrictions = d.getUserRestrictions(admin)
-        val factoryResetBlocked = restrictions?.getBoolean(UserManager.DISALLOW_FACTORY_RESET, false) == true
+        val factoryResetBlocked = runCatching {
+            d.getUserRestrictions(admin)?.getBoolean(UserManager.DISALLOW_FACTORY_RESET, false) == true
+        }.getOrDefault(false)
         val uninstallBlocked = runCatching { d.isUninstallBlocked(admin, ctx.packageName) }.getOrDefault(false)
         return factoryResetBlocked || uninstallBlocked
     }
