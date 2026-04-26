@@ -2,24 +2,37 @@ package com.norypt.protect.security
 
 import android.content.Context
 import android.content.pm.PackageManager
+import com.norypt.protect.BuildConfig
 import java.security.MessageDigest
 
 /**
  * APK signing-certificate verification.
  *
- * Read the app's current signing cert SHA-256 and compare against a known-good
- * fingerprint if one is pinned. Defends against repackaged APKs — if an attacker
- * substitutes the binary, the cert changes and the check catches it.
+ * Reads the running APK's signing cert SHA-256 and compares it against the
+ * pinned Norypt release fingerprint. If a release-signed APK has been
+ * repackaged or re-signed by an attacker, the cert changes and the check
+ * fails — [MainActivity] then refuses to start the UI.
  *
- * The release keystore hasn't been generated yet, so [EXPECTED_RELEASE_SHA256]
- * is intentionally blank. Once the Norypt release key exists and F-Droid
- * Reproducible Builds are set up, paste the expected SHA-256 here and flip
- * the check to hard-fail (see [verifyOrRefuse]).
+ * Debug builds always pass through (a debug APK is signed with the local
+ * Android debug keystore and would never match the release fingerprint).
  */
 object SelfVerification {
 
-    /** Pinned SHA-256 of the Norypt release signing cert. Empty = unpinned. */
-    private const val EXPECTED_RELEASE_SHA256 = ""
+    /**
+     * Pinned SHA-256 of the Norypt Protect production signing certificate.
+     *
+     * Mirrored in:
+     *  - README.md "Verify the app" section
+     *  - Trust report screen (read live from [currentCertSha256] and compared
+     *    visually by the user)
+     *  - norypt.com/protect
+     *  - Future F-Droid Reproducible Build entry
+     *
+     * Format is upper-case hex bytes separated by colons, matching what
+     * `keytool -list -v` and `apksigner verify --print-certs` produce.
+     */
+    private const val EXPECTED_RELEASE_SHA256 =
+        "13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95"
 
     /** Read the SHA-256 fingerprint of whichever cert signed this APK. */
     fun currentCertSha256(ctx: Context): String? = runCatching {
@@ -35,15 +48,15 @@ object SelfVerification {
 
     /**
      * True iff the APK's cert matches the pinned release fingerprint.
-     * When the pin is empty (dev/debug builds), returns true unconditionally —
-     * we can't verify what we don't have. Trust-report screen still surfaces
-     * the raw fingerprint so users can compare against F-Droid's build.
+     * Debug builds bypass the check unconditionally so the dev workflow
+     * (locally-built APKs signed with the Android debug keystore) is not
+     * blocked.
      */
     fun isTrustedCert(ctx: Context): Boolean {
-        if (EXPECTED_RELEASE_SHA256.isBlank()) return true
+        if (BuildConfig.DEBUG) return true
         return currentCertSha256(ctx)?.equals(EXPECTED_RELEASE_SHA256, ignoreCase = true) == true
     }
 
-    /** Empty when pin is set for display purposes in the Trust screen. */
+    /** Pinned fingerprint, surfaced on the Trust-report screen for comparison. */
     fun pinnedCertSha256(): String = EXPECTED_RELEASE_SHA256
 }

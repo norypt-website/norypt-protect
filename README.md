@@ -44,12 +44,13 @@ Norypt Protect ships with a **Trust Report** screen (Protect tab → *Trust repo
 | No camera permission | ✓ check shown on Trust Report |
 | Full permission list displayed | Scrollable monospace list of every permission the APK declares |
 | APK signing certificate fingerprint | Shown as SHA-256 so you can compare against the value published on norypt.com or F-Droid |
-| **Self-verification on launch** | The app refuses to start if the signing cert doesn't match the pinned Norypt release fingerprint (prevents repackaged binaries) |
+| **Self-verification on launch** | The app refuses to start if the signing cert doesn't match the pinned Norypt release fingerprint (prevents repackaged binaries). The pin lives in [`SelfVerification.kt`](app/src/main/kotlin/com/norypt/protect/security/SelfVerification.kt); debug builds bypass it so local development still works |
 
 If any claim breaks, the report tells you immediately. No network round-trip. No external oracle. Just the truth from `PackageManager`.
 
 ### Additional hardening in v1.0
 
+- **Dry-run defaults to ON** on a fresh install. Every panic path — manual hold-to-wipe, scheduled triggers, external broadcasts — only emits a local test broadcast (`com.norypt.protect.action.WIPED_DRYRUN`) until the user explicitly disables dry-run in *Wipe Options*. A misconfigured trigger on an unattended fresh install cannot factory-reset the phone.
 - **App-launch PIN gate** — after the system unlock, the app still requires the App PIN before revealing any configured triggers, secret SMS codes, decoy package names, or wipe options. Shoulder-surfing the main screen is blocked.
 - **Optional biometric shortcut** — fingerprint or Class-3 face ID can unlock the app faster, but the PIN is always the fallback and is never bypassed by biometrics alone.
 - **No-PIN-recovery architecture** — PBKDF2-HMAC-SHA256 (120 000 rounds) + Android Keystore. Forgotten PIN = factory-reset, no back door.
@@ -57,6 +58,7 @@ If any claim breaks, the report tells you immediately. No network round-trip. No
 - **R8 strips `Log.*`** on release builds. No logs on disk, ever.
 - **No `INTERNET` permission** in the manifest. Android cannot give the app a socket — the kernel would reject `socket()` system calls even if the code tried.
 - **Zero third-party analytics, crash reporting, or ad-SDK dependencies.** The full dependency graph is short and auditable.
+- **Signature-protected external triggers** — every receiver that accepts an outside intent (`A5` PanicKit-compatible, `A7` Norypt broadcast) is gated by the signature-level `com.norypt.protect.permission.TRIGGER`. Third-party apps cannot fire a wipe by broadcast unless they're signed with the same key.
 
 ---
 
@@ -82,7 +84,7 @@ Norypt Protect detects GrapheneOS automatically via `PackageManager.hasSystemFea
 - **GitHub Releases** — signed APK + SHA-256 for each tagged version.
 - **Norypt-hosted F-Droid repo** — for customers who want faster updates direct from norypt.com (same reproducible guarantee).
 
-> The current codebase is a debug build for on-device testing. The production release channel goes live with the first signed v1.0 tag.
+> Release-signing infrastructure is in place — `:app:assembleRelease` produces an R8-minified APK signed with the Norypt production keystore. The public release channel goes live with the first signed `v1.0` tag.
 
 ---
 
@@ -114,12 +116,31 @@ adb shell dpm set-active-admin --user 0 com.norypt.protect/com.norypt.protect.ad
 
 ### Tier 2 — Device Owner (one-time ADB command, unlocks the full feature set)
 
-For maximum protection. Requires two ADB commands once from a computer (the app shows them with a copy button). The phone must be freshly factory-reset before promotion (Android requires it).
+For maximum protection. Three one-time ADB commands from a computer (the app shows them with a copy button on the upgrade card).
+
+**Preconditions** — Android refuses `set-device-owner` unless ALL four are met:
+- No other Device Owner is currently set on the device (Knox / Intune / leftover MDM).
+- No accounts on user 0 (Google / Samsung / email / work profile / etc.).
+- No managed profile.
+- Single user (no secondary users or guest sessions).
+
+A fresh factory reset is the cleanest way to get to that state, but a phone that has never had any account added also qualifies.
 
 ```
+# 1. Confirm no other Device Owner exists. Output must be empty.
+adb shell dpm list-owners
+
+# 2. Promote Norypt Protect to Device Owner.
 adb shell dpm set-device-owner com.norypt.protect/com.norypt.protect.admin.ProtectAdminReceiver
+
+# 3. Grant the secure-settings write permission used by C2 (Emergency SOS auto-disable).
 adb shell pm grant com.norypt.protect android.permission.WRITE_SECURE_SETTINGS
 ```
+
+**If step 2 fails:**
+- *"already set"* → another Device Owner is already active. Remove it via ADB or factory reset.
+- *"already accounts"* → remove every account in Settings → Passwords & accounts.
+- *"Unknown admin"* → the package above doesn't match the installed APK (e.g. you have a debug variant installed). Reinstall the production release.
 
 **Tier 2 additionally unlocks:**
 - **Real factory-reset wipe** via `DevicePolicyManager.wipeDevice(flags)` on Android 14+ (the pre-14 `wipeData` path was deprecated)
@@ -220,12 +241,22 @@ These aren't GrapheneOS quirks — they're Android-platform decisions. The app h
 
 ### From GitHub Releases (current)
 
-Download the signed APK from the [Releases page](https://github.com/norypt-website/norypt-protect/releases/latest) and verify before install:
+Download the signed APK from the [Releases page](https://github.com/norypt-website/norypt-protect/releases/latest) and run **both** verifications before installing:
 
 ```bash
+# 1. Hash check — catches a silently-replaced download.
 sha256sum norypt-protect-1.0.0.apk
-# compare with the SHA-256 listed on the same release page and on norypt.com/protect
+# Compare with the SHA-256 listed on the release page and on norypt.com/protect.
+
+# 2. Signature check — confirms the APK was signed by the Norypt release key
+#    and the signature block hasn't been tampered with. Requires Android SDK
+#    build-tools on PATH.
+apksigner verify --print-certs norypt-protect-1.0.0.apk
+# The "certificate SHA-256 digest" line MUST equal:
+#   13502510a5b50d59bf7823cbe596b88c7b4cb54b41bc217aac7c251917536e95
 ```
+
+A passing `sha256sum` alone is necessary but not sufficient — `apksigner verify` is what proves the file is genuinely signed by Norypt. Both must match.
 
 Then install with `adb install norypt-protect-1.0.0.apk` or open the APK from the phone's file manager.
 
@@ -252,6 +283,13 @@ docker run --rm -v "$(pwd):/workspace" norypt-protect-builder \
 
 Output APK at `app/build/outputs/apk/release/app-release.apk` is byte-for-byte identical to the version Norypt signs and ships.
 
+### Build prerequisites
+
+- **JDK 17** — easiest source is the JBR bundled with Android Studio (`<AS install>/jbr/`); Adoptium / Temurin works too. Set `JAVA_HOME` to the JDK root.
+- **Android SDK** with `build-tools;35.0.0` and `platform-tools` installed. Set `ANDROID_HOME` (or `local.properties` `sdk.dir`).
+- **Kotlin / Gradle / AGP / Compose** versions are pinned in `gradle/libs.versions.toml` — the wrapper script downloads everything else.
+- No additional global plugins or proprietary tooling are required.
+
 ### Local development (debug build)
 
 ```bash
@@ -260,15 +298,27 @@ export JAVA_HOME=/path/to/jdk17
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Debug builds use the Android debug keystore, install as `com.norypt.protect.debug`, and bypass the signing-cert pin in [`SelfVerification.kt`](app/src/main/kotlin/com/norypt/protect/security/SelfVerification.kt).
+
 ### Signed release
 
-Copy `keystore.properties.example` to `keystore.properties`, fill in your keystore details, then:
+The Norypt production release uses a PKCS12 keystore (`norypt-protect-release.p12`, RSA 4096, SHA256withRSA, 30-year validity). The keystore itself is never committed; Gradle reads its location and password from a top-level `keystore.properties` file that is `.gitignore`-blocked.
 
 ```bash
+# 1. Copy the template and edit it with your keystore details.
+cp keystore.properties.example keystore.properties
+$EDITOR keystore.properties     # set keyAlias, storeFile (PKCS12), passwords
+
+# 2. Build, R8-minify, sign, and write the APK to app/build/outputs/apk/release/.
 ./gradlew :app:assembleRelease
+
+# 3. Verify the resulting APK is signed by the expected key.
+apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
 ```
 
-The keystore itself is never committed.
+For the Norypt production builds the resulting `certificate SHA-256 digest` must be `13502510a5b50d59bf7823cbe596b88c7b4cb54b41bc217aac7c251917536e95`.
+
+> **Losing the production keystore = the project can never ship an Android update again.** Android requires the same signing key for every update of an installed app, and the F-Droid listing pins the same fingerprint as the project's identity. Back up the `.p12` file and the password to two physically separate locations (encrypted USB key, encrypted cloud, password manager).
 
 ---
 
@@ -297,14 +347,30 @@ Norypt Protect does **not** protect against:
 
 ## Verify the app
 
-The signed release APK has its SHA-256 published in three places:
-1. [norypt.com/protect](https://norypt.com/protect)
-2. The [GitHub release page](https://github.com/norypt-website/norypt-protect/releases)
-3. The F-Droid Reproducible Build verification badge (once the F-Droid listing is live)
+### Pinned production signing certificate
 
-All sources must match. If they don't, do not install.
+```
+SHA-256: 13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
+SHA-1:   9F:46:D8:CD:77:AE:FE:F2:63:89:C7:5C:B4:B7:5F:29:18:C5:1C:39
+DN:      CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
+```
 
-You can also verify live on-device: open Norypt Protect → **Protect** tab → **Trust report** → the SHA-256 displayed there is what's actually running.
+This is the only certificate that signs official Norypt Protect releases. The same value is hard-coded in `SelfVerification.kt`, so any release-signed APK whose cert doesn't match refuses to launch.
+
+### Where the fingerprint is published
+
+Three independent sources MUST all show the same SHA-256:
+1. **This README** (above).
+2. **[norypt.com/protect](https://norypt.com/protect)** — published alongside each release.
+3. **The [GitHub Releases page](https://github.com/norypt-website/norypt-protect/releases)** — printed in each release's notes.
+
+A future fourth source — the **F-Droid Reproducible Build verification badge** — will appear once the F-Droid listing is live.
+
+If any two sources disagree, do not install. Report it via [GitHub Issues](https://github.com/norypt-website/norypt-protect/issues) or [norypt@proton.me](mailto:norypt@proton.me).
+
+### Verify live on-device
+
+Open Norypt Protect → **Protect** tab → **Trust report**. The SHA-256 displayed is read from `PackageManager` against the running APK; comparing it to the value above proves the binary on your device is genuine.
 
 ---
 
