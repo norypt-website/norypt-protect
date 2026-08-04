@@ -73,9 +73,8 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         // B4 — failed-auth notification
         postFailedAuthNotification(context)
 
-        // Increment shared counter (used by both A11 and B1)
-        ProtectPrefs.incrementFailedAttempts(context)
-        val count = ProtectPrefs.failedAttempts(context)
+        // Shared run length (used by both A11 and B1)
+        val count = ProtectPrefs.recordFailedAttempt(context)
 
         // A11 — duress fast-wipe (stricter threshold, checked first)
         if (ProtectPrefs.isTriggerEnabled(context, "A11")) {
