@@ -5,15 +5,21 @@ on:
     tags:
       - "v*"
 
+# Least privilege by default. Only the publish job is granted contents: write, and it
+# never sees the signing key.
 permissions:
-  contents: write
+  contents: read
 
 env:
   EXPECTED_CERT_SHA256: 13502510a5b50d59bf7823cbe596b88c7b4cb54b41bc217aac7c251917536e95
 
 jobs:
-  release:
+  # Holds the signing key. Produces a signed, verified APK and hands it on as an
+  # artifact. Nothing in this job can publish.
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -96,9 +102,9 @@ jobs:
             -storepass "$RELEASE_KEYSTORE_PASSWORD" \
             -file norypt-protect-release.cert.pem
 
-      # Last use of the signing key is above. Removing it here means the third-party
-      # publish action later in this job runs on a runner with no readable keystore.
-      # `always()` so a failure in an earlier step does not leave the key on disk.
+      # Last use of the signing key is above. Publishing now happens in a separate job
+      # that never receives the secrets, so this is defence in depth rather than the only
+      # barrier. `always()` so a failure in an earlier step cannot leave the key on disk.
       - name: Shred keystore
         if: always()
         run: |
@@ -120,6 +126,54 @@ jobs:
             echo "APK_OUT=$APK_OUT"
             echo "APK_SHA256=$SHA"
           } >> "$GITHUB_ENV"
+
+      - name: Upload signed artifacts for the publish job
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: release-artifacts
+          path: |
+            ${{ env.APK_OUT }}
+            ${{ env.APK_OUT }}.sha256
+            norypt-protect-release.cert.pem
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Export version for the publish job
+        id: meta
+        run: |
+          {
+            echo "version=$VERSION"
+            echo "apk_out=$APK_OUT"
+            echo "apk_sha256=$APK_SHA256"
+          } >> "$GITHUB_OUTPUT"
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      apk_out: ${{ steps.meta.outputs.apk_out }}
+      apk_sha256: ${{ steps.meta.outputs.apk_sha256 }}
+
+  # Publishes only. Has contents: write but no keystore and no secrets, so a compromised
+  # action here cannot sign anything — it can only publish what build already signed.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      APK_OUT: ${{ needs.build.outputs.apk_out }}
+      APK_SHA256: ${{ needs.build.outputs.apk_sha256 }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Download signed artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: release-artifacts
+
+      - name: Re-verify the artifact this job is about to publish
+        run: |
+          set -euo pipefail
+          echo "${APK_SHA256}  ${APK_OUT}" | sha256sum -c -
 
       - name: Render release notes
         run: |
