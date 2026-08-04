@@ -17,6 +17,22 @@ object DebugTelemetry {
 
     private const val FILE = "norypt_admin_debug"
 
+    /** Logcat tag used only by debug builds. */
+    const val TAG = "NoryptProtect"
+
+    /**
+     * Debug-only logcat line, for observing trigger scheduling on a test device.
+     *
+     * Release builds must stay silent: logcat is readable by any process holding
+     * READ_LOGS and by anyone with adb, so a trigger-timing log would leak the same
+     * protection posture the plaintext counter file used to. `BuildConfig.DEBUG` is a
+     * compile-time constant, so R8 removes the call and the string entirely.
+     */
+    fun log(message: String) {
+        if (!BuildConfig.DEBUG) return
+        android.util.Log.d(TAG, message)
+    }
+
     /** Increment a named counter. */
     fun bump(context: Context, key: String) {
         if (!BuildConfig.DEBUG) return

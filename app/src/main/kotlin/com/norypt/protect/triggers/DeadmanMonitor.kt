@@ -8,9 +8,11 @@ import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
+import android.os.SystemClock
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.WipeCountdownActivity
+import com.norypt.protect.util.DebugTelemetry
 
 /**
  * C4 — Low-battery dead-man switch.
@@ -22,8 +24,30 @@ import com.norypt.protect.service.WipeCountdownActivity
  */
 object DeadmanMonitor {
 
-    /** Set to true while WipeCountdownActivity is visible to prevent duplicate launches. */
-    var countdownActive: Boolean = false
+    /**
+     * How long the duplicate-launch guard holds before it expires on its own. Must exceed
+     * any plausible configured grace period; a guard that outlives the countdown costs one
+     * duplicate alert, while a guard that never expires disables C4 entirely.
+     */
+    private const val COUNTDOWN_GUARD_MS = 30 * 60_000L
+
+    private var countdownStartedAtMs: Long = 0L
+
+    /**
+     * True while [WipeCountdownActivity] is expected to be up, to prevent duplicate
+     * launches. Backed by a timestamp rather than a plain flag: the countdown is delivered
+     * through setFullScreenIntent, which silently degrades to a heads-up notification when
+     * USE_FULL_SCREEN_INTENT is not held — the default on Android 14+ for an app that is
+     * not a calling or alarm app. If nobody taps that notification the activity never
+     * starts, so onDestroy never clears the flag, and a plain boolean would leave C4
+     * permanently armed-but-inert with no user-visible signal.
+     */
+    var countdownActive: Boolean
+        get() = countdownStartedAtMs != 0L &&
+            SystemClock.elapsedRealtime() - countdownStartedAtMs < COUNTDOWN_GUARD_MS
+        set(value) {
+            countdownStartedAtMs = if (value) SystemClock.elapsedRealtime() else 0L
+        }
 
     fun tick(ctx: Context) {
         debugBump(ctx, "c4_ticks_total")
@@ -48,6 +72,9 @@ object DeadmanMonitor {
         debugStore(ctx, "c4_last_threshold", threshold)
         if (level > threshold) {
             debugBump(ctx, "c4_skip_battery_above_threshold")
+            // The situation that raised the alert has resolved, so release the guard
+            // rather than waiting out its expiry.
+            countdownActive = false
             return
         }
 
@@ -161,15 +188,10 @@ object DeadmanMonitor {
 
     private const val NOTIF_ID_DEADMAN = 5001
 
-    private fun debugBump(ctx: Context, key: String) {
-        val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-        sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
-    }
+    private fun debugBump(ctx: Context, key: String) = DebugTelemetry.bump(ctx, key)
 
-    private fun debugStore(ctx: Context, key: String, value: Int) {
-        ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-            .edit().putInt(key, value).apply()
-    }
+    private fun debugStore(ctx: Context, key: String, value: Int) =
+        DebugTelemetry.put(ctx, key, value)
 }
 
 object DeadmanTrigger : Trigger {
@@ -180,9 +202,13 @@ object DeadmanTrigger : Trigger {
         "Requires Device Owner — the wipe call is denied for non-DO admins on Android 13+."
     override val requiredTier = Tier.DeviceOwner
 
-    override fun arm(context: Context) =
+    override fun arm(context: Context) {
         ProtectPrefs.setTriggerEnabled(context, id, true)
+        DeadmanScheduler.schedule(context)
+    }
 
-    override fun disarm(context: Context) =
+    override fun disarm(context: Context) {
         ProtectPrefs.setTriggerEnabled(context, id, false)
+        DeadmanScheduler.cancel(context)
+    }
 }

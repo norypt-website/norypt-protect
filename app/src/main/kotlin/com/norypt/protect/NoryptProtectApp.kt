@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.service.ProtectForegroundService
-import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
 import com.norypt.protect.triggers.PackageInternetWatcher
 import com.norypt.protect.triggers.UnlockedTimerMonitor
@@ -44,7 +43,8 @@ class NoryptProtectApp : Application() {
         )
         ProtectForegroundService.registerTick { UnlockedTimerMonitor.tick(it) }
         ProtectForegroundService.registerTick { FakeMessengerMonitor.tick(it) }
-        ProtectForegroundService.registerTick { DeadmanMonitor.tick(it) }
+        // C4 is driven by DeadmanScheduler's alarm, not this tick: the handler does not
+        // run while the SoC is suspended, which is exactly when the dead-man must fire.
         ProtectForegroundService.registerTick { PackageInternetWatcher.tick(it) }
         // Retries a wipe that was attempted and denied — see PanicHandler.retryPendingWipe.
         ProtectForegroundService.registerTick { PanicHandler.retryPendingWipe(it) }
