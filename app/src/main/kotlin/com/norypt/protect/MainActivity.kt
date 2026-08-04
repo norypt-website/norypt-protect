@@ -38,6 +38,7 @@ import com.norypt.protect.ui.screens.TriggersScreen
 import com.norypt.protect.ui.screens.WipeOptionsScreen
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
+import com.norypt.protect.util.DebugTelemetry
 
 class MainActivity : ComponentActivity() {
 
@@ -51,10 +52,11 @@ class MainActivity : ComponentActivity() {
         // doesn't match, refuse to launch. Catches repackaged binaries before
         // any UI or prefs are touched. Unpinned debug/dev builds pass through.
         if (!SelfVerification.isTrustedCert(this)) {
-            val sp = getSharedPreferences("norypt_admin_debug", android.content.Context.MODE_PRIVATE)
-            sp.edit()
-                .putString("self_verify_result", "FAIL cert=${SelfVerification.currentCertSha256(this)}")
-                .apply()
+            DebugTelemetry.put(
+                this,
+                "self_verify_result",
+                "FAIL cert=${SelfVerification.currentCertSha256(this)}",
+            )
             finishAndRemoveTask()
             return
         }

@@ -10,6 +10,7 @@ import com.norypt.protect.R
 import com.norypt.protect.dpm.EmergencySos
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.util.DebugTelemetry
 import com.norypt.protect.service.ProtectForegroundService
 
 class ProtectAdminReceiver : DeviceAdminReceiver() {
@@ -99,13 +100,7 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         ProtectPrefs.resetFailedAttempts(context)
     }
 
-    // Temporary telemetry: proves whether Android is invoking the DeviceAdmin
-    // callbacks at all on this device. Writes to an unencrypted local prefs
-    // file so we can read it over adb without running app code.
-    private fun debugIncrement(ctx: Context, key: String) {
-        val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-        sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
-    }
+    private fun debugIncrement(ctx: Context, key: String) = DebugTelemetry.bump(ctx, key)
 
     private fun postFailedAuthNotification(context: Context) {
         if (!ProtectPrefs.isTriggerEnabled(context, "B4")) return

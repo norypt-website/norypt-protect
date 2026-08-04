@@ -42,6 +42,7 @@ import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.util.AdbInstructions
+import com.norypt.protect.util.DebugTelemetry
 
 @Composable
 fun ProtectionLevelScreen(padding: PaddingValues) {
@@ -93,12 +94,8 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 antiTamperOn = AntiTamper.isApplied(ctx)
                 launcherHidden = LauncherAlias.isHidden(ctx)
                 powerMenuBlockOn = PowerMenuGuard.isEnabled(ctx)
-                // Debug telemetry so we can inspect over adb what the app actually reads.
-                ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-                    .edit()
-                    .putInt("sos_raw_value", rawSos)
-                    .putInt("sos_read_count", (ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE).getInt("sos_read_count", 0) + 1))
-                    .apply()
+                DebugTelemetry.put(ctx, "sos_raw_value", rawSos)
+                DebugTelemetry.bump(ctx, "sos_read_count")
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -191,15 +188,12 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 val result = if (on) EmergencySos.disableIfPossible(ctx)
                              else EmergencySos.enableIfPossible(ctx)
                 val after = EmergencySos.currentValue(ctx)
-                val dbg = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-                val n = dbg.getInt("sos_click_count", 0) + 1
-                dbg.edit()
-                    .putInt("sos_click_count", n)
-                    .putString("sos_click_${n}_wanted_disable", on.toString())
-                    .putInt("sos_click_${n}_before", before)
-                    .putInt("sos_click_${n}_after", after)
-                    .putString("sos_click_${n}_path", result.name)
-                    .apply()
+                DebugTelemetry.bump(ctx, "sos_click_count")
+                val n = DebugTelemetry.count(ctx, "sos_click_count")
+                DebugTelemetry.put(ctx, "sos_click_${n}_wanted_disable", on.toString())
+                DebugTelemetry.put(ctx, "sos_click_${n}_before", before)
+                DebugTelemetry.put(ctx, "sos_click_${n}_after", after)
+                DebugTelemetry.put(ctx, "sos_click_${n}_path", result.name)
                 sosOn = after == 0
             },
         )
@@ -274,11 +268,10 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
         Spacer(Modifier.height(4.dp))
         OutlinedButton(
             onClick = {
-                val dbg = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-                dbg.edit().putInt("qs_tile_button_clicks", dbg.getInt("qs_tile_button_clicks", 0) + 1).apply()
+                DebugTelemetry.bump(ctx, "qs_tile_button_clicks")
                 val sbm = ctx.getSystemService(android.app.StatusBarManager::class.java)
                 if (sbm == null) {
-                    dbg.edit().putString("qs_tile_last_error", "StatusBarManager null").apply()
+                    DebugTelemetry.put(ctx, "qs_tile_last_error", "StatusBarManager null")
                     return@OutlinedButton
                 }
                 val component = android.content.ComponentName(
@@ -296,11 +289,10 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                         icon,
                         ctx.mainExecutor,
                     ) { resultCode ->
-                        ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-                            .edit().putInt("qs_tile_result_code", resultCode).apply()
+                        DebugTelemetry.put(ctx, "qs_tile_result_code", resultCode)
                     }
                 }.onFailure { e ->
-                    dbg.edit().putString("qs_tile_last_error", "${e::class.simpleName}: ${e.message}").apply()
+                    DebugTelemetry.put(ctx, "qs_tile_last_error", "${e::class.simpleName}: ${e.message}")
                 }
             },
             modifier = Modifier.fillMaxWidth(),

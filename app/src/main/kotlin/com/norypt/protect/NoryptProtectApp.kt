@@ -8,10 +8,12 @@ import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
 import com.norypt.protect.triggers.PackageInternetWatcher
 import com.norypt.protect.triggers.UnlockedTimerMonitor
+import com.norypt.protect.util.DebugTelemetry
 
 class NoryptProtectApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        DebugTelemetry.purgeInReleaseBuilds(this)
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(
             NotificationChannel("service", "Norypt Protect service", NotificationManager.IMPORTANCE_LOW)
