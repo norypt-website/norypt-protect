@@ -7,7 +7,10 @@
     <!-- C4 dead-man switch must run while the device is in Doze. Revocable by the user;
          DeadmanScheduler degrades to setAndAllowWhileIdle rather than disarming. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
-    <permission android:name="com.norypt.protect.permission.TRIGGER"
+    <!-- Scoped to the applicationId so a debug build can sit alongside a release one.
+         For the release build applicationId IS com.norypt.protect, so the permission name
+         is unchanged and any existing integration keeps working. -->
+    <permission android:name="${applicationId}.permission.TRIGGER"
                 android:protectionLevel="signature"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
@@ -143,7 +146,7 @@
 
         <receiver
             android:name=".triggers.ExternalTriggerReceiver"
-            android:permission="com.norypt.protect.permission.TRIGGER"
+            android:permission="${applicationId}.permission.TRIGGER"
             android:exported="true">
             <intent-filter>
                 <action android:name="com.norypt.protect.action.TRIGGER"/>
