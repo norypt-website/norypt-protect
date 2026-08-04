@@ -49,6 +49,41 @@ class GestureCounterTest {
     }
 
     @Test
+    fun `backwards clock step does not strand events in the window`() {
+        val counter = GestureCounter(threshold = 5, windowMs = 3000)
+        val now = 1_000_000L
+
+        // Two screen transitions, then time steps back an hour (NTP correction after a
+        // boot with a stale RTC, or the user editing the date).
+        assertFalse(counter.onEvent(now))
+        assertFalse(counter.onEvent(now + 500))
+
+        val shifted = now - 3_600_000L
+        assertFalse(counter.onEvent(shifted))
+        assertFalse(counter.onEvent(shifted + 500))
+        assertFalse(counter.onEvent(shifted + 1000))
+        assertFalse(counter.onEvent(shifted + 1500))
+
+        // The two pre-jump events must not still be counted: without eviction they would
+        // combine with these four and fire an irreversible wipe.
+        assertTrue(counter.onEvent(shifted + 2000))
+    }
+
+    @Test
+    fun `events straddling a backwards step still respect the window`() {
+        val counter = GestureCounter(threshold = 3, windowMs = 1000)
+        val now = 1_000_000L
+
+        counter.onEvent(now)
+        counter.onEvent(now + 100)
+        // Jump back, then space events beyond the window — must never reach threshold.
+        val shifted = now - 500_000L
+        assertFalse(counter.onEvent(shifted))
+        assertFalse(counter.onEvent(shifted + 2000))
+        assertFalse(counter.onEvent(shifted + 4000))
+    }
+
+    @Test
     fun `constructor params are honoured`() {
         val counter = GestureCounter(threshold = 2, windowMs = 500)
         val now = 1_000_000L
