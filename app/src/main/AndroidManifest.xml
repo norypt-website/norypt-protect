@@ -108,13 +108,9 @@
                 android:value="Runs the Norypt Protect arming monitors (unlocked-timer, fake-messenger, etc.)."/>
         </service>
 
-        <receiver
-            android:name=".triggers.UserPresentReceiver"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.USER_PRESENT"/>
-            </intent-filter>
-        </receiver>
+        <!-- UserPresentReceiver is registered at runtime by UserPresentMonitor:
+             ACTION_USER_PRESENT is not an implicit-broadcast exception, so a
+             manifest-declared receiver is never invoked on API 26+. -->
 
         <!-- UsbLockedMonitor receiver is registered at runtime against
              android.hardware.usb.action.USB_STATE so it sees the data flags;
