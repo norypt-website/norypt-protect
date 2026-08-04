@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.util.DebugTelemetry
 
 /**
  * B5 — App Internet permission monitor.
@@ -21,11 +22,10 @@ object PackageInternetWatcher {
     private var notificationId = 5000
 
     fun tick(ctx: Context) {
-        val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-        sp.edit().putInt("b5_tick_entered", sp.getInt("b5_tick_entered", 0) + 1).apply()
+        DebugTelemetry.bump(ctx, "b5_tick_entered")
 
         if (!ProtectPrefs.isTriggerEnabled(ctx, "B5")) {
-            sp.edit().putInt("b5_tick_disabled", sp.getInt("b5_tick_disabled", 0) + 1).apply()
+            DebugTelemetry.bump(ctx, "b5_tick_disabled")
             return
         }
 
@@ -34,14 +34,12 @@ object PackageInternetWatcher {
 
         val newEntries = current - known
 
-        sp.edit()
-            .putInt("b5_current_size", current.size)
-            .putInt("b5_known_size", known.size)
-            .putInt("b5_new_size", newEntries.size)
-            .apply()
+        DebugTelemetry.put(ctx, "b5_current_size", current.size)
+        DebugTelemetry.put(ctx, "b5_known_size", known.size)
+        DebugTelemetry.put(ctx, "b5_new_size", newEntries.size)
 
         if (known.isEmpty()) {
-            sp.edit().putInt("b5_seeded", sp.getInt("b5_seeded", 0) + 1).apply()
+            DebugTelemetry.bump(ctx, "b5_seeded")
             ProtectPrefs.setKnownInternetPackages(ctx, current)
             return
         }
@@ -49,7 +47,7 @@ object PackageInternetWatcher {
         if (newEntries.isNotEmpty()) {
             newEntries.forEach { pkg ->
                 postAlert(ctx, pkg)
-                sp.edit().putInt("b5_alerts_posted", sp.getInt("b5_alerts_posted", 0) + 1).apply()
+                DebugTelemetry.bump(ctx, "b5_alerts_posted")
             }
             ProtectPrefs.setKnownInternetPackages(ctx, current)
         }

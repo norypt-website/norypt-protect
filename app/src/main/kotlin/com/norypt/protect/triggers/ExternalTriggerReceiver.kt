@@ -6,13 +6,13 @@ import android.content.Intent
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.util.DebugTelemetry
 
 class ExternalTriggerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val sp = context.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-        sp.edit().putInt("a7_receiver_invocations", sp.getInt("a7_receiver_invocations", 0) + 1).apply()
+        DebugTelemetry.bump(context, "a7_receiver_invocations")
         if (!ProtectPrefs.isTriggerEnabled(context, "A7")) {
-            sp.edit().putInt("a7_skip_disabled", sp.getInt("a7_skip_disabled", 0) + 1).apply()
+            DebugTelemetry.bump(context, "a7_skip_disabled")
             return
         }
         PanicHandler.panic(context, "ext.broadcast")

@@ -12,24 +12,24 @@ import com.norypt.protect.R
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.triggers.PowerGestureMonitor
 import com.norypt.protect.triggers.UsbLockedMonitor
+import com.norypt.protect.util.DebugTelemetry
 
 class ProtectForegroundService : Service() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val tickRunnable = object : Runnable {
         override fun run() {
-            val sp = getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-            sp.edit()
-                .putInt("fgs_ticks_total", sp.getInt("fgs_ticks_total", 0) + 1)
-                .putInt("fgs_listeners_size", tickListeners.size)
-                .apply()
+            DebugTelemetry.bump(this@ProtectForegroundService, "fgs_ticks_total")
+            DebugTelemetry.put(this@ProtectForegroundService, "fgs_listeners_size", tickListeners.size)
             tickListeners.forEach { fn ->
                 runCatching { fn(this@ProtectForegroundService) }
                     .onFailure { t ->
-                        sp.edit()
-                            .putInt("fgs_tick_errors", sp.getInt("fgs_tick_errors", 0) + 1)
-                            .putString("fgs_tick_last_error", "${t.javaClass.simpleName}: ${t.message}")
-                            .apply()
+                        DebugTelemetry.bump(this@ProtectForegroundService, "fgs_tick_errors")
+                        DebugTelemetry.put(
+                            this@ProtectForegroundService,
+                            "fgs_tick_last_error",
+                            "${t.javaClass.simpleName}: ${t.message}",
+                        )
                     }
             }
             handler.postDelayed(this, TICK_INTERVAL_MS)
