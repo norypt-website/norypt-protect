@@ -11,12 +11,29 @@ import com.norypt.protect.dpm.SafeBootLockdown
 import com.norypt.protect.dpm.UsbLockdown
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.triggers.TriggerRegistry
+import com.norypt.protect.util.DebugTelemetry
 
 class TriggerDumpReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.getBooleanExtra("disarm_all", false)) {
             TriggerRegistry.all.forEach { it.disarm(ctx) }
         }
+        // Test affordances: arm/disarm one trigger by id and set dry-run, so a device test
+        // can drive a single trigger without walking the UI. Debug source set only.
+        intent.getStringExtra("arm")?.let { id ->
+            TriggerRegistry.all.firstOrNull { it.id == id }?.arm(ctx)
+        }
+        intent.getStringExtra("disarm")?.let { id ->
+            TriggerRegistry.all.firstOrNull { it.id == id }?.disarm(ctx)
+        }
+        if (intent.hasExtra("dry_run")) {
+            ProtectPrefs.setDryRun(ctx, intent.getBooleanExtra("dry_run", true))
+        }
+        DebugTelemetry.log(
+            "trigger state: " +
+                TriggerRegistry.all.joinToString { "${it.id}=${ProtectPrefs.isTriggerEnabled(ctx, it.id)}" } +
+                " dryRun=${ProtectPrefs.dryRun(ctx)}",
+        )
         val sp = ctx.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
         val ed = sp.edit()
         TriggerRegistry.all.forEach { t ->
