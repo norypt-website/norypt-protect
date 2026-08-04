@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
+import android.view.WindowManager
 import com.norypt.protect.dpm.PowerMenuGuard
 
 /**
@@ -28,6 +29,8 @@ class PowerMenuBlockerActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Shown over the lockscreen; keep it out of screenshots and recents.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
         // DO NOT setShowWhenLocked(true) — that puts this invisible activity
         // on top of the keyguard and blocks the user from reaching the PIN
         // pad. Lock Task mode suppresses the power menu system-wide; we do

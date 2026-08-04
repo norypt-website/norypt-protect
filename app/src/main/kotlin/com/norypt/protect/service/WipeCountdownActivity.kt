@@ -9,6 +9,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Bundle
+import android.view.WindowManager
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -62,6 +63,10 @@ class WipeCountdownActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Not screenshot- or recording-able: this screen is shown over the lockscreen and
+        // discloses both that the device is armed and that a wipe is imminent.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
         // Show over lockscreen
         setShowWhenLocked(true)
