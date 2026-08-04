@@ -34,6 +34,9 @@ internal object ProtectPrefsKeys {
     const val KEY_FAILED_ATTEMPT_LAST_MS = "failed_attempt_last_ms"
     const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
     const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
+    const val KEY_GATE_ATTEMPTS = "gate_attempts"
+    const val KEY_GATE_LOCKED_UNTIL_MS = "gate_locked_until_ms"
+    const val KEY_GATE_LOCKED_UNTIL_ELAPSED_MS = "gate_locked_until_elapsed_ms"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
     const val KEY_DURESS_THRESHOLD = "duress_threshold"
     const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
@@ -161,6 +164,24 @@ internal object ProtectPrefsKeys {
     fun setPendingWipeReason(store: KvStore, value: String?) =
         store.putString(KEY_PENDING_WIPE_REASON, value)
 
+    fun gateAttempts(store: KvStore): Int =
+        store.getInt(KEY_GATE_ATTEMPTS, 0)
+
+    fun setGateAttempts(store: KvStore, value: Int) =
+        store.putInt(KEY_GATE_ATTEMPTS, value)
+
+    fun gateLockedUntilMs(store: KvStore): Long =
+        store.getLong(KEY_GATE_LOCKED_UNTIL_MS, 0L)
+
+    fun setGateLockedUntilMs(store: KvStore, value: Long) =
+        store.putLong(KEY_GATE_LOCKED_UNTIL_MS, value)
+
+    fun gateLockedUntilElapsedMs(store: KvStore): Long =
+        store.getLong(KEY_GATE_LOCKED_UNTIL_ELAPSED_MS, 0L)
+
+    fun setGateLockedUntilElapsedMs(store: KvStore, value: Long) =
+        store.putLong(KEY_GATE_LOCKED_UNTIL_ELAPSED_MS, value)
+
     fun lastUnlockMs(store: KvStore): Long =
         store.getLong(KEY_LAST_UNLOCK_MS, 0L)
 
@@ -268,7 +289,7 @@ object ProtectPrefs {
 
     @Volatile private var cachedStore: KvStore? = null
 
-    private fun store(context: Context): KvStore {
+    internal fun store(context: Context): KvStore {
         cachedStore?.let { return it }
         return synchronized(this) {
             cachedStore ?: buildStore(context.applicationContext).also { cachedStore = it }
