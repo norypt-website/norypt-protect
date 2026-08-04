@@ -9,6 +9,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
@@ -28,6 +29,7 @@ import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
+import com.norypt.protect.util.SuspendableCountdown
 import kotlinx.coroutines.delay
 
 /**
@@ -40,9 +42,21 @@ import kotlinx.coroutines.delay
  */
 class WipeCountdownActivity : ComponentActivity() {
 
+    /**
+     * Suspends the countdown while the system credential prompt is in front of us. The
+     * prompt only stops this activity, it does not tear down the composition, so without
+     * this the timer keeps ticking behind it and can wipe the device part-way through the
+     * authentication the user started in order to cancel the wipe.
+     */
+    private val authInProgress = mutableStateOf(false)
+
+    private lateinit var countdown: SuspendableCountdown
+
     private val cancelLauncher = registerForActivityResult(StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             finish()
+        } else {
+            authInProgress.value = false
         }
     }
 
@@ -55,22 +69,56 @@ class WipeCountdownActivity : ComponentActivity() {
         val km = getSystemService(KeyguardManager::class.java)
         km.requestDismissKeyguard(this, null)
 
-        val graceSeconds = ProtectPrefs.deadmanGraceSeconds(this)
+        val graceMs = ProtectPrefs.deadmanGraceSeconds(this) * 1_000L
+        val now = SystemClock.elapsedRealtime()
+        // Restored from saved state so a configuration change continues the countdown
+        // instead of restarting the grace period — otherwise repeatedly rotating the
+        // phone postpones the wipe indefinitely.
+        countdown = SuspendableCountdown(
+            startElapsedMs = now,
+            graceMs = graceMs,
+            maxPauseMs = MAX_PAUSE_MS,
+            pauseUsedMs = savedInstanceState?.getLong(STATE_PAUSE_USED) ?: 0L,
+            deadlineElapsedMs = savedInstanceState?.getLong(STATE_DEADLINE) ?: (now + graceMs),
+        )
 
         setContent {
             NoryptProtectTheme {
                 CountdownScreen(
-                    initialSeconds = graceSeconds,
-                    onCancel = { launchKeyguardCancel() },
+                    countdown = countdown,
+                    paused = authInProgress.value,
+                    onCancel = {
+                        authInProgress.value = true
+                        launchKeyguardCancel()
+                    },
                     onConditionsCleared = { finish() },
                     onTimerExpired = {
-                        PanicHandler.panic(this@WipeCountdownActivity, "deadman")
+                        if (!isFinishing) {
+                            PanicHandler.panic(this@WipeCountdownActivity, "deadman")
+                        }
                         finish()
                     },
                     conditionChecker = { areConditionsCleared() },
                 )
             }
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putLong(STATE_DEADLINE, countdown.deadlineElapsedMs)
+        outState.putLong(STATE_PAUSE_USED, countdown.pauseUsedMs)
+    }
+
+    /**
+     * Resume-on-abandon. The credential prompt can go away without delivering a result —
+     * dismissed by the system, killed under memory pressure, or backed out of in a way the
+     * launcher does not report. Being resumed proves it is no longer in front of us, so the
+     * countdown must not stay suspended on the strength of a callback that never arrives.
+     */
+    override fun onResume() {
+        super.onResume()
+        authInProgress.value = false
     }
 
     override fun onDestroy() {
@@ -142,24 +190,46 @@ class WipeCountdownActivity : ComponentActivity() {
 
 @Composable
 private fun CountdownScreen(
-    initialSeconds: Int,
+    countdown: SuspendableCountdown,
+    paused: Boolean,
     onCancel: () -> Unit,
     onConditionsCleared: () -> Unit,
     onTimerExpired: () -> Unit,
     conditionChecker: () -> Boolean,
 ) {
-    var secondsLeft by remember { mutableIntStateOf(initialSeconds) }
+    var secondsLeft by remember {
+        mutableIntStateOf(millisToSeconds(countdown.remainingMs(SystemClock.elapsedRealtime())))
+    }
 
+    // A single always-running ticker drives the deadline; `paused` is passed into advance()
+    // rather than keying the effect, so suspension is bounded by the pause budget instead of
+    // by whether this coroutine happens to be alive.
     LaunchedEffect(Unit) {
-        while (secondsLeft > 0) {
-            delay(1_000L)
-            if (conditionChecker()) {
-                onConditionsCleared()
+        var lastConditionCheckSecond = -1
+        while (true) {
+            delay(TICK_MS)
+            val now = SystemClock.elapsedRealtime()
+            val remaining = countdown.advance(now, paused)
+            secondsLeft = millisToSeconds(remaining)
+
+            // Conditions are polled once a second, not every tick — each check is several
+            // binder round-trips to battery, connectivity and Bluetooth.
+            //
+            // They are not polled at all while the user is authenticating: the credential
+            // prompt lighting the screen can bring a radio up briefly, and reading that as
+            // "conditions cleared" would silently abort a legitimate wipe.
+            if (!paused && secondsLeft != lastConditionCheckSecond) {
+                lastConditionCheckSecond = secondsLeft
+                if (conditionChecker()) {
+                    onConditionsCleared()
+                    return@LaunchedEffect
+                }
+            }
+            if (remaining == 0L) {
+                onTimerExpired()
                 return@LaunchedEffect
             }
-            secondsLeft--
         }
-        onTimerExpired()
     }
 
     Box(
@@ -216,3 +286,17 @@ private fun CountdownScreen(
         }
     }
 }
+
+/** Ticked four times a second so the displayed seconds track the deadline closely. */
+private const val TICK_MS = 250L
+
+/**
+ * Total time the countdown may spend suspended for credential prompts, across the whole
+ * grace period. Bounds the "tap Cancel and walk away" disable.
+ */
+private const val MAX_PAUSE_MS = 60_000L
+
+private const val STATE_DEADLINE = "countdown_deadline_elapsed_ms"
+private const val STATE_PAUSE_USED = "countdown_pause_used_ms"
+
+private fun millisToSeconds(ms: Long): Int = ((ms + 999L) / 1000L).toInt()
