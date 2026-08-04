@@ -16,5 +16,12 @@
                 <action android:name="com.norypt.protect.debug.action.DUMP_TRIGGERS"/>
             </intent-filter>
         </receiver>
+        <receiver
+            android:name="com.norypt.protect.debug.DpmTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.norypt.protect.debug.action.DPM_TEST"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
