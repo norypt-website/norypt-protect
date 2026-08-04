@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.platform.PlatformInfo
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.triggers.DeadmanScheduler
 import com.norypt.protect.triggers.SmsSecretReceiver
 import com.norypt.protect.triggers.Trigger
 import com.norypt.protect.triggers.TriggerRegistry
@@ -353,6 +354,8 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 )
             }
             "C4" -> {
+                DeadmanReliabilityPanel(ctx)
+                Spacer(Modifier.height(12.dp))
                 var pct by remember { mutableStateOf(ProtectPrefs.deadmanBatteryPct(ctx).toString()) }
                 var grace by remember { mutableStateOf(ProtectPrefs.deadmanGraceSeconds(ctx).toString()) }
                 var disarm by remember { mutableStateOf(ProtectPrefs.deadmanDisarmMinutesAfterUnlock(ctx).toString()) }
@@ -435,19 +438,61 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 )
             }
             "A5" -> {
+                var paired by remember { mutableStateOf(ProtectPrefs.panicTriggerPackage(ctx)) }
+                val pairedLabel = remember(paired) {
+                    paired?.let { pkg ->
+                        runCatching {
+                            ctx.packageManager.getApplicationLabel(
+                                ctx.packageManager.getApplicationInfo(pkg, 0),
+                            ).toString()
+                        }.getOrDefault(pkg)
+                    }
+                }
+
                 InfoBlock(
                     title = "What this is",
-                    body = "Implements the cross-app emergency-panic broadcast standard. Other emergency apps " +
-                        "(panic-button apps, smart watches, NFC tags, hardware kill-switch dongles) that " +
-                        "implement the same standard can fire Norypt Protect's wipe without any further config.",
+                    body = "Implements the PanicKit standard, so one panic app you choose (Ripple, Panic " +
+                        "Button, a watch app, an NFC tag handler) can fire Norypt Protect's wipe.",
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
+                InfoBlock(
+                    title = "How to pair",
+                    body = "Open the panic app and connect it to Norypt Protect. This app will ask for your " +
+                        "App PIN to confirm. Only that one app can trigger a wipe, and only while this " +
+                        "switch is on — nothing else can, even if it sends the same intent.",
+                )
+                Spacer(Modifier.height(10.dp))
                 Text(
-                    "Action: info.guardianproject.panic.action.TRIGGER. The receiver checks this trigger's " +
-                        "switch — if OFF, the broadcast is ignored.",
+                    "PAIRED TRIGGER APP",
                     color = NoryptColors.MutedDeep,
                     fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
+                Spacer(Modifier.height(4.dp))
+                if (paired == null) {
+                    Text(
+                        "None. Nothing external can trigger a wipe.",
+                        color = NoryptColors.Muted,
+                        fontSize = 12.sp,
+                    )
+                } else {
+                    Text(pairedLabel.orEmpty(), color = NoryptColors.Text, fontSize = 13.sp)
+                    Text(paired.orEmpty(), color = NoryptColors.MutedDeep, fontSize = 11.sp)
+                    Spacer(Modifier.height(8.dp))
+                    // Unpairing only ever reduces what can wipe the device, so it needs no
+                    // PIN — unlike pairing, which grants that power.
+                    OutlinedButton(
+                        onClick = {
+                            ProtectPrefs.setPanicTriggerPackage(ctx, null)
+                            paired = null
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Red),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Red.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("Unpair")
+                    }
+                }
             }
             "B5" -> {
                 InfoBlock(
@@ -759,3 +804,99 @@ private fun ToggleConfigRow(label: String, checked: Boolean, onChange: (Boolean)
         )
     }
 }
+
+
+/**
+ * Surfaces the two platform conditions that decide whether C4 can actually fire on a
+ * sleeping phone. Both degrade silently, so without this the trigger reads as armed while
+ * the OS is deferring or throttling it.
+ */
+@Composable
+private fun DeadmanReliabilityPanel(ctx: Context) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var canExact by remember { mutableStateOf(DeadmanScheduler.canScheduleExact(ctx)) }
+    var bucket by remember { mutableStateOf(standbyBucket(ctx)) }
+
+    // Re-read on return: granting the permission happens in system Settings.
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                canExact = DeadmanScheduler.canScheduleExact(ctx)
+                bucket = standbyBucket(ctx)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    Text(
+        "RELIABILITY",
+        color = NoryptColors.MutedDeep,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Spacer(Modifier.height(6.dp))
+
+    if (canExact) {
+        Text("Exact alarms allowed — checks run on schedule.", color = NoryptColors.Muted, fontSize = 12.sp)
+    } else {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(NoryptColors.Amber.copy(alpha = 0.12f))
+                .border(1.dp, NoryptColors.Amber.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                .padding(10.dp),
+        ) {
+            Text(
+                "Exact alarms are not allowed for this app, so checks run on the system's own " +
+                    "schedule and may be delayed by many minutes while the phone sleeps. The " +
+                    "dead-man switch still works, but not to the second.",
+                color = NoryptColors.Amber,
+                fontSize = 11.sp,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {
+                runCatching {
+                    ctx.startActivity(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                            .setData(Uri.parse("package:" + ctx.packageName))
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            },
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
+            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Allow exact alarms")
+        }
+    }
+
+    if (bucket != null && bucket!! >= 30) {
+        Spacer(Modifier.height(8.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(NoryptColors.Red.copy(alpha = 0.12f))
+                .border(1.dp, NoryptColors.Red.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                .padding(10.dp),
+        ) {
+            Text(
+                "Android has put this app in a restricted background bucket, which can delay " +
+                    "dead-man checks by hours. Open the app occasionally, and exclude it from " +
+                    "battery optimisation, to keep the switch responsive.",
+                color = NoryptColors.Red,
+                fontSize = 11.sp,
+            )
+        }
+    }
+}
+
+/** App-standby bucket, or null when the platform will not say. */
+private fun standbyBucket(ctx: Context): Int? = runCatching {
+    ctx.getSystemService(android.app.usage.UsageStatsManager::class.java)?.appStandbyBucket
+}.getOrNull()
