@@ -19,7 +19,7 @@ object AdbInstructions {
     val ADMIN_RECEIVER: String = "$PKG/com.norypt.protect.admin.ProtectAdminReceiver"
 
     /** Run first to confirm no other Device Owner is set — output must be empty. */
-    val checkOwners: String = "adb shell dpm list-owners"
+    const val checkOwners: String = "adb shell dpm list-owners"
 
     val setDeviceOwner: String = "adb shell dpm set-device-owner $ADMIN_RECEIVER"
 
