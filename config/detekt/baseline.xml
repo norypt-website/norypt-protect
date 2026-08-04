@@ -1,0 +1,20 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues></ManuallySuppressedIssues>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:ProtectionLevelScreen.kt$@Composable fun ProtectionLevelScreen(padding: PaddingValues)</ID>
+    <ID>LongMethod:LaunchGateScreen.kt$@Composable fun LaunchGateScreen(onUnlocked: () -&gt; Unit)</ID>
+    <ID>LongMethod:ProtectionLevelScreen.kt$@Composable fun ProtectionLevelScreen(padding: PaddingValues)</ID>
+    <ID>LongMethod:ProtectionLevelScreen.kt$@Composable private fun TrustReportSubScreen(onBack: () -&gt; Unit, padding: PaddingValues)</ID>
+    <ID>LongMethod:TriggersScreen.kt$@Composable private fun ConfigSheet(trigger: Trigger, onDone: () -&gt; Unit)</ID>
+    <ID>MaxLineLength:AboutScreen.kt$"Norypt Protect ships via F-Droid with Reproducible Builds — F-Droid rebuilds from the GitHub-tagged source and byte-compares against the Norypt-signed APK. The verified-build badge appears on the F-Droid listing once the F-Droid pipeline is wired in v1.0.0."</ID>
+    <ID>MaxLineLength:ProtectionLevelScreen.kt$"If step 2 fails: \"already set\" → an old MDM/Knox owner is still active; remove it via ADB or factory reset. \"already accounts\" → remove every account in Settings → Passwords &amp; accounts. \"Unknown admin\" → the package above doesn't match the installed APK; reinstall."</ID>
+    <ID>MaxLineLength:ProtectionLevelScreen.kt$"Lock and wipe are active. Upgrade to Device Owner via ADB to unlock USB lockdown, safe-boot block, anti-tamper, and launcher hiding."</ID>
+    <ID>MaxLineLength:ProtectionLevelScreen.kt$"While the screen is locked, the stock Power Off menu is hidden. Only a 30-second hard firmware hold can shut the phone down."</ID>
+    <ID>MaxLineLength:ProtectionLevelScreen.kt$Text("Declared permissions (${requestedPerms.size})", color = NoryptColors.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)</ID>
+    <ID>MaxLineLength:TriggersScreen.kt$"On Device Owner tier the permission is auto-granted with no prompt. On Device Admin tier the toggle launches the standard system dialog; revoke from system Settings if needed."</ID>
+    <ID>MaxLineLength:TriggersScreen.kt$"Stricter than B1: wipe at this exact failed-attempt count. Use a low number (e.g. 3) so coercion is detected before the standard threshold. Must be ≤ B1."</ID>
+    <ID>MaxLineLength:TriggersScreen.kt$"Usage Access is a Special-Access permission — Android requires the user to flip it in system Settings (no API can auto-grant, even for Device Owner). The toggle deep-links there and reflects the current state when you return."</ID>
+    <ID>MaxLineLength:UsbLockedMonitor.kt$UsbLockedTrigger$override val description = "Wipe if a USB DATA cable (MTP/PTP/ADB/etc.) is negotiated while the screen is locked. Plain charging cables and dumb wall chargers do NOT trigger this."</ID>
+  </CurrentIssues>
+</SmellBaseline>

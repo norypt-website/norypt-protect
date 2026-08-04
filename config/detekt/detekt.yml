@@ -1,0 +1,77 @@
+# Norypt Protect detekt configuration.
+#
+# Tuned to catch correctness and security hazards rather than to enforce formatting.
+# Rules that would flag the deliberate structure of this codebase (long trigger
+# descriptions, Compose screen functions) are relaxed so the ones that matter stay loud.
+
+build:
+  maxIssues: 0
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 120
+  LongParameterList:
+    active: true
+    functionThreshold: 9
+    constructorThreshold: 9
+    ignoreDefaultParameters: true
+  TooManyFunctions:
+    active: false
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 25
+  NestedBlockDepth:
+    active: true
+    threshold: 6
+
+style:
+  # Wildcard imports are the documented Compose idiom (androidx.compose.material3.*);
+  # expanding them here would add ~200 import lines and fight the framework's convention.
+  WildcardImport:
+    active: false
+  MaxLineLength:
+    active: true
+    maxLineLength: 140
+  ReturnCount:
+    active: false
+  MagicNumber:
+    active: false
+  UnusedPrivateMember:
+    active: true
+  ForbiddenComment:
+    active: false
+  LoopWithTooManyJumpStatements:
+    active: false
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false
+  SwallowedException:
+    active: false
+  # A silently swallowed failure in this app can mean a wipe that did not happen.
+  ReturnFromFinally:
+    active: true
+
+naming:
+  # Kotlin files here intentionally group a screen with its small helper types
+  # (Color.kt -> NoryptColors, StatusCard.kt -> StatusLevel).
+  MatchingDeclarationName:
+    active: false
+  FunctionNaming:
+    active: true
+    # Compose composables are PascalCase by convention.
+    ignoreAnnotated: ['Composable']
+  TopLevelPropertyNaming:
+    active: true
+
+potential-bugs:
+  active: true
+  UnsafeCallOnNullableType:
+    active: true
+  UnsafeCast:
+    active: true
+  IgnoredReturnValue:
+    active: true
+  ImplicitDefaultLocale:
+    active: true

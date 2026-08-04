@@ -59,6 +59,17 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease
 
+      # No -PallowDebugSignedRelease here: on a real release the keystore must be present,
+      # and verifyReleaseSigning fails the build if it is not, rather than quietly shipping
+      # an unsigned or debug-signed APK.
+      - name: Security gates (no-network / no-telemetry / signing)
+        env:
+          RELEASE_KEYSTORE_PATH: /tmp/norypt-protect.keystore
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew securityGates
+
       - name: Verify APK signature matches pinned fingerprint
         run: |
           set -euo pipefail
