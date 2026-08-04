@@ -91,11 +91,15 @@
             </intent-filter>
         </receiver>
 
+        <!-- MY_PACKAGE_REPLACED re-arms the foreground service after an app update;
+             without it every runtime-registered trigger stays down until the user next
+             opens the app or reboots. -->
         <receiver
             android:name=".service.BootCompletedReceiver"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
             </intent-filter>
         </receiver>
 
