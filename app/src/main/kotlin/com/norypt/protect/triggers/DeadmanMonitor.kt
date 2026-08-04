@@ -73,8 +73,9 @@ object DeadmanMonitor {
         if (level > threshold) {
             debugBump(ctx, "c4_skip_battery_above_threshold")
             // The situation that raised the alert has resolved, so release the guard
-            // rather than waiting out its expiry.
+            // rather than waiting out its expiry, and take the alert down with it.
             countdownActive = false
+            clearAlert(ctx)
             return
         }
 
@@ -186,7 +187,20 @@ object DeadmanMonitor {
         nm.notify(NOTIF_ID_DEADMAN, notif)
     }
 
-    private const val NOTIF_ID_DEADMAN = 5001
+    const val NOTIF_ID_DEADMAN = 5001
+
+    /**
+     * Clears the full-screen alert. It is posted setOngoing(true), so nothing dismisses it
+     * on its own: after a cancelled or aborted countdown a non-dismissible "Auto-wipe
+     * countdown active" notification stayed on the lockscreen indefinitely, telling the user
+     * a wipe was pending when it was not.
+     */
+    fun clearAlert(ctx: Context) {
+        runCatching {
+            ctx.getSystemService(android.app.NotificationManager::class.java)
+                ?.cancel(NOTIF_ID_DEADMAN)
+        }
+    }
 
     private fun debugBump(ctx: Context, key: String) = DebugTelemetry.bump(ctx, key)
 
