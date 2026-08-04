@@ -39,6 +39,15 @@ object PanicHandler {
         // retried rather than recorded and forgotten.
         val outcome = outcomeOf(reason, error)
         ProtectPrefs.setPendingWipeReason(context, outcome.pendingReason)
+        if (outcome.pendingReason != null) {
+            // Stamped only when first queued, so the retry window measures from the
+            // original trigger rather than sliding forward with every failed attempt.
+            if (ProtectPrefs.pendingWipeAtMs(context) == 0L) {
+                ProtectPrefs.setPendingWipeAtMs(context, System.currentTimeMillis())
+            }
+        } else {
+            ProtectPrefs.setPendingWipeAtMs(context, 0L)
+        }
         if (outcome.alertUser && error != null) {
             notifyWipeFailed(context, reason, error)
         }
@@ -64,8 +73,36 @@ object PanicHandler {
      */
     fun retryPendingWipe(context: Context) {
         val reason = ProtectPrefs.pendingWipeReason(context) ?: return
+        val queuedAt = ProtectPrefs.pendingWipeAtMs(context)
+        if (!shouldRetry(queuedAt, System.currentTimeMillis())) {
+            // Give up rather than fire later. The failure notification stays up, so the
+            // user still knows the wipe did not happen.
+            DebugTelemetry.bump(context, "wipe_retry_abandoned")
+            ProtectPrefs.setPendingWipeReason(context, null)
+            ProtectPrefs.setPendingWipeAtMs(context, 0L)
+            return
+        }
         DebugTelemetry.bump(context, "wipe_retry_attempts")
         panic(context, reason)
+    }
+
+    /**
+     * How long a denied wipe stays queued for retry.
+     *
+     * Unbounded retry is a false positive waiting to happen: a wipe denied today because
+     * the app was not yet Device Owner would fire the moment it became one, days later,
+     * for a trigger the user has long forgotten. Bounding it keeps the retry useful for
+     * the transient denial it is meant to cover — a policy briefly in the way, a
+     * re-granted admin — without leaving an armed wipe lying around indefinitely.
+     */
+    const val RETRY_WINDOW_MS = 60 * 60_000L
+
+    internal fun shouldRetry(queuedAtMs: Long, nowMs: Long): Boolean {
+        if (queuedAtMs <= 0L) return true // never stamped; treat as fresh
+        val age = nowMs - queuedAtMs
+        // A backwards clock step must not resurrect an expired queue entry either.
+        if (age < 0L) return false
+        return age <= RETRY_WINDOW_MS
     }
 
     private fun notifyWipeFailed(context: Context, reason: String, error: WipeError) {

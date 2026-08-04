@@ -149,4 +149,34 @@ class PanicHandlerTest {
         assertNotNull(outcome.pendingReason)
         assertTrue(outcome.alertUser)
     }
+
+    // --- A denied wipe must not lie in wait indefinitely ---
+
+    @Test
+    fun `a freshly queued wipe is retried`() {
+        val t0 = 1_000_000L
+        assertTrue(PanicHandler.shouldRetry(t0, t0))
+        assertTrue(PanicHandler.shouldRetry(t0, t0 + 60_000))
+        assertTrue(PanicHandler.shouldRetry(t0, t0 + PanicHandler.RETRY_WINDOW_MS))
+    }
+
+    @Test
+    fun `a stale queued wipe is abandoned rather than fired later`() {
+        val t0 = 1_000_000L
+        // The scenario: a wipe denied because the app was not yet Device Owner. Without a
+        // bound it would fire the moment it became one, days after the actual trigger.
+        assertFalse(PanicHandler.shouldRetry(t0, t0 + PanicHandler.RETRY_WINDOW_MS + 1))
+        assertFalse(PanicHandler.shouldRetry(t0, t0 + 7L * 24 * 60 * 60 * 1000))
+    }
+
+    @Test
+    fun `an unstamped entry is treated as fresh`() {
+        assertTrue(PanicHandler.shouldRetry(0L, 1_000_000L))
+    }
+
+    @Test
+    fun `a backwards clock step cannot resurrect an expired entry`() {
+        val t0 = 1_000_000L
+        assertFalse(PanicHandler.shouldRetry(t0, t0 - 60_000))
+    }
 }
