@@ -65,6 +65,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
     // Mutable UI state — read from device on first composition
     var usbOn by remember { mutableStateOf(UsbLockdown.isOn(ctx)) }
     var safeBootOn by remember { mutableStateOf(SafeBootLockdown.isOn(ctx)) }
+    var sosRaw by remember { mutableStateOf(EmergencySos.currentValue(ctx)) }
     var sosOn by remember { mutableStateOf(EmergencySos.currentValue(ctx) == 0) }
     var antiTamperOn by remember { mutableStateOf(AntiTamper.isApplied(ctx)) }
     var launcherHidden by remember { mutableStateOf(LauncherAlias.isHidden(ctx)) }
@@ -90,6 +91,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 usbOn = UsbLockdown.isOn(ctx)
                 safeBootOn = SafeBootLockdown.isOn(ctx)
                 val rawSos = EmergencySos.currentValue(ctx)
+                sosRaw = rawSos
                 sosOn = rawSos == 0
                 antiTamperOn = AntiTamper.isApplied(ctx)
                 launcherHidden = LauncherAlias.isHidden(ctx)
@@ -178,9 +180,19 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
         )
 
         // ── Card 5: Auto-disable Emergency SOS ────────────────────────────
+        // -1 means the platform would not tell us the value, usually because
+        // WRITE_SECURE_SETTINGS was never granted over ADB. Reporting that as "off" would
+        // read as "SOS is still enabled" when the truth is that we do not know — and in a
+        // security app an unverified control must not look like a verified one.
+        val sosUnknown = sosRaw == -1
         ToggleCard(
             title = "Disable Emergency SOS",
-            subtitle = "Prevent accidental SOS calls from the lockscreen. Works via WRITE_SECURE_SETTINGS (ADB) or Device Owner.",
+            subtitle = if (sosUnknown)
+                "STATE UNKNOWN — this device does not expose the Emergency SOS setting to the " +
+                    "app. Grant WRITE_SECURE_SETTINGS over ADB, or check Settings › Safety & " +
+                    "emergency yourself. Do not assume SOS is disabled."
+            else
+                "Prevent accidental SOS calls from the lockscreen. Works via WRITE_SECURE_SETTINGS (ADB) or Device Owner.",
             checked = sosOn,
             enabled = true,
             onToggle = { on ->
@@ -188,6 +200,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 val result = if (on) EmergencySos.disableIfPossible(ctx)
                              else EmergencySos.enableIfPossible(ctx)
                 val after = EmergencySos.currentValue(ctx)
+                sosRaw = after
                 DebugTelemetry.bump(ctx, "sos_click_count")
                 val n = DebugTelemetry.count(ctx, "sos_click_count")
                 DebugTelemetry.put(ctx, "sos_click_${n}_wanted_disable", on.toString())
