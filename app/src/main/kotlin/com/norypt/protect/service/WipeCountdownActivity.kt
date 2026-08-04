@@ -123,6 +123,9 @@ class WipeCountdownActivity : ComponentActivity() {
 
     override fun onDestroy() {
         DeadmanMonitor.countdownActive = false
+        // Whether the user cancelled, the conditions cleared, or the wipe was requested,
+        // the ongoing alert has done its job and must not outlive this screen.
+        DeadmanMonitor.clearAlert(this)
         super.onDestroy()
     }
 
