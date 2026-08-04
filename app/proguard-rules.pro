@@ -8,8 +8,8 @@
     public static *** wtf(...);
 }
 
-# Keep Compose + ViewModel reflection
--keep class androidx.compose.** { *; }
+# Compose needs no blanket keep; the previous `-keep class androidx.compose.** { *; }`
+# exempted the whole Compose runtime from shrinking and obfuscation.
 -keepclassmembers class * extends androidx.lifecycle.ViewModel { *; }
 
 # Keep Device Admin receiver
