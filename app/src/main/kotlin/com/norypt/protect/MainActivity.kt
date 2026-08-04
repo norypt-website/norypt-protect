@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color as AColor
 import android.os.Bundle
+import android.view.WindowManager
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
@@ -61,6 +62,10 @@ class MainActivity : ComponentActivity() {
             return
         }
 
+        // Keeps PIN entry and the trigger configuration out of recents thumbnails and
+        // screenshots — both disclose the device's protection posture.
+        window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = AColor.TRANSPARENT
         window.navigationBarColor = AColor.TRANSPARENT
@@ -87,6 +92,16 @@ class MainActivity : ComponentActivity() {
 
         val shortcutAction = intent.getStringExtra("action")
 
+        // Handled before setContent: lockNow() and finish() are side effects, and Compose
+        // may run a composition body more than once, which would fire them repeatedly.
+        if (shortcutAction == "lock") {
+            if (Provisioning.current(this) >= Tier.DeviceAdmin) {
+                getSystemService(DevicePolicyManager::class.java).lockNow()
+            }
+            finish()
+            return
+        }
+
         setContent {
             NoryptProtectTheme {
                 Surface(
@@ -94,24 +109,16 @@ class MainActivity : ComponentActivity() {
                     color = NoryptColors.Bg,
                 ) {
                     var launchUnlocked by remember { mutableStateOf(false) }
-                    if (!AppPin.isSet(this)) {
+                    // Keystore + Tink setup, so read once rather than on every recomposition.
+                    val pinIsSet = remember { AppPin.isSet(this) }
+                    if (!pinIsSet) {
                         PinSetupScreen(onPinSet = { pin ->
                             AppPin.set(this, pin)
                             recreate()
                         })
                     } else when (shortcutAction) {
-                        // Shortcut actions bypass the launch gate intentionally:
-                        // Lock is harmless (just locks the device); Wipe has its own
-                        // PIN confirmation dialog, so requiring the PIN twice would
-                        // be redundant.
-                        "lock" -> {
-                            val tier = Provisioning.current(this)
-                            if (tier >= Tier.DeviceAdmin) {
-                                val dpm = getSystemService(DevicePolicyManager::class.java)
-                                dpm.lockNow()
-                            }
-                            finish()
-                        }
+                        // The wipe shortcut bypasses the launch gate intentionally: it has its
+                        // own PIN confirmation, so requiring the PIN twice would be redundant.
                         "wipe" -> {
                             var showDialog by remember { mutableStateOf(true) }
                             if (showDialog) {

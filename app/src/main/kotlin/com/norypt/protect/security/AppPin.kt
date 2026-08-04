@@ -55,12 +55,26 @@ object AppPin {
         return constantTimeEquals(stored, attempt)
     }
 
+    @Volatile private var cachedPrefs: SharedPreferences? = null
+
+    /**
+     * Cached like [com.norypt.protect.prefs.ProtectPrefs] does: each call otherwise builds a
+     * fresh MasterKey (a Keystore round-trip) and decrypts the Tink keyset, and these run on
+     * the main thread from PIN dialogs and composition.
+     */
     private fun open(context: Context): SharedPreferences {
-        val master = MasterKey.Builder(context)
+        cachedPrefs?.let { return it }
+        return synchronized(this) {
+            cachedPrefs ?: build(context.applicationContext).also { cachedPrefs = it }
+        }
+    }
+
+    private fun build(appContext: Context): SharedPreferences {
+        val master = MasterKey.Builder(appContext)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
         return EncryptedSharedPreferences.create(
-            context,
+            appContext,
             PREF_FILE,
             master,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
