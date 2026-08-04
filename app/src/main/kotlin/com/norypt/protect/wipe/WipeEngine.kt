@@ -4,6 +4,7 @@ import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import com.norypt.protect.util.DebugTelemetry
 
 object WipeEngine {
 
@@ -30,8 +31,11 @@ object WipeEngine {
             return null
         }
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val sp = context.getSharedPreferences("norypt_admin_debug", Context.MODE_PRIVATE)
-        sp.edit().putString("wipe_last_call", "pre-call flags=$flags reason=$reason sdk=${Build.VERSION.SDK_INT}").commit()
+        DebugTelemetry.put(
+            context,
+            "wipe_last_call",
+            "pre-call flags=$flags reason=$reason sdk=${Build.VERSION.SDK_INT}",
+        )
         return try {
             // Android 14+ split the wipe APIs: wipeData() now removes only the calling
             // user (IllegalStateException on user 0, the system user), while the new
@@ -41,22 +45,31 @@ object WipeEngine {
             } else {
                 dpm.wipeData(flags)
             }
-            sp.edit().putString("wipe_last_call", "returned-without-wiping flags=$flags reason=$reason").commit()
-            null // unreachable on a real wipe
+            DebugTelemetry.put(context, "wipe_last_call", "returned-without-wiping flags=$flags reason=$reason")
+            WipeError.ReturnedWithoutWiping
         } catch (e: SecurityException) {
-            sp.edit().putString("wipe_last_call", "SecurityException: ${e.message}").commit()
+            DebugTelemetry.put(context, "wipe_last_call", "SecurityException: ${e.message}")
             WipeError.SecurityDenied(e.message ?: "SecurityException")
         } catch (e: IllegalStateException) {
-            sp.edit().putString("wipe_last_call", "IllegalStateException: ${e.message}").commit()
+            DebugTelemetry.put(context, "wipe_last_call", "IllegalStateException: ${e.message}")
             WipeError.IllegalState(e.message ?: "IllegalStateException")
         } catch (t: Throwable) {
-            sp.edit().putString("wipe_last_call", "Throwable: ${t.javaClass.simpleName}: ${t.message}").commit()
-            null
+            DebugTelemetry.put(context, "wipe_last_call", "Throwable: ${t.javaClass.simpleName}: ${t.message}")
+            WipeError.Unknown("${t.javaClass.simpleName}: ${t.message}")
         }
     }
 }
 
+/**
+ * A wipe that did not happen. [WipeEngine.wipe] returns `null` only for a dry run; a real
+ * wipe never returns at all, so any other return value means the device still holds its data
+ * and the caller must not treat it as success.
+ */
 sealed class WipeError(val message: String) {
     class SecurityDenied(message: String) : WipeError(message)
     class IllegalState(message: String) : WipeError(message)
+    class Unknown(message: String) : WipeError(message)
+
+    /** The platform call returned normally instead of tearing the process down. */
+    object ReturnedWithoutWiping : WipeError("wipe call returned without wiping")
 }
