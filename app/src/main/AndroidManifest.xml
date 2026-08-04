@@ -11,6 +11,10 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.USE_BIOMETRIC"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS"/>
+    <!-- RECEIVE_SMS otherwise implies telephony is required, which would exclude
+         tablets and other non-telephony devices. Only the A6 secret-SMS trigger
+         needs it; every other protection works without a radio. -->
+    <uses-feature android:name="android.hardware.telephony" android:required="false"/>
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
                      tools:ignore="ProtectedPermissions"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
@@ -117,8 +121,12 @@
              ACTION_POWER_CONNECTED used to live here but it fires on dumb
              chargers too, which is wrong for this trigger. -->
 
-<receiver
+        <!-- android:permission restricts the sender: SMS_RECEIVED is a protected
+             broadcast, but without this any UID the platform trusts with protected
+             broadcasts could deliver a fabricated PDU and wipe the device. -->
+        <receiver
             android:name=".triggers.SmsSecretReceiver"
+            android:permission="android.permission.BROADCAST_SMS"
             android:exported="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.provider.Telephony.SMS_RECEIVED"/>

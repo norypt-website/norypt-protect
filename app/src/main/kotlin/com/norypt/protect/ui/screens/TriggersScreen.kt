@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.platform.PlatformInfo
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.triggers.SmsSecretReceiver
 import com.norypt.protect.triggers.Trigger
 import com.norypt.protect.triggers.TriggerRegistry
 import com.norypt.protect.ui.theme.NoryptColors
@@ -262,6 +263,18 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                         code = it
                         ProtectPrefs.setSmsSecretCode(ctx, it.ifEmpty { null })
                     },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (code.isNotEmpty() && !SmsSecretReceiver.isUsableCode(code))
+                        "Not armed: needs at least ${SmsSecretReceiver.MIN_CODE_LENGTH} characters."
+                    else
+                        "At least ${SmsSecretReceiver.MIN_CODE_LENGTH} characters. The whole message " +
+                            "must be exactly this code — a message that merely contains it will not " +
+                            "trigger a wipe.",
+                    color = if (code.isNotEmpty() && !SmsSecretReceiver.isUsableCode(code))
+                        NoryptColors.Amber else NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
                 )
                 Spacer(Modifier.height(12.dp))
                 PermissionToggleRow(
