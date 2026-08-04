@@ -75,18 +75,49 @@ class ProtectPrefsTest {
     }
 
     @Test
-    fun `increment and reset failed attempts`() {
+    fun `consecutive failed attempts within the window accumulate`() {
+        val t0 = 1_000_000L
         assertEquals(0, ProtectPrefsKeys.failedAttempts(store))
 
-        ProtectPrefsKeys.incrementFailedAttempts(store)
-        assertEquals(1, ProtectPrefsKeys.failedAttempts(store))
-
-        ProtectPrefsKeys.incrementFailedAttempts(store)
-        ProtectPrefsKeys.incrementFailedAttempts(store)
+        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0))
+        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 + 1_000))
+        assertEquals(3, ProtectPrefsKeys.recordFailedAttempt(store, t0 + 2_000))
         assertEquals(3, ProtectPrefsKeys.failedAttempts(store))
 
         ProtectPrefsKeys.resetFailedAttempts(store)
         assertEquals(0, ProtectPrefsKeys.failedAttempts(store))
+    }
+
+    @Test
+    fun `failed attempt after the window starts a new run`() {
+        val t0 = 1_000_000L
+        val window = ProtectPrefsKeys.FAILED_ATTEMPT_WINDOW_MS
+
+        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0))
+        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 + window))
+
+        // One millisecond past the window: unrelated event, so the run restarts at 1
+        // rather than reaching a duress threshold months after the first mistype.
+        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0 + window + window + 1))
+    }
+
+    @Test
+    fun `backwards clock step restarts the run instead of extending it`() {
+        val t0 = 1_000_000L
+        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0))
+        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 + 1_000))
+
+        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0 - 60_000))
+    }
+
+    @Test
+    fun `reset clears the run timestamp so the next failure starts at one`() {
+        val t0 = 1_000_000L
+        ProtectPrefsKeys.recordFailedAttempt(store, t0)
+        ProtectPrefsKeys.recordFailedAttempt(store, t0 + 1_000)
+        ProtectPrefsKeys.resetFailedAttempts(store)
+
+        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0 + 2_000))
     }
 
     @Test

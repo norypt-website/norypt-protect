@@ -31,6 +31,7 @@ internal object ProtectPrefsKeys {
     const val KEY_WIPE_EXTERNAL_STORAGE = "wipe_external_storage"
     const val KEY_WIPE_EUICC = "wipe_euicc"
     const val KEY_FAILED_ATTEMPTS = "failed_attempts"
+    const val KEY_FAILED_ATTEMPT_LAST_MS = "failed_attempt_last_ms"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
     const val KEY_DURESS_THRESHOLD = "duress_threshold"
     const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
@@ -118,11 +119,31 @@ internal object ProtectPrefsKeys {
     fun failedAttempts(store: KvStore): Int =
         store.getInt(KEY_FAILED_ATTEMPTS, 0)
 
-    fun incrementFailedAttempts(store: KvStore) =
-        store.putInt(KEY_FAILED_ATTEMPTS, failedAttempts(store) + 1)
 
-    fun resetFailedAttempts(store: KvStore) =
+    /**
+     * Failed unlocks further apart than this belong to different events and start a new
+     * run. Without a window the counter is monotonic for the life of the install, so three
+     * unrelated mistypes spread over months reach a duress threshold of 3 and wipe a device
+     * that was never under coercion.
+     */
+    const val FAILED_ATTEMPT_WINDOW_MS = 15 * 60_000L
+
+    /** Records a failed unlock at [nowMs] and returns the length of the current run. */
+    fun recordFailedAttempt(store: KvStore, nowMs: Long): Int {
+        val last = store.getLong(KEY_FAILED_ATTEMPT_LAST_MS, 0L)
+        // nowMs < last means the clock stepped backwards; treat it as a fresh run rather
+        // than extending one on timestamps we can no longer compare.
+        val continuesRun = last > 0L && nowMs >= last && nowMs - last <= FAILED_ATTEMPT_WINDOW_MS
+        val next = if (continuesRun) failedAttempts(store) + 1 else 1
+        store.putInt(KEY_FAILED_ATTEMPTS, next)
+        store.putLong(KEY_FAILED_ATTEMPT_LAST_MS, nowMs)
+        return next
+    }
+
+    fun resetFailedAttempts(store: KvStore) {
         store.putInt(KEY_FAILED_ATTEMPTS, 0)
+        store.putLong(KEY_FAILED_ATTEMPT_LAST_MS, 0L)
+    }
 
     fun lastUnlockMs(store: KvStore): Long =
         store.getLong(KEY_LAST_UNLOCK_MS, 0L)
@@ -310,8 +331,9 @@ object ProtectPrefs {
     fun failedAttempts(context: Context): Int =
         ProtectPrefsKeys.failedAttempts(store(context))
 
-    fun incrementFailedAttempts(context: Context) =
-        ProtectPrefsKeys.incrementFailedAttempts(store(context))
+    /** Records a failed unlock now and returns the length of the current run. */
+    fun recordFailedAttempt(context: Context): Int =
+        ProtectPrefsKeys.recordFailedAttempt(store(context), System.currentTimeMillis())
 
     fun resetFailedAttempts(context: Context) =
         ProtectPrefsKeys.resetFailedAttempts(store(context))
