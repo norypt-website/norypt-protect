@@ -150,14 +150,30 @@
             </intent-filter>
         </receiver>
 
-        <receiver
-            android:name=".triggers.ExternalPanicReceiver"
-            android:permission="com.norypt.protect.permission.TRIGGER"
-            android:exported="true">
+        <!-- A5 PanicKit responder. Deliberately an Activity with NO android:permission:
+             the protocol identifies the sender via getCallingActivity(), which a receiver
+             cannot do and which a signature permission made moot by excluding every
+             third-party panic app. Access control lives in ExternalPanicPolicy instead.
+             Must NOT be singleTask/singleInstance — both clear the calling identity. -->
+        <activity
+            android:name=".triggers.ExternalPanicActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="info.guardianproject.panic.action.TRIGGER"/>
+                <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
-        </receiver>
+            <intent-filter>
+                <action android:name="info.guardianproject.panic.action.CONNECT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="info.guardianproject.panic.action.DISCONNECT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
 
         <service android:name=".service.NoryptNotificationListenerService"
                  android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
