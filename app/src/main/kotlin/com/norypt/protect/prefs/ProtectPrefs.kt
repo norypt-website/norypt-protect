@@ -36,6 +36,7 @@ internal object ProtectPrefsKeys {
     const val KEY_GATE_LOCKED_UNTIL_MS = "gate_locked_until_ms"
     const val KEY_GATE_LOCKED_UNTIL_ELAPSED_MS = "gate_locked_until_elapsed_ms"
     const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
+    const val KEY_PENDING_WIPE_AT_MS = "pending_wipe_at_ms"
     const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
     const val KEY_DURESS_THRESHOLD = "duress_threshold"
@@ -162,6 +163,12 @@ internal object ProtectPrefsKeys {
 
     fun setPendingWipeReason(store: KvStore, value: String?) =
         store.putString(KEY_PENDING_WIPE_REASON, value)
+
+    fun pendingWipeAtMs(store: KvStore): Long =
+        store.getLong(KEY_PENDING_WIPE_AT_MS, 0L)
+
+    fun setPendingWipeAtMs(store: KvStore, value: Long) =
+        store.putLong(KEY_PENDING_WIPE_AT_MS, value)
 
     fun gateAttempts(store: KvStore): Int =
         store.getInt(KEY_GATE_ATTEMPTS, 0)
@@ -385,6 +392,12 @@ object ProtectPrefs {
 
     fun setPendingWipeReason(context: Context, value: String?) =
         ProtectPrefsKeys.setPendingWipeReason(store(context), value)
+
+    fun pendingWipeAtMs(context: Context): Long =
+        ProtectPrefsKeys.pendingWipeAtMs(store(context))
+
+    fun setPendingWipeAtMs(context: Context, value: Long) =
+        ProtectPrefsKeys.setPendingWipeAtMs(store(context), value)
 
     fun lastUnlockMs(context: Context): Long =
         ProtectPrefsKeys.lastUnlockMs(store(context))
