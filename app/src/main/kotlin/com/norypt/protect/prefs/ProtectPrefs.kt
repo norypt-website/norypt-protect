@@ -32,6 +32,7 @@ internal object ProtectPrefsKeys {
     const val KEY_WIPE_EUICC = "wipe_euicc"
     const val KEY_FAILED_ATTEMPTS = "failed_attempts"
     const val KEY_FAILED_ATTEMPT_LAST_MS = "failed_attempt_last_ms"
+    const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
     const val KEY_DURESS_THRESHOLD = "duress_threshold"
     const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
@@ -144,6 +145,13 @@ internal object ProtectPrefsKeys {
         store.putInt(KEY_FAILED_ATTEMPTS, 0)
         store.putLong(KEY_FAILED_ATTEMPT_LAST_MS, 0L)
     }
+
+    /** Reason of a wipe that was attempted and did not happen; null when none is pending. */
+    fun pendingWipeReason(store: KvStore): String? =
+        store.getString(KEY_PENDING_WIPE_REASON, null)
+
+    fun setPendingWipeReason(store: KvStore, value: String?) =
+        store.putString(KEY_PENDING_WIPE_REASON, value)
 
     fun lastUnlockMs(store: KvStore): Long =
         store.getLong(KEY_LAST_UNLOCK_MS, 0L)
@@ -337,6 +345,12 @@ object ProtectPrefs {
 
     fun resetFailedAttempts(context: Context) =
         ProtectPrefsKeys.resetFailedAttempts(store(context))
+
+    fun pendingWipeReason(context: Context): String? =
+        ProtectPrefsKeys.pendingWipeReason(store(context))
+
+    fun setPendingWipeReason(context: Context, value: String?) =
+        ProtectPrefsKeys.setPendingWipeReason(store(context), value)
 
     fun lastUnlockMs(context: Context): Long =
         ProtectPrefsKeys.lastUnlockMs(store(context))

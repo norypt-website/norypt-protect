@@ -3,6 +3,7 @@ package com.norypt.protect
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.service.ProtectForegroundService
 import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
@@ -45,5 +46,7 @@ class NoryptProtectApp : Application() {
         ProtectForegroundService.registerTick { FakeMessengerMonitor.tick(it) }
         ProtectForegroundService.registerTick { DeadmanMonitor.tick(it) }
         ProtectForegroundService.registerTick { PackageInternetWatcher.tick(it) }
+        // Retries a wipe that was attempted and denied — see PanicHandler.retryPendingWipe.
+        ProtectForegroundService.registerTick { PanicHandler.retryPendingWipe(it) }
     }
 }

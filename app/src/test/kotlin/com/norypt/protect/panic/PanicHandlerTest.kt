@@ -2,10 +2,12 @@ package com.norypt.protect.panic
 
 import com.norypt.protect.prefs.KvStore
 import com.norypt.protect.prefs.ProtectPrefsKeys
+import com.norypt.protect.wipe.WipeError
 import com.norypt.protect.wipe.WipeOptions
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -99,5 +101,52 @@ class PanicHandlerTest {
 
         assertTrue("Expected wipeExternalStorage=true", capturedCall!!.options.wipeExternalStorage)
         assertTrue("Expected wipeEuicc=true", capturedCall!!.options.wipeEuicc)
+    }
+
+    // --- A wipe that did not happen must never be treated as one that did. ---
+
+    @Test
+    fun `a successful attempt leaves nothing pending and raises no alert`() {
+        val outcome = PanicHandler.outcomeOf("deadman", error = null)
+
+        assertNull(outcome.pendingReason)
+        assertFalse(outcome.alertUser)
+    }
+
+    @Test
+    fun `a denied wipe stays pending and alerts the user`() {
+        val outcome = PanicHandler.outcomeOf("deadman", WipeError.SecurityDenied("not device owner"))
+
+        assertEquals("deadman", outcome.pendingReason)
+        assertTrue(outcome.alertUser)
+    }
+
+    @Test
+    fun `every WipeError variant keeps the wipe outstanding`() {
+        val errors = listOf(
+            WipeError.SecurityDenied("denied"),
+            WipeError.IllegalState("bad state"),
+            WipeError.Unknown("DeadObjectException: null"),
+            WipeError.ReturnedWithoutWiping,
+        )
+
+        errors.forEach { error ->
+            val outcome = PanicHandler.outcomeOf("duress.threshold", error)
+            assertEquals(
+                "${error::class.simpleName} must stay pending",
+                "duress.threshold",
+                outcome.pendingReason,
+            )
+            assertTrue("${error::class.simpleName} must alert the user", outcome.alertUser)
+        }
+    }
+
+    @Test
+    fun `a platform call that returns without wiping is a failure, not a success`() {
+        // The pre-fix engine returned null here, which the contract defines as "wiped".
+        val outcome = PanicHandler.outcomeOf("power.gesture", WipeError.ReturnedWithoutWiping)
+
+        assertNotNull(outcome.pendingReason)
+        assertTrue(outcome.alertUser)
     }
 }
