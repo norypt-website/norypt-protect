@@ -23,7 +23,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.security.AppPin
+import com.norypt.protect.security.PinLockout
 import com.norypt.protect.ui.theme.NoryptColors
+import kotlinx.coroutines.delay
 
 /**
  * App-launch gate. Shown before main content whenever an App-PIN is configured.
@@ -39,7 +41,21 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
     val ctx = LocalContext.current
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    var attempts by remember { mutableStateOf(0) }
+    // Persisted, not composition state: a rotation recreates the Activity and force-stopping
+    // clears the process, so an in-memory counter is reset by the very action the old
+    // lockout message told the user to perform.
+    var attempts by remember { mutableStateOf(PinLockout.attempts(ctx)) }
+    var lockedRemainingMs by remember { mutableLongStateOf(PinLockout.remainingLockoutMs(ctx)) }
+    val lockedOut = lockedRemainingMs > 0L
+
+    // Ticks the lockout down so the gate re-enables itself without needing a relaunch.
+    LaunchedEffect(lockedOut) {
+        while (PinLockout.remainingLockoutMs(ctx) > 0L) {
+            lockedRemainingMs = PinLockout.remainingLockoutMs(ctx)
+            delay(1_000L)
+        }
+        lockedRemainingMs = 0L
+    }
 
     val biometricEnabled = remember { ProtectPrefs.launchBiometricEnabled(ctx) }
     val canUseBiometric = remember {
@@ -89,7 +105,7 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                 },
                 label = { Text("App PIN") },
                 singleLine = true,
-                enabled = attempts < MAX_PIN_ATTEMPTS,
+                enabled = !lockedOut,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 visualTransformation = PasswordVisualTransformation(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -107,14 +123,17 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
             Button(
                 onClick = {
                     if (AppPin.verify(ctx, pin)) {
+                        PinLockout.recordSuccess(ctx)
                         onUnlocked()
                     } else {
-                        attempts++
-                        error = "Incorrect PIN (${attempts}/${MAX_PIN_ATTEMPTS})"
+                        attempts = PinLockout.recordFailure(ctx)
+                        lockedRemainingMs = PinLockout.remainingLockoutMs(ctx)
+                        error = if (lockedRemainingMs > 0L) null
+                                else "Incorrect PIN ($attempts/${PinLockout.MAX_ATTEMPTS})"
                         pin = ""
                     }
                 },
-                enabled = pin.length >= 6 && attempts < MAX_PIN_ATTEMPTS,
+                enabled = pin.length >= 6 && !lockedOut,
                 colors = ButtonDefaults.buttonColors(containerColor = NoryptColors.Accent),
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -136,7 +155,7 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                     Text("Use biometric")
                 }
             }
-            if (attempts >= MAX_PIN_ATTEMPTS) {
+            if (lockedOut) {
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(8.dp))
@@ -144,9 +163,10 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                         .border(1.dp, NoryptColors.Red.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp, vertical = 8.dp),
                 ) {
+                    val seconds = ((lockedRemainingMs + 999L) / 1000L).toInt()
                     Text(
-                        "Too many incorrect PIN attempts. Force-stop the app from Settings " +
-                            "and try again.",
+                        "Too many incorrect PIN attempts. Try again in " +
+                            "${seconds / 60}m ${seconds % 60}s.",
                         color = NoryptColors.Red,
                         fontSize = 12.sp,
                     )
@@ -156,7 +176,6 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
     }
 }
 
-private const val MAX_PIN_ATTEMPTS = 8
 
 private fun promptBiometric(
     ctx: Context,
