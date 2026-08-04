@@ -4,6 +4,7 @@ import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
@@ -37,6 +38,36 @@ class UserPresentReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_USER_PRESENT) return
         ProtectPrefs.setLastUnlockMs(context, System.currentTimeMillis())
+        // A successful unlock proves the owner is present, so the failed-attempt run
+        // that feeds the duress wipe ends here. onPasswordSucceeded only covers
+        // credential unlocks; biometric unlocks would otherwise leave the count standing.
+        ProtectPrefs.resetFailedAttempts(context)
+    }
+}
+
+/**
+ * Registers [UserPresentReceiver] at runtime.
+ *
+ * ACTION_USER_PRESENT is not on the implicit-broadcast exception list, so a
+ * manifest-declared receiver is never invoked on API 26+ (see the same constraint on
+ * SCREEN_ON/SCREEN_OFF in [PowerGestureMonitor]). While it was declared in the manifest,
+ * `last_unlock_ms` was never written: A8 returned early on every tick and the dead-man
+ * "disarm after unlock" guard measured against 0 and never suppressed anything.
+ */
+object UserPresentMonitor {
+
+    private var receiver: BroadcastReceiver? = null
+
+    fun start(ctx: Context) {
+        if (receiver != null) return
+        val r = UserPresentReceiver()
+        ctx.applicationContext.registerReceiver(r, IntentFilter(Intent.ACTION_USER_PRESENT))
+        receiver = r
+    }
+
+    fun stop(ctx: Context) {
+        receiver?.let { runCatching { ctx.applicationContext.unregisterReceiver(it) } }
+        receiver = null
     }
 }
 

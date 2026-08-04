@@ -12,6 +12,7 @@ import com.norypt.protect.R
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.triggers.PowerGestureMonitor
 import com.norypt.protect.triggers.UsbLockedMonitor
+import com.norypt.protect.triggers.UserPresentMonitor
 import com.norypt.protect.util.DebugTelemetry
 
 class ProtectForegroundService : Service() {
@@ -47,6 +48,7 @@ class ProtectForegroundService : Service() {
         PowerGestureMonitor.start(this)
         UsbLockedMonitor.start(this)
         PowerMenuGuard.start(this)
+        UserPresentMonitor.start(this)
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)
     }
 
@@ -58,6 +60,7 @@ class ProtectForegroundService : Service() {
         PowerGestureMonitor.stop(this)
         UsbLockedMonitor.stop(this)
         PowerMenuGuard.stop(this)
+        UserPresentMonitor.stop(this)
         super.onDestroy()
     }
 
