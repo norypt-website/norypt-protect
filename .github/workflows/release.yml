@@ -15,15 +15,15 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4.9.0
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
         with:
           cmdline-tools-version: latest
 
@@ -32,12 +32,18 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" >/dev/null
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
         with:
           gradle-version: wrapper
 
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest
+
+      - name: Static analysis (detekt)
+        run: ./gradlew detekt
+
+      - name: Android lint (release)
+        run: ./gradlew :app:lintRelease
 
       - name: Decode keystore
         env:
@@ -78,6 +84,16 @@ jobs:
             -storetype PKCS12 \
             -storepass "$RELEASE_KEYSTORE_PASSWORD" \
             -file norypt-protect-release.cert.pem
+
+      # Last use of the signing key is above. Removing it here means the third-party
+      # publish action later in this job runs on a runner with no readable keystore.
+      # `always()` so a failure in an earlier step does not leave the key on disk.
+      - name: Shred keystore
+        if: always()
+        run: |
+          shred -u /tmp/norypt-protect.keystore 2>/dev/null || rm -f /tmp/norypt-protect.keystore
+          rm -f /tmp/apksigner.txt
+          test ! -f /tmp/norypt-protect.keystore
 
       - name: Stage release artifacts
         run: |
@@ -157,7 +173,7 @@ jobs:
           EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           tag_name: ${{ github.ref_name }}
           name: Norypt Protect ${{ env.VERSION }}

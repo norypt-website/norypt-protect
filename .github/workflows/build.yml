@@ -9,15 +9,15 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@d7793b545071e98d581d3bf084a51c3213318a07 # v4.9.0
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
         with:
           cmdline-tools-version: latest
 
@@ -26,7 +26,7 @@ jobs:
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" >/dev/null
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
         with:
           gradle-version: wrapper
 
@@ -36,15 +36,36 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest
 
+      - name: Static analysis (detekt)
+        run: ./gradlew detekt
+
+      - name: Android lint (release)
+        run: ./gradlew :app:lintRelease
+
+      # Release-variant compile + R8 on every PR: minification breakage otherwise only
+      # surfaces at tag time, when the release workflow is the first thing to run it.
+      # Debug-signed here on purpose — CI has no signing key on a PR.
+      - name: Security gates (no-network / no-telemetry / signing)
+        run: ./gradlew securityGates -PallowDebugSignedRelease=true
+
+      - name: Upload lint + detekt reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: analysis-reports
+          path: |
+            app/build/reports/lint-results-release.*
+            build/reports/detekt/
+
       - name: Upload unit-test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unit-test-results
           path: app/build/reports/tests/testDebugUnitTest/
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: app-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
