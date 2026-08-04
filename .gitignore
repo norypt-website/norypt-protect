@@ -16,10 +16,24 @@ local.properties
 *.apks
 captures/
 
-# Keystores — never commit
+# Keystores — never commit.
+# The production key is a .p12; without that pattern a copy dropped in the repo
+# would be committable.
 *.jks
 *.keystore
+*.p12
+*.pfx
+*.pem
+!norypt-protect-release.cert.pem
 keystore.properties
+
+# Local editor + tool state
+.vscode/
+*.log
+
+# Provisioning packs are built artifacts and contain the signed APK
+NoryptProtect-Provisioning-Pack*/
+NoryptProtect-Provisioning-Pack*.zip
 
 # OS
 .DS_Store
