@@ -18,8 +18,15 @@ class PanicTileService : TileService() {
         }
     }
 
+    /**
+     * The quick-settings shade opens over the lockscreen, so without this a single stray
+     * tap — by a thief, or by the owner's own thumb pulling the shade down — factory-resets
+     * the device with no confirmation. Deferring behind an unlock keeps the tile a
+     * one-gesture panic action for the owner while requiring proof of presence, which is
+     * the same bar the launcher shortcut meets with its PIN dialog.
+     */
     override fun onClick() {
         super.onClick()
-        PanicHandler.panic(this, reason = "qs.tile")
+        unlockAndRun { PanicHandler.panic(this, reason = "qs.tile") }
     }
 }
