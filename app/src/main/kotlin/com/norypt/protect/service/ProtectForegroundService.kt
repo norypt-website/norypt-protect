@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.os.Looper
 import com.norypt.protect.R
 import com.norypt.protect.dpm.PowerMenuGuard
+import com.norypt.protect.triggers.DeadmanScheduler
 import com.norypt.protect.triggers.PowerGestureMonitor
 import com.norypt.protect.triggers.UsbLockedMonitor
 import com.norypt.protect.triggers.UserPresentMonitor
@@ -49,6 +50,7 @@ class ProtectForegroundService : Service() {
         UsbLockedMonitor.start(this)
         PowerMenuGuard.start(this)
         UserPresentMonitor.start(this)
+        DeadmanScheduler.schedule(this)
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)
     }
 

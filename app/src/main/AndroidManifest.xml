@@ -3,6 +3,10 @@
           xmlns:tools="http://schemas.android.com/tools">
 
     <!-- DELIBERATELY NOT DECLARED: android.permission.INTERNET -->
+
+    <!-- C4 dead-man switch must run while the device is in Doze. Revocable by the user;
+         DeadmanScheduler degrades to setAndAllowWhileIdle rather than disarming. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <permission android:name="com.norypt.protect.permission.TRIGGER"
                 android:protectionLevel="signature"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -90,6 +94,10 @@
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".triggers.DeadmanAlarmReceiver"
+            android:exported="false"/>
 
         <!-- MY_PACKAGE_REPLACED re-arms the foreground service after an app update;
              without it every runtime-registered trigger stays down until the user next
