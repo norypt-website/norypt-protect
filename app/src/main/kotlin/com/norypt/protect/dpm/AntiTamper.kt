@@ -13,6 +13,16 @@ import com.norypt.protect.admin.ProtectAdminReceiver
  * WARNING: Once applied, the only way to remove these restrictions is via
  * ADB or another Device Owner app. The UI must require App PIN to apply
  * and to release, and show a prominent warning before first enable.
+ *
+ * VERIFIED 2026-08-04 on a Pixel 10a (Android 16, SDK 36): DISALLOW_FACTORY_RESET does
+ * NOT block this app's own wipe. With the restriction applied and confirmed enforced via
+ * UserManager.hasUserRestriction, trigger C3 fired a real wipe and the device reset.
+ *
+ * This matters because the opposite would be silent and catastrophic: enabling anti-tamper
+ * would disarm every wipe trigger while the UI still reported "All protections active".
+ * The restriction governs the user-facing Settings reset flow, not the Device Owner's own
+ * DevicePolicyManager call. Re-verify if the wipe path or minSdk changes — the only way to
+ * establish this is a real wipe on a disposable device.
  */
 object AntiTamper {
 
