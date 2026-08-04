@@ -10,8 +10,8 @@ import com.norypt.protect.R
 import com.norypt.protect.dpm.EmergencySos
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
-import com.norypt.protect.util.DebugTelemetry
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.util.DebugTelemetry
 
 class ProtectAdminReceiver : DeviceAdminReceiver() {
 

@@ -38,10 +38,10 @@ object PowerGestureMonitor {
                     return
                 }
                 DebugTelemetry.bump(c, "c3_events_when_enabled")
-                if (// elapsedRealtime, not the wall clock: an NTP or manual date correction
+                // elapsedRealtime, not the wall clock: an NTP or manual date correction
                 // that steps time backwards would otherwise strand entries in the window
                 // and let unrelated presses accumulate into a wipe.
-                counter.onEvent(SystemClock.elapsedRealtime())) {
+                if (counter.onEvent(SystemClock.elapsedRealtime())) {
                     counter.reset()
                     DebugTelemetry.bump(c, "c3_threshold_hits")
                     PanicHandler.panic(c, "power.gesture")
