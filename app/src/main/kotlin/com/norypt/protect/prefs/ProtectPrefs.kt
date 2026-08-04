@@ -32,11 +32,11 @@ internal object ProtectPrefsKeys {
     const val KEY_WIPE_EUICC = "wipe_euicc"
     const val KEY_FAILED_ATTEMPTS = "failed_attempts"
     const val KEY_FAILED_ATTEMPT_LAST_MS = "failed_attempt_last_ms"
-    const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
-    const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
     const val KEY_GATE_ATTEMPTS = "gate_attempts"
     const val KEY_GATE_LOCKED_UNTIL_MS = "gate_locked_until_ms"
     const val KEY_GATE_LOCKED_UNTIL_ELAPSED_MS = "gate_locked_until_elapsed_ms"
+    const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
+    const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
     const val KEY_DURESS_THRESHOLD = "duress_threshold"
     const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
@@ -123,7 +123,6 @@ internal object ProtectPrefsKeys {
 
     fun failedAttempts(store: KvStore): Int =
         store.getInt(KEY_FAILED_ATTEMPTS, 0)
-
 
     /**
      * Failed unlocks further apart than this belong to different events and start a new
