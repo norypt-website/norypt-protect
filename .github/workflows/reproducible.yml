@@ -8,31 +8,49 @@ on:
 permissions:
   contents: read
 
+# Builds the release APK twice, in separate jobs on separate runners, and requires the
+# two to be byte-identical. Neither build has the signing key, so both produce the
+# unsigned APK — which is the right artefact to compare, since it is what a third party
+# can rebuild from source and what F-Droid verifies.
 jobs:
   build-one:
     runs-on: ubuntu-latest
-    outputs:
-      sha256: ${{ steps.hash.outputs.sha256 }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Build APK inside Docker
         run: |
+          set -euo pipefail
           docker build -t norypt-builder .
           docker run --rm -v "$PWD:/workspace" norypt-builder \
             ./gradlew :app:assembleRelease
 
-      - name: Compute SHA-256 (run 1)
-        id: hash
+      # Without a keystore AGP names the output app-release-unsigned.apk, so the file is
+      # located rather than assumed. The previous hard-coded app-release.apk matched
+      # nothing, and because `sha256sum missing | awk` exits with awk's status the step
+      # still passed, uploaded an empty artifact set, and left build-two to fail on a
+      # download with no obvious cause.
+      - name: Stage the built APK
         run: |
-          SHA=$(sha256sum app/build/outputs/apk/release/app-release.apk | awk '{print $1}')
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one release APK, found ${#apks[@]}: ${apks[*]:-none}"
+            ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "(output directory missing)"
+            exit 1
+          fi
+          cp "${apks[0]}" /tmp/run-1.apk
+          echo "built: $(basename "${apks[0]}")"
+          sha256sum /tmp/run-1.apk
 
       - name: Upload APK artifact (run 1)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: apk-run-1
-          path: app/build/outputs/apk/release/app-release.apk
+          path: /tmp/run-1.apk
+          if-no-files-found: error
+          retention-days: 1
 
   build-two:
     runs-on: ubuntu-latest
@@ -42,24 +60,50 @@ jobs:
 
       - name: Build APK inside Docker
         run: |
+          set -euo pipefail
           docker build -t norypt-builder .
           docker run --rm -v "$PWD:/workspace" norypt-builder \
             ./gradlew :app:assembleRelease
+
+      - name: Stage the built APK
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          apks=(app/build/outputs/apk/release/*.apk)
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one release APK, found ${#apks[@]}: ${apks[*]:-none}"
+            ls -la app/build/outputs/apk/release/ 2>/dev/null || echo "(output directory missing)"
+            exit 1
+          fi
+          cp "${apks[0]}" /tmp/run-2.apk
+          echo "built: $(basename "${apks[0]}")"
+          sha256sum /tmp/run-2.apk
 
       - name: Download run-1 artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: apk-run-1
-          path: /tmp/apk-run-1
+          path: /tmp/run-1
 
       - name: Assert byte-for-byte equality
         run: |
-          SHA1=$(sha256sum /tmp/apk-run-1/app-release.apk | awk '{print $1}')
-          SHA2=$(sha256sum app/build/outputs/apk/release/app-release.apk | awk '{print $1}')
-          printf 'Run 1: %s\n' "$SHA1"
-          printf 'Run 2: %s\n' "$SHA2"
-          if [ "$SHA1" != "$SHA2" ]; then
-            echo "REPRODUCIBILITY FAILURE: APK hashes differ between builds"
-            exit 1
+          set -euo pipefail
+          SHA1=$(sha256sum /tmp/run-1/run-1.apk | awk '{print $1}')
+          SHA2=$(sha256sum /tmp/run-2.apk | awk '{print $1}')
+          printf 'run 1: %s\n' "$SHA1"
+          printf 'run 2: %s\n' "$SHA2"
+
+          if [ "$SHA1" = "$SHA2" ]; then
+            printf 'Reproducibility verified: %s\n' "$SHA1"
+            exit 0
           fi
-          printf 'Reproducibility verified: %s\n' "$SHA1"
+
+          echo "::error::Builds are not reproducible — the two APKs differ"
+          # Name the entries that moved, so the cause is actionable rather than a bare
+          # hash mismatch. Differing CRCs point at content; identical CRCs with a
+          # different listing point at ordering or timestamps.
+          unzip -v /tmp/run-1/run-1.apk | awk 'NR>3 {print $7, $8, $3}' | sort > /tmp/l1.txt
+          unzip -v /tmp/run-2.apk       | awk 'NR>3 {print $7, $8, $3}' | sort > /tmp/l2.txt
+          echo "--- differing zip entries (name, crc, size) ---"
+          diff /tmp/l1.txt /tmp/l2.txt || true
+          exit 1
