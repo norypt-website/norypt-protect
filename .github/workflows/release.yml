@@ -12,6 +12,11 @@ permissions:
 
 env:
   EXPECTED_CERT_SHA256: 13502510a5b50d59bf7823cbe596b88c7b4cb54b41bc217aac7c251917536e95
+  # Deliberately not a secret. The alias is public — it ships in
+  # keystore.properties.example and is visible in the certificate — and holding it
+  # as a secret actively breaks the build: the APK is named after it, so GitHub
+  # treats apk_out as secret-bearing and passes an empty string to the publish job.
+  RELEASE_KEY_ALIAS: norypt-protect
 
 jobs:
   # Holds the signing key. Produces a signed, verified APK and hands it on as an
@@ -66,7 +71,6 @@ jobs:
       - name: Verify the decoded keystore
         env:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
           set -uo pipefail
           SIZE=$(stat -c%s /tmp/norypt-protect.keystore)
@@ -83,7 +87,7 @@ jobs:
                  -alias "$RELEASE_KEY_ALIAS" >/tmp/keytool.out 2>&1; then
             echo "keystore is intact, opens with the supplied password, and contains the expected alias"
           elif grep -qi 'does not exist' /tmp/keytool.out; then
-            echo "::error::Keystore opened, but it holds no alias matching RELEASE_KEY_ALIAS. Fix that secret."
+            echo "::error::Keystore opened, but holds no alias matching RELEASE_KEY_ALIAS (${RELEASE_KEY_ALIAS}). Fix the value in the workflow env block."
             exit 1
           else
             echo "::error::Keystore is the expected size but will not open, so RELEASE_KEYSTORE_PASSWORD does not match it. Re-enter that secret, copying only the text after the '=' in keystore.properties."
@@ -94,7 +98,6 @@ jobs:
         env:
           RELEASE_KEYSTORE_PATH: /tmp/norypt-protect.keystore
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew :app:assembleRelease
 
@@ -105,7 +108,6 @@ jobs:
         env:
           RELEASE_KEYSTORE_PATH: /tmp/norypt-protect.keystore
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: ./gradlew securityGates
 
@@ -125,7 +127,6 @@ jobs:
 
       - name: Export public certificate
         env:
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
         run: |
           keytool -export -rfc \
