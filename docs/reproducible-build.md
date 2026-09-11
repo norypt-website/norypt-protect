@@ -18,7 +18,7 @@ Dockerfile (Debian bookworm-slim, Temurin 17, Android SDK pinned versions).
 
 ```bash
 sha256sum norypt-protect-1.0.0.apk
-# compare with the SHA256 published on https://github.com/norypt-prv/norypt-protect/releases
+# compare with the SHA256 published on https://github.com/norypt-website/norypt-protect/releases
 ```
 
 The same SHA256 appears on `norypt.com/protect`.

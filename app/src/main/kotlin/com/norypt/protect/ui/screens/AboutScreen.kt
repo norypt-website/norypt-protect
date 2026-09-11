@@ -57,8 +57,8 @@ fun AboutScreen(padding: PaddingValues) {
         InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         InfoRow("App ID", ctx.packageName)
         InfoRow("License", "GPL-3.0-or-later")
-        InfoRow("Source", "github.com/norypt-prv/norypt-protect", clickable = true) {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/norypt-prv/norypt-protect"))
+        InfoRow("Source", "github.com/norypt-website/norypt-protect", clickable = true) {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/norypt-website/norypt-protect"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             ctx.startActivity(intent)
         }

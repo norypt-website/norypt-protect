@@ -230,11 +230,11 @@ jobs:
           adb shell pm grant com.norypt.protect android.permission.WRITE_SECURE_SETTINGS
           \`\`\`
 
-          See the [README](https://github.com/norypt-prv/norypt-protect#two-install-tiers--what-each-unlocks) for the full feature breakdown and the Trust-report section for on-device verification.
+          See the [README](https://github.com/norypt-website/norypt-protect#privilege-tiers) for the full feature breakdown and the Trust-report section for on-device verification.
 
           ## Reproducible build
 
-          See [docs/reproducible-build.md](https://github.com/norypt-prv/norypt-protect/blob/main/docs/reproducible-build.md) for steps to rebuild this exact APK from source.
+          See [docs/reproducible-build.md](https://github.com/norypt-website/norypt-protect/blob/main/docs/reproducible-build.md) for steps to rebuild this exact APK from source.
           EOF
 
       - name: Create GitHub Release
