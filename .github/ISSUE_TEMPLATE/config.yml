@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/norypt-website/norypt-protect/blob/main/SECURITY.md
+    about: Do not open a public issue. Report vulnerabilities privately by email.
+  - name: Report misuse of this software
+    url: https://github.com/norypt-website/norypt-protect/blob/main/SECURITY.md#reporting-abuse-of-this-software
+    about: If you believe this software is being used on a device without its owner's consent.
+  - name: Found this app on your device and did not install it
+    url: https://github.com/norypt-website/norypt-protect/blob/main/SECURITY.md#if-this-application-is-on-your-device-and-you-did-not-install-it
+    about: How to identify and remove the application, and where to get help.

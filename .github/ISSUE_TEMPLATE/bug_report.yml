@@ -1,0 +1,64 @@
+name: Bug report
+description: Report incorrect behaviour in Norypt Protect
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not report security vulnerabilities here. Follow [SECURITY.md](https://github.com/norypt-website/norypt-protect/blob/main/SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android build
+      placeholder: "Pixel 9a, GrapheneOS, Android 16 (API 36)"
+    validations:
+      required: true
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Privilege tier
+      options:
+        - Device Admin
+        - Device Owner
+        - Not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: dryrun
+    attributes:
+      label: Was dry-run mode on?
+      options:
+        - "Yes"
+        - "No"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true

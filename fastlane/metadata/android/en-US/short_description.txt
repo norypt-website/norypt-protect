@@ -1,1 +1,1 @@
-Local-only Android security: lock, wipe, harden. No network. No logs.
+Lock or erase your own Android device on demand. Local-only. No network.
