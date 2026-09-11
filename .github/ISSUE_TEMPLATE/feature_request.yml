@@ -1,0 +1,31 @@
+name: Feature request
+description: Propose a change to Norypt Protect
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please read the "What will not be accepted" section of [CONTRIBUTING.md](https://github.com/norypt-website/norypt-protect/blob/main/CONTRIBUTING.md) first. Proposals that add network access, remote control, telemetry, or covert operation will be declined.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+    validations:
+      required: true
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Design constraints
+      options:
+        - label: This does not require any network permission.
+          required: true
+        - label: This does not add remote control, telemetry, or data collection.
+          required: true
+        - label: This remains discoverable and reversible by the person holding the device.
+          required: true

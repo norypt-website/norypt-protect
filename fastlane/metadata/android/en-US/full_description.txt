@@ -1,48 +1,65 @@
-Norypt Protect is a local-only Android security application that combines panic triggers, device hardening, and Norypt-specific features into a single GPL-licensed app. It never connects to the internet — the INTERNET permission is not declared.
+Norypt Protect is a local-only Android security application that lets the owner of a device lock or erase it on demand. It never connects to the internet — the INTERNET permission is not declared, so Android will not grant the app a socket.
 
-== Panic Triggers ==
+It is intended for people responsible for sensitive data on a phone they own, and for organisations administering handsets they are authorised to manage.
 
-* 5x power-button press — instant screen lock or full device wipe
-* Dead-man switch — wipe if the device is not unlocked within a configurable interval
-* Low-battery dead-man switch — wipe when battery drops below a threshold and device is not checked in
-* Notification listener monitor — detect and respond to suspicious notification patterns
-* App-internet permission monitor — alert when apps gain unexpected network access
+== Important ==
 
-== Device Hardening ==
+* This app performs an irreversible factory reset. Set it up on a device you have backed up.
+* Dry-run mode is ON by default. Triggers only simulate a wipe until you deliberately turn dry-run off.
+* Your App PIN cannot be recovered. There is no reset and no backdoor — a recovery path would also be an attacker's path.
+* Use it only on a device you own or are authorised to administer. Installing it on someone else's device without their knowledge and consent is prohibited.
 
-* Lock screen enforcement via Device Admin or Device Owner
-* Work-profile-only wipe (leaves personal profile intact)
-* Auto-disable Emergency SOS on Device Owner promotion
-* Hide app from launcher (alias toggle)
-* ADB upgrade card for Device Owner escalation
+== What it cannot do ==
 
-== Norypt-Specific Features ==
+Norypt Protect cannot read your messages, record audio or video, capture the screen, or determine location. It has no network permission, so it cannot transmit anything anywhere. It is not a monitoring tool. The in-app Trust Report lets you verify every one of these claims on your own device.
 
-* Full device wipe path for both Device Admin and Device Owner modes
-* Lockdown toggle (screen pinning / lockdown API on Android 9+)
-* Protection level screen with DO-gated toggles
-* Full-screen wipe countdown activity with cancel window
+== Owner-initiated actions ==
 
-== Threat Model ==
+* Instant screen lock — in-app, launcher shortcut, or Quick Settings tile
+* Factory reset with configurable scope: internal storage, optional SD card, optional eSIM profiles
+* USB data lockdown — charging only, no data transfer
 
-Norypt Protect is designed for users who face physical seizure of their device. It provides last-resort data destruction and hardening without relying on any remote server, cloud service, or internet connectivity. All state is stored locally.
+== Configurable triggers ==
+
+Each trigger is armed individually and is subject to the dry-run default.
+
+* Power button pressed five times
+* Dead-man switch — trigger if the device is not unlocked within a set interval
+* Low-battery dead-man switch, with a 60-second countdown and cancel window
+* USB data connected while the device is locked
+* Duress threshold — trigger below the system wrong-PIN limit
+* Maximum failed unlock attempts
+* Secret SMS code
+* Decoy-app tripwire — trigger if an app you nominate is opened
+* External broadcast triggers, restricted to apps signed with the same key
+
+== Device hardening ==
+
+* Lock-screen enforcement via Device Admin or Device Owner
+* Work-profile-only wipe, leaving the personal profile intact
+* Safe-boot and power-menu restrictions while locked
+* Uninstall and factory-reset protection
+* Optional toggle for Android's five-press Emergency SOS gesture, which otherwise collides with the app's own power-button trigger. This does NOT affect emergency calling — the dialer and the lock-screen Emergency button are separate systems the app does not touch.
+* Optional launcher-icon hiding. The app always remains listed in Android Settings.
+
+== Privacy ==
+
+* No INTERNET permission
+* No location, contacts, camera, or microphone permission
+* No accounts, no servers, no telemetry, no analytics, no crash reporting
+* All configuration stored in EncryptedSharedPreferences (AES-256)
+* Logs stripped from release builds
+* The app verifies its own signing certificate at launch and refuses to run if repackaged
 
 == Requirements ==
 
 * Android 13 or later (API 33 minimum)
 * Device Admin activation for basic features
-* Device Owner (via ADB) for full feature set
-
-== Permissions ==
-
-* RECEIVE_BOOT_COMPLETED — restart triggers after reboot
-* BIND_NOTIFICATION_LISTENER_SERVICE — notification monitoring
-* BATTERY_STATS — low-battery dead-man switch
-* No INTERNET permission
+* Device Owner, via a one-time ADB command, for the full feature set
 
 == License ==
 
-GPL-3.0-or-later. Source code: https://github.com/norypt-prv/norypt-protect
+GPL-3.0-or-later. Free software with no paid tier. Source code and full documentation, including the threat model and intended-use restrictions: https://github.com/norypt-website/norypt-protect
 
 == Contact ==
 
