@@ -226,7 +226,7 @@ jobs:
           # Promote.
           adb shell dpm set-device-owner com.norypt.protect/com.norypt.protect.admin.ProtectAdminReceiver
 
-          # Grant the secure-settings write used by the Emergency-SOS auto-disable trigger.
+          # Grant the secure-settings write used by the Emergency SOS gesture toggle (C2).
           adb shell pm grant com.norypt.protect android.permission.WRITE_SECURE_SETTINGS
           \`\`\`
 
