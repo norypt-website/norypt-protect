@@ -55,7 +55,40 @@ jobs:
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
         run: |
-          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > /tmp/norypt-protect.keystore
+          set -euo pipefail
+          # Tolerate whitespace the GitHub secret box may introduce around a pasted blob.
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > /tmp/norypt-protect.keystore
+
+      # A truncated PKCS12 fails its own MAC check, and the JDK reports that as "keystore
+      # password was incorrect" — the same text as a genuinely wrong password. Splitting the
+      # two apart here turns a misleading failure deep inside packageRelease into a precise
+      # one, and names the secret at fault.
+      - name: Verify the decoded keystore
+        env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+        run: |
+          set -uo pipefail
+          SIZE=$(stat -c%s /tmp/norypt-protect.keystore)
+          echo "decoded keystore: ${SIZE} bytes"
+          if [ "$SIZE" -ne 4440 ]; then
+            echo "::error::Keystore decoded to ${SIZE} bytes, expected 4440. RELEASE_KEYSTORE_BASE64 is truncated or altered — re-copy it, and check the value is 5920 characters on one line."
+            exit 1
+          fi
+
+          # Password on stdin, never in argv or the log. keytool reports failures on stdout,
+          # so both streams are captured together or the reason is lost.
+          if printf '%s\n' "$RELEASE_KEYSTORE_PASSWORD" \
+               | keytool -list -keystore /tmp/norypt-protect.keystore -storetype PKCS12 \
+                 -alias "$RELEASE_KEY_ALIAS" >/tmp/keytool.out 2>&1; then
+            echo "keystore is intact, opens with the supplied password, and contains the expected alias"
+          elif grep -qi 'does not exist' /tmp/keytool.out; then
+            echo "::error::Keystore opened, but it holds no alias matching RELEASE_KEY_ALIAS. Fix that secret."
+            exit 1
+          else
+            echo "::error::Keystore is the expected size but will not open, so RELEASE_KEYSTORE_PASSWORD does not match it. Re-enter that secret, copying only the text after the '=' in keystore.properties."
+            exit 1
+          fi
 
       - name: Assemble release APK
         env:
@@ -109,7 +142,7 @@ jobs:
         if: always()
         run: |
           shred -u /tmp/norypt-protect.keystore 2>/dev/null || rm -f /tmp/norypt-protect.keystore
-          rm -f /tmp/apksigner.txt
+          rm -f /tmp/apksigner.txt /tmp/keytool.out
           test ! -f /tmp/norypt-protect.keystore
 
       - name: Stage release artifacts
