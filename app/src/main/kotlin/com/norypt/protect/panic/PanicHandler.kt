@@ -5,6 +5,8 @@ import android.app.NotificationManager
 import android.content.Context
 import com.norypt.protect.R
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.timeline.TamperKind
+import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.util.DebugTelemetry
 import com.norypt.protect.wipe.WipeEngine
 import com.norypt.protect.wipe.WipeError
@@ -31,6 +33,12 @@ object PanicHandler {
             wipeEuicc = ProtectPrefs.wipeEuicc(context),
         )
         val dryRun = ProtectPrefs.dryRun(context)
+        // Only ever readable after a dry run or a denied wipe: a real wipe takes the log with it.
+        TamperLog.record(
+            context,
+            TamperKind.WIPE_TRIGGERED,
+            "Trigger \"$reason\"" + if (dryRun) " (dry-run: nothing erased)." else ".",
+        )
         val error = wipeFn(context, reason, opts, dryRun)
 
         // A real wipe never returns — the process dies mid-call. Reaching here with a

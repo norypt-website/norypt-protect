@@ -6,11 +6,14 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.UserHandle
 import com.norypt.protect.R
 import com.norypt.protect.dpm.EmergencySos
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.timeline.TamperKind
+import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.util.DebugTelemetry
 
 class ProtectAdminReceiver : DeviceAdminReceiver() {
@@ -60,6 +63,7 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
     override fun onDisabled(context: Context, intent: Intent) {
         super.onDisabled(context, intent)
+        TamperLog.record(context, TamperKind.ADMIN_DISABLED, "Device admin was deactivated.")
         // DO tier: admin being revoked is treated as a tamper event — wipe immediately.
         // Device Admin tier: allow graceful removal (v0.1.0 behaviour).
         if (Provisioning.current(context) == Tier.DeviceOwner) {
@@ -75,6 +79,7 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
         // Shared run length (used by both A11 and B1)
         val count = ProtectPrefs.recordFailedAttempt(context)
+        TamperLog.record(context, TamperKind.UNLOCK_FAILED, "$count in a row.")
 
         // A11 — duress fast-wipe (stricter threshold, checked first)
         if (ProtectPrefs.isTriggerEnabled(context, "A11")) {
@@ -97,6 +102,11 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         super.onPasswordSucceeded(context, intent)
         debugIncrement(context, "on_password_succeeded_calls")
         ProtectPrefs.resetFailedAttempts(context)
+    }
+
+    override fun onPasswordChanged(context: Context, intent: Intent, user: UserHandle) {
+        super.onPasswordChanged(context, intent, user)
+        TamperLog.record(context, TamperKind.CREDENTIAL_CHANGED, "The device PIN, pattern or password was changed.")
     }
 
     private fun debugIncrement(ctx: Context, key: String) = DebugTelemetry.bump(ctx, key)
