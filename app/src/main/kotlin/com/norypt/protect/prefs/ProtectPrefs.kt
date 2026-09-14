@@ -285,6 +285,94 @@ internal object ProtectPrefsKeys {
 
     fun setLaunchBiometricEnabled(store: KvStore, value: Boolean) =
         store.putBoolean(KEY_LAUNCH_BIOMETRIC_ENABLED, value)
+
+    // --- Tamper timeline ---
+    //
+    // Off by default: the app's public posture is "no logs", and the timeline is a log —
+    // local, encrypted and owner-visible, but a log. It exists only once the owner turns
+    // it on. The baseline keys below let the monitor report *changes* rather than states.
+    const val KEY_TIMELINE_ENABLED = "timeline_enabled"
+    const val KEY_TIMELINE_LAST_ALIVE_MS = "timeline_last_alive_ms"
+    const val KEY_TIMELINE_LAST_BOOT_COUNT = "timeline_last_boot_count"
+    const val KEY_TIMELINE_SIM_SNAPSHOT = "timeline_sim_snapshot"
+    const val KEY_TIMELINE_ADB_ENABLED = "timeline_adb_enabled"
+    const val KEY_TIMELINE_DEVICE_SECURE = "timeline_device_secure"
+    const val KEY_TIMELINE_BIOMETRIC_STATUS = "timeline_biometric_status"
+    const val KEY_TIMELINE_SENTINEL_ARMED = "timeline_sentinel_armed"
+    const val KEY_TIMELINE_FAILED_ATTEMPTS_SEEN = "timeline_failed_attempts_seen"
+
+    fun timelineEnabled(store: KvStore): Boolean = store.getBoolean(KEY_TIMELINE_ENABLED, false)
+    fun setTimelineEnabled(store: KvStore, value: Boolean) = store.putBoolean(KEY_TIMELINE_ENABLED, value)
+
+    /** Wall-clock time the monitoring service was last known to be running; 0 = never. */
+    fun timelineLastAliveMs(store: KvStore): Long = store.getLong(KEY_TIMELINE_LAST_ALIVE_MS, 0L)
+    fun setTimelineLastAliveMs(store: KvStore, value: Long) = store.putLong(KEY_TIMELINE_LAST_ALIVE_MS, value)
+
+    /** Settings.Global.BOOT_COUNT as last observed; 0 = never observed. */
+    fun timelineLastBootCount(store: KvStore): Int = store.getInt(KEY_TIMELINE_LAST_BOOT_COUNT, 0)
+    fun setTimelineLastBootCount(store: KvStore, value: Int) = store.putInt(KEY_TIMELINE_LAST_BOOT_COUNT, value)
+
+    fun timelineSimSnapshot(store: KvStore): String? = store.getString(KEY_TIMELINE_SIM_SNAPSHOT, null)
+    fun setTimelineSimSnapshot(store: KvStore, value: String?) = store.putString(KEY_TIMELINE_SIM_SNAPSHOT, value)
+
+    /** -1 = not yet observed, otherwise 0/1. Same convention for the two keys below. */
+    fun timelineAdbEnabled(store: KvStore): Int = store.getInt(KEY_TIMELINE_ADB_ENABLED, -1)
+    fun setTimelineAdbEnabled(store: KvStore, value: Int) = store.putInt(KEY_TIMELINE_ADB_ENABLED, value)
+
+    fun timelineDeviceSecure(store: KvStore): Int = store.getInt(KEY_TIMELINE_DEVICE_SECURE, -1)
+    fun setTimelineDeviceSecure(store: KvStore, value: Int) = store.putInt(KEY_TIMELINE_DEVICE_SECURE, value)
+
+    /** Last BiometricManager.canAuthenticate result; Int.MIN_VALUE = not yet observed. */
+    fun timelineBiometricStatus(store: KvStore): Int = store.getInt(KEY_TIMELINE_BIOMETRIC_STATUS, Int.MIN_VALUE)
+    fun setTimelineBiometricStatus(store: KvStore, value: Int) = store.putInt(KEY_TIMELINE_BIOMETRIC_STATUS, value)
+
+    fun timelineSentinelArmed(store: KvStore): Boolean = store.getBoolean(KEY_TIMELINE_SENTINEL_ARMED, false)
+    fun setTimelineSentinelArmed(store: KvStore, value: Boolean) = store.putBoolean(KEY_TIMELINE_SENTINEL_ARMED, value)
+
+    fun timelineFailedAttemptsSeen(store: KvStore): Int = store.getInt(KEY_TIMELINE_FAILED_ATTEMPTS_SEEN, 0)
+    fun setTimelineFailedAttemptsSeen(store: KvStore, value: Int) = store.putInt(KEY_TIMELINE_FAILED_ATTEMPTS_SEEN, value)
+
+    // --- C6 Unlock deadline ---
+    const val KEY_UNLOCK_DEADLINE_HOURS = "unlock_deadline_hours"
+    const val KEY_UNLOCK_DEADLINE_GRACE_SECONDS = "unlock_deadline_grace_seconds"
+    const val KEY_UNLOCK_DEADLINE_ARMED_AT_MS = "unlock_deadline_armed_at_ms"
+    const val KEY_UNLOCK_DEADLINE_SEEN_UNLOCKED_MS = "unlock_deadline_seen_unlocked_ms"
+
+    fun unlockDeadlineHours(store: KvStore): Int = store.getInt(KEY_UNLOCK_DEADLINE_HOURS, 48)
+    fun setUnlockDeadlineHours(store: KvStore, value: Int) = store.putInt(KEY_UNLOCK_DEADLINE_HOURS, value)
+
+    fun unlockDeadlineGraceSeconds(store: KvStore): Int = store.getInt(KEY_UNLOCK_DEADLINE_GRACE_SECONDS, 60)
+    fun setUnlockDeadlineGraceSeconds(store: KvStore, value: Int) =
+        store.putInt(KEY_UNLOCK_DEADLINE_GRACE_SECONDS, value)
+
+    /** When C6 was last armed from the UI; the owner is demonstrably present at that moment. */
+    fun unlockDeadlineArmedAtMs(store: KvStore): Long = store.getLong(KEY_UNLOCK_DEADLINE_ARMED_AT_MS, 0L)
+    fun setUnlockDeadlineArmedAtMs(store: KvStore, value: Long) = store.putLong(KEY_UNLOCK_DEADLINE_ARMED_AT_MS, value)
+
+    /**
+     * Last time the C6 check itself observed the device unlocked, or a countdown was cancelled
+     * with the credential. Kept apart from [lastUnlockMs] so C6 can never push A8's timer.
+     */
+    fun unlockDeadlineSeenUnlockedMs(store: KvStore): Long = store.getLong(KEY_UNLOCK_DEADLINE_SEEN_UNLOCKED_MS, 0L)
+    fun setUnlockDeadlineSeenUnlockedMs(store: KvStore, value: Long) =
+        store.putLong(KEY_UNLOCK_DEADLINE_SEEN_UNLOCKED_MS, value)
+
+    // --- Anti-snatch motion lock ---
+    const val KEY_MOTION_LOCK_ENABLED = "motion_lock_enabled"
+    const val KEY_MOTION_LOCK_SENSITIVITY = "motion_lock_sensitivity"
+
+    fun motionLockEnabled(store: KvStore): Boolean = store.getBoolean(KEY_MOTION_LOCK_ENABLED, false)
+    fun setMotionLockEnabled(store: KvStore, value: Boolean) = store.putBoolean(KEY_MOTION_LOCK_ENABLED, value)
+
+    /** 0 = low, 1 = medium (default), 2 = high. */
+    fun motionLockSensitivity(store: KvStore): Int = store.getInt(KEY_MOTION_LOCK_SENSITIVITY, 1)
+    fun setMotionLockSensitivity(store: KvStore, value: Int) = store.putInt(KEY_MOTION_LOCK_SENSITIVITY, value)
+
+    // --- Lockdown mode ---
+    const val KEY_LOCKDOWN_ENABLED = "lockdown_enabled"
+
+    fun lockdownEnabled(store: KvStore): Boolean = store.getBoolean(KEY_LOCKDOWN_ENABLED, false)
+    fun setLockdownEnabled(store: KvStore, value: Boolean) = store.putBoolean(KEY_LOCKDOWN_ENABLED, value)
 }
 
 /**
@@ -302,11 +390,22 @@ object ProtectPrefs {
         }
     }
 
-    private fun buildStore(appContext: Context): KvStore {
+    /** Main configuration file. */
+    private const val MAIN_FILE = "norypt_protect_prefs"
+
+    /**
+     * Opens a separate encrypted file under the same master key. Not cached here; the caller
+     * owns the instance. Used by the tamper timeline so its ring buffer never bloats the
+     * configuration file that every trigger reads on each tick.
+     */
+    internal fun openStore(context: Context, fileName: String): KvStore =
+        buildStore(context.applicationContext, fileName)
+
+    private fun buildStore(appContext: Context, fileName: String = MAIN_FILE): KvStore {
         val masterKey: MasterKey = KeystoreHelper.masterKey(appContext)
         val prefs = EncryptedSharedPreferences.create(
             appContext,
-            "norypt_protect_prefs",
+            fileName,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
@@ -494,4 +593,72 @@ object ProtectPrefs {
 
     fun setLaunchBiometricEnabled(context: Context, value: Boolean) =
         ProtectPrefsKeys.setLaunchBiometricEnabled(store(context), value)
+
+    // --- Tamper timeline ---
+
+    fun timelineEnabled(context: Context): Boolean = ProtectPrefsKeys.timelineEnabled(store(context))
+    fun setTimelineEnabled(context: Context, value: Boolean) = ProtectPrefsKeys.setTimelineEnabled(store(context), value)
+
+    fun timelineLastAliveMs(context: Context): Long = ProtectPrefsKeys.timelineLastAliveMs(store(context))
+    fun setTimelineLastAliveMs(context: Context, value: Long) =
+        ProtectPrefsKeys.setTimelineLastAliveMs(store(context), value)
+
+    fun timelineLastBootCount(context: Context): Int = ProtectPrefsKeys.timelineLastBootCount(store(context))
+    fun setTimelineLastBootCount(context: Context, value: Int) =
+        ProtectPrefsKeys.setTimelineLastBootCount(store(context), value)
+
+    fun timelineSimSnapshot(context: Context): String? = ProtectPrefsKeys.timelineSimSnapshot(store(context))
+    fun setTimelineSimSnapshot(context: Context, value: String?) =
+        ProtectPrefsKeys.setTimelineSimSnapshot(store(context), value)
+
+    fun timelineAdbEnabled(context: Context): Int = ProtectPrefsKeys.timelineAdbEnabled(store(context))
+    fun setTimelineAdbEnabled(context: Context, value: Int) = ProtectPrefsKeys.setTimelineAdbEnabled(store(context), value)
+
+    fun timelineDeviceSecure(context: Context): Int = ProtectPrefsKeys.timelineDeviceSecure(store(context))
+    fun setTimelineDeviceSecure(context: Context, value: Int) =
+        ProtectPrefsKeys.setTimelineDeviceSecure(store(context), value)
+
+    fun timelineBiometricStatus(context: Context): Int = ProtectPrefsKeys.timelineBiometricStatus(store(context))
+    fun setTimelineBiometricStatus(context: Context, value: Int) =
+        ProtectPrefsKeys.setTimelineBiometricStatus(store(context), value)
+
+    fun timelineSentinelArmed(context: Context): Boolean = ProtectPrefsKeys.timelineSentinelArmed(store(context))
+    fun setTimelineSentinelArmed(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setTimelineSentinelArmed(store(context), value)
+
+    fun timelineFailedAttemptsSeen(context: Context): Int = ProtectPrefsKeys.timelineFailedAttemptsSeen(store(context))
+    fun setTimelineFailedAttemptsSeen(context: Context, value: Int) =
+        ProtectPrefsKeys.setTimelineFailedAttemptsSeen(store(context), value)
+
+    // --- C6 Unlock deadline ---
+
+    fun unlockDeadlineHours(context: Context): Int = ProtectPrefsKeys.unlockDeadlineHours(store(context))
+    fun setUnlockDeadlineHours(context: Context, value: Int) = ProtectPrefsKeys.setUnlockDeadlineHours(store(context), value)
+
+    fun unlockDeadlineGraceSeconds(context: Context): Int = ProtectPrefsKeys.unlockDeadlineGraceSeconds(store(context))
+    fun setUnlockDeadlineGraceSeconds(context: Context, value: Int) =
+        ProtectPrefsKeys.setUnlockDeadlineGraceSeconds(store(context), value)
+
+    fun unlockDeadlineArmedAtMs(context: Context): Long = ProtectPrefsKeys.unlockDeadlineArmedAtMs(store(context))
+    fun setUnlockDeadlineArmedAtMs(context: Context, value: Long) =
+        ProtectPrefsKeys.setUnlockDeadlineArmedAtMs(store(context), value)
+
+    fun unlockDeadlineSeenUnlockedMs(context: Context): Long =
+        ProtectPrefsKeys.unlockDeadlineSeenUnlockedMs(store(context))
+    fun setUnlockDeadlineSeenUnlockedMs(context: Context, value: Long) =
+        ProtectPrefsKeys.setUnlockDeadlineSeenUnlockedMs(store(context), value)
+
+    // --- Anti-snatch motion lock ---
+
+    fun motionLockEnabled(context: Context): Boolean = ProtectPrefsKeys.motionLockEnabled(store(context))
+    fun setMotionLockEnabled(context: Context, value: Boolean) = ProtectPrefsKeys.setMotionLockEnabled(store(context), value)
+
+    fun motionLockSensitivity(context: Context): Int = ProtectPrefsKeys.motionLockSensitivity(store(context))
+    fun setMotionLockSensitivity(context: Context, value: Int) =
+        ProtectPrefsKeys.setMotionLockSensitivity(store(context), value)
+
+    // --- Lockdown mode ---
+
+    fun lockdownEnabled(context: Context): Boolean = ProtectPrefsKeys.lockdownEnabled(store(context))
+    fun setLockdownEnabled(context: Context, value: Boolean) = ProtectPrefsKeys.setLockdownEnabled(store(context), value)
 }
