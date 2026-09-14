@@ -1,4 +1,4 @@
-# Norypt Protect 1.0.1 — Provisioning Pack
+# Norypt Protect 1.1.0 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.0.1.apk` | The signed app |
-| `norypt-protect-1.0.1.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.1.0.apk` | The signed app |
+| `norypt-protect-1.1.0.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  75411096706c56d524ba3c55d6b9ac78841133cacf44888a10a92056bdc90a90
+SHA-256  bc8d2cf4917fcedc5b4d6605c4848b3c7dba900db6188cda3e6c824de6b6d859
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -55,12 +55,25 @@ stops — because this app can erase the phone it is installed on.
 - **No accounts on the phone** — Android refuses Device Owner otherwise
 - No existing Device Owner / MDM
 
-## Two things to tell every customer
+## Three things to tell every customer
 
 1. **The App PIN cannot be recovered.** Forgetting it means factory-resetting the phone.
 2. **Dry-run is ON by default.** Triggers only simulate until they turn it off in the Wipe
    tab. Tell them to test first, arm second.
+3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
+   anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.1
+
+- **Timeline tab** — an optional, local record of boots, unlocks, failed unlocks, USB, SIM
+  and biometric changes, so the owner can tell whether the phone was handled while out of
+  their hands. Off until they turn it on.
+- **C6 trigger** — wipe countdown if the phone is not unlocked for a set number of hours.
+- **Anti-snatch** — locks the screen the instant the phone is yanked or dropped.
+- **Lockdown mode** — blank-screen kiosk until the App PIN is entered (see point 3).
+- **Block app installation** — refuses every install, including over ADB. It also blocks
+  updates to Norypt Protect itself, so turn it off before updating.
 
 ---
 
-*[norypt.com](https://norypt.com) — local-only. No internet permission, no server, no logs.*
+*[norypt.com](https://norypt.com) — local-only. No internet permission, no server, no telemetry.*
