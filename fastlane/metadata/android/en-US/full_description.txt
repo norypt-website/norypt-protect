@@ -24,7 +24,7 @@ Norypt Protect cannot read your messages, record audio or video, capture the scr
 Each trigger is armed individually and is subject to the dry-run default.
 
 * Power button pressed five times
-* Dead-man switch — trigger if the device is not unlocked within a set interval
+* Dead-man switch — trigger if the device is not unlocked within a set number of hours, with a countdown you can cancel
 * Low-battery dead-man switch, with a 60-second countdown and cancel window
 * USB data connected while the device is locked
 * Duress threshold — trigger below the system wrong-PIN limit
@@ -41,12 +41,20 @@ Each trigger is armed individually and is subject to the dry-run default.
 * Uninstall and factory-reset protection
 * Optional toggle for Android's five-press Emergency SOS gesture, which otherwise collides with the app's own power-button trigger. This does NOT affect emergency calling — the dialer and the lock-screen Emergency button are separate systems the app does not touch.
 * Optional launcher-icon hiding. The app always remains listed in Android Settings.
+* Lockdown mode — the device shows a blank screen and nothing else until the App PIN is entered (Device Owner)
+* Block app installation on the owner profile, including sideloading and ADB (Device Owner)
+* Anti-snatch — lock the screen the instant the phone is yanked or dropped
+
+== Tamper timeline ==
+
+An optional, local, encrypted record of boots, unlocks, failed unlocks, USB connections, SIM changes, biometric and screen-lock changes, USB debugging and clock changes, so you can tell whether the phone was handled while out of your hands. Off by default. It cannot see bootloader-, firmware- or hardware-level attacks; for those, use hardware attestation such as GrapheneOS Auditor.
 
 == Privacy ==
 
 * No INTERNET permission
 * No location, contacts, camera, or microphone permission
 * No accounts, no servers, no telemetry, no analytics, no crash reporting
+* The only record kept is the optional tamper timeline, which stays on the device and is cleared with your App PIN
 * All configuration stored in EncryptedSharedPreferences (AES-256)
 * Logs stripped from release builds
 * The app verifies its own signing certificate at launch and refuses to run if repackaged

@@ -20,7 +20,7 @@
 </p>
 
 <p align="center">
-  No internet permission. No server. No account. No logs. No telemetry.
+  No internet permission. No server. No account. No telemetry.
 </p>
 
 ---
@@ -75,6 +75,8 @@ Two features are commonly flagged as stalkerware patterns. Both exist for the de
 |---|---|---|
 | Hide from launcher | Disables the application's own `activity-alias`, removing its icon from the app drawer. | Standard `PackageManager.setComponentEnabledSetting` on the app's own component. It hides the *configuration UI* from someone handling the unlocked phone. It collects nothing. The owner re-enables it from the app or from Settings → Apps, where the app is always listed. |
 | Decoy-app tripwire (`A10`) | Polls `UsageStatsManager` for a single package name the owner chooses, and triggers a wipe if that package is opened. | It matches one owner-nominated package name. It reads no content from that app or any other, and reports nothing anywhere. |
+| Tamper timeline | Records, on the owner's own device and only after the owner turns it on, events the operating system already reports to any app: boots, unlocks, failed unlocks, USB connections, SIM changes, biometric and screen-lock changes. | Off by default. Shown only in the app's own Timeline tab, stored encrypted on the device, cleared with the App PIN, never transmitted. It reads no messages, calls, location, keystrokes, or other apps' data. It exists so an owner can tell whether their own phone was handled while out of their hands. |
+| Lockdown mode | Makes the owner's device show a blank screen until the owner enters their App PIN, using Android's standard Device Owner lock-task API. | Enabled by the owner, from the app, with a warning and the App PIN, on a device they administer. It is the same kiosk mechanism Android offers every device-management product, and the owner always has an exit (hold, PIN, Exit). Using it to lock another person out of a device they use is prohibited under [Intended use and restrictions](#intended-use-and-restrictions). |
 
 If you believe this application has been installed on your device without your consent, see [SECURITY.md](SECURITY.md) for how to identify and remove it.
 
@@ -86,6 +88,8 @@ Norypt Protect includes an optional Device Owner setting that disables Android's
 
 The setting exists for one reason: the application's own optional power-button trigger (`C3`) uses the same five-press gesture, and leaving both enabled makes the two collide. The setting is off by default, is presented with this explanation in the UI, and can be reverted at any time in Settings → Safety & emergency. If you do not enable the `C3` trigger, leave it alone.
 
+Lockdown mode uses Android's lock-task API, which keeps the lock screen's emergency-call path available by design. That path was not exercised in the 1.1 verification below; test it on your own device before relying on it, and the in-app panel says the same.
+
 ---
 
 ## Safety model
@@ -95,7 +99,8 @@ The destructive path is deliberately hard to reach by accident.
 - **Dry-run is ON for every fresh install.** Every trigger — manual hold-to-wipe, scheduled, and external broadcast — emits a local test broadcast (`com.norypt.protect.action.WIPED_DRYRUN`) and erases nothing, until the owner explicitly turns dry-run off in *Wipe Options*. A misconfigured trigger on an unattended fresh install cannot reset the phone.
 - **A real wipe requires Device Owner.** On Android 14 and later, `wipeData()` no longer factory-resets user 0. Only a promoted Device Owner can call `wipeDevice()`, and promotion requires a deliberate ADB command on a device with no accounts (see [Tier 2](#tier-2--device-owner)).
 - **The App PIN gates configuration.** After the system unlock, the app requires its own PIN before revealing configured triggers or wipe options.
-- **Countdown and cancel window.** The low-battery trigger (`C4`) shows a 60-second full-screen countdown that any successful keyguard authentication cancels.
+- **Countdown and cancel window.** The low-battery trigger (`C4`) and the unlock-deadline trigger (`C6`) show a 60-second full-screen countdown that any successful keyguard authentication cancels.
+- **Lockdown mode always has an owner exit.** Holding a finger on the blank screen for three seconds and entering the App PIN opens a panel with an Exit button. It is the same PIN that gates every other setting, and it is the only way out short of a factory reset, which the warning says before the mode is enabled.
 - **External triggers are signature-gated.** Receivers that accept an outside intent (`A5`, `A7`) require the signature-level permission `com.norypt.protect.permission.TRIGGER`. A third-party application cannot fire a wipe unless it is signed with the same key.
 
 **There is no PIN recovery.** The App PIN is derived with PBKDF2-HMAC-SHA256 (120,000 rounds) and bound to the Android Keystore. A recovery path would also be an attacker's path, so none exists. A forgotten PIN means factory-resetting the phone.
@@ -129,7 +134,7 @@ Supporting hardening:
 |---|---|
 | Minimum Android | 13 (API 33) |
 | Target SDK | 35 |
-| Verified on | Android 16 (API 36) — Pixel 9a running GrapheneOS, Pixel 9 running stock |
+| Verified on | Android 16 (API 36) — Pixel 9a running GrapheneOS, Pixel 9 running stock. Android 17 (API 37) — Pixel 10a running stock, for the 1.1 features |
 | Devices | Universal. Pixel, Samsung, Sony, Xiaomi, OnePlus, Motorola, and AOSP derivatives including LineageOS, GrapheneOS, and CalyxOS |
 | License | [GPL-3.0-or-later](LICENSE) |
 
@@ -175,7 +180,7 @@ adb shell pm grant com.norypt.protect android.permission.WRITE_SECURE_SETTINGS
 
 If step 2 fails, the message identifies the unmet precondition. `already set` means another Device Owner is active. `already accounts` means an account must be removed in Settings → Passwords & accounts. `Unknown admin` means the installed package does not match — usually a debug variant is installed instead of the release build.
 
-Tier 2 additionally provides the real `wipeDevice()` path, USB data lockdown, safe-boot blocking, power-menu suppression while locked, the Emergency SOS gesture toggle, the duress and failed-attempt thresholds, uninstall and factory-reset protection, and the remaining triggers listed below.
+Tier 2 additionally provides the real `wipeDevice()` path, USB data lockdown, safe-boot blocking, power-menu suppression while locked, lockdown mode, the app-installation block, the Emergency SOS gesture toggle, the duress and failed-attempt thresholds, uninstall and factory-reset protection, and the remaining triggers listed below.
 
 ---
 
@@ -186,10 +191,19 @@ Tier 2 additionally provides the real `wipeDevice()` path, USB data lockdown, sa
 - **Lock now** — immediate screen lock.
 - **Wipe** — owner-initiated factory reset with configurable scope. Internal storage always; external SD card and eSIM profiles optional.
 - **Lockdown** — disable USB data on demand (Tier 2).
+- **Lockdown mode** — on a device you own or administer, the screen shows nothing but black: no launcher, no notification shade, no quick settings, no recents, no power menu, no user switching. Survives reboots. Holding a finger anywhere on the blank screen for three seconds and entering the App PIN opens a panel to reach Settings, switch user, open Norypt Protect, or exit. Implemented as a Device Owner lock-task kiosk (Tier 2).
+- **Block app installation** — refuses every install on the owner profile, including sideloading, app stores and `adb install`, so malware, extraction tools and exploits that need a payload cannot land. It also blocks updates, including updates to Norypt Protect itself; turn it off before updating. App PIN required either way (Tier 2).
+- **Anti-snatch** — locks the screen the instant the phone is yanked or dropped, from the accelerometer. Listens only while the phone is unlocked and the screen is on. Three sensitivity presets. Requires Tier 1.
+
+### Tamper timeline
+
+An optional, local, encrypted record of events that show whether the phone was handled while out of its owner's hands: boots (with the time the previous session was last seen, since shutdowns cannot be observed on modern Android), boots that happened while the app was not running, unlocks and failed unlocks, USB connections and whether they negotiated data while locked, SIM removal, insertion or carrier change, fingerprint or face enrollment changes, screen-lock changes, USB debugging being turned on, clock changes, app updates, and the app's own actions. It is off by default, is turned on from the Timeline tab, and is cleared with the App PIN.
+
+It sees only what Android reports to an application. It cannot see bootloader-level, firmware-level, or hardware attacks; a phone imaged through a bootloader exploit and put back shows nothing. For that, use hardware attestation such as [GrapheneOS Auditor](https://attestation.app), which verifies the OS and firmware from a second device and also works on many stock phones.
 
 ### Triggers
 
-Fourteen triggers, each armed and disarmed individually, all subject to the dry-run default.
+Fifteen triggers, each armed and disarmed individually, all subject to the dry-run default.
 
 | ID | Trigger | Tier |
 |---|---|---|
@@ -209,6 +223,7 @@ Fourteen triggers, each armed and disarmed individually, all subject to the dry-
 | `B6` | Notification listener (stub, no hooks yet) | 1 |
 | `C3` | Power button pressed five times | 2 |
 | `C4` | Low-battery dead-man switch with 60-second countdown and cancel window | 2 |
+| `C6` | Not unlocked for N hours (default 48) — countdown with cancel window, for a phone seized, lost or left behind | 2 |
 
 `A5` and `A7` accept intents only from applications signed with the same key, enforced by a signature-level permission.
 
@@ -239,6 +254,22 @@ Version 1.0 was verified end to end on two Android 16 / API 36 handsets.
 | Trust Report | Pass | Pass | |
 
 Real-wipe tests were performed on dedicated test handsets. See [docs/smoke-test-wipedata.md](docs/smoke-test-wipedata.md) for the procedure.
+
+### Version 1.1 — Pixel 10a, Android 17 (API 37), stock, Device Owner
+
+Verified on 2026-09-14 with dry-run on throughout. Every "pass" below was read back from the device's own tamper timeline or from `dumpsys`, not from the app's own UI. The design behind these features is in [docs/design/2026-09-14-timeline-lockdown-motion-design.md](docs/design/2026-09-14-timeline-lockdown-motion-design.md).
+
+| Feature | Result | Notes |
+|---|---|---|
+| Tamper timeline | Pass | Boot entry after a reboot with the previous session's last-seen time; failed unlocks from the Device Owner callback; unlocks; a USB data link (adb) connecting and disconnecting; app updates; every lockdown and install-block change |
+| `C6` unlock deadline | Pass | Forced check launched the full-screen countdown over the lock screen with its notification; it expired into a dry-run wipe with reason `unlock.deadline` |
+| Lockdown mode | Pass | Kiosk engaged; Home and Recents stayed on the blank screen; 3 s hold → App PIN → panel; Settings excursion released lock task and Home re-applied it; Exit restored the launcher and cleared every policy; survived a reboot |
+| Block app installation | Pass | `adb install`, `pm install` and `pm install --user 0` refused with "User restriction prevents installing"; installs succeed again once off |
+| Anti-snatch | Pass | Locked the screen on a real pull of the phone; the listener arms only while unlocked and re-arms after each unlock |
+| PIN-guarded toggles | Pass | Warning, then App PIN, through the real UI |
+| `A7` external broadcast from ADB | Not fired | The shell does not hold the signature permission on Android 17, so `am broadcast` is refused. That is the control working; test `A7` with a same-key companion app |
+| SIM change, biometric change | Not run | No SIM and no enrolled biometric on the test device |
+| Emergency call from the lock screen under lockdown | Not run | See [Emergency services](#emergency-services) |
 
 ### Android 14+ platform findings
 
@@ -350,10 +381,13 @@ apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
 - Prolonged unattended seizure with battery drain (`C4`).
 - Observation of the application's own configuration by someone holding the unlocked phone.
 - A repackaged or tampered binary, via launch-time signature verification.
+- A phone handled while out of its owner's hands: the tamper timeline records what Android exposes about boots, unlocks, USB, SIM and biometric changes, so the owner can tell afterwards.
+- A phone pulled from the owner's hand while unlocked (anti-snatch lock).
+- A locked phone that is never unlocked again by its owner (`C6`).
 
 **Out of scope.** The application does not defend against:
 
-- An adversary with root access or an unlocked bootloader on the same device.
+- An adversary with root access or an unlocked bootloader on the same device. The tamper timeline in particular cannot see bootloader- or firmware-level access; use hardware attestation for that.
 - Hardware attacks such as chip-off, cold-boot memory recovery, or JTAG.
 - Voluntary disclosure of the App PIN.
 - Recovery of data already copied off the device before the wipe.
