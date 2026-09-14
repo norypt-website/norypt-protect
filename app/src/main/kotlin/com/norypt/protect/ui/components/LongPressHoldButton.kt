@@ -4,6 +4,7 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
@@ -12,9 +13,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.norypt.protect.ui.theme.NoryptColors
 import kotlinx.coroutines.launch
 
@@ -23,8 +28,9 @@ import kotlinx.coroutines.launch
  * milliseconds. Releasing early = cancel ([onCancel]). Completes full hold =
  * triggers [onComplete] exactly once.
  *
- * The gesture loop consumes every pointer event while the finger is down so a
- * surrounding `Modifier.verticalScroll` can't steal the press on the slightest
+ * The fill sweeps left to right while held, so the user can see how far they are from the
+ * point of no return. The gesture loop consumes every pointer event while the finger is
+ * down so a surrounding `Modifier.verticalScroll` can't steal the press on the slightest
  * movement and prematurely cancel the hold.
  */
 @Composable
@@ -39,12 +45,15 @@ fun LongPressHoldButton(
     val scope = rememberCoroutineScope()
     val onCompleteState = rememberUpdatedState(onComplete)
     val onCancelState = rememberUpdatedState(onCancel)
+    val shape = RoundedCornerShape(12.dp)
 
     Box(
         modifier
             .fillMaxWidth()
             .height(56.dp)
-            .background(NoryptColors.Red.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+            .clip(shape)
+            .background(NoryptColors.Red.copy(alpha = 0.12f))
+            .border(1.dp, NoryptColors.Red.copy(alpha = 0.45f), shape)
             .pointerInput(holdMillis) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
@@ -86,8 +95,16 @@ fun LongPressHoldButton(
             Modifier
                 .fillMaxHeight()
                 .fillMaxWidth(progress.value)
-                .background(NoryptColors.Red, RoundedCornerShape(8.dp))
+                .background(Brush.horizontalGradient(listOf(NoryptColors.Red.copy(alpha = 0.55f), NoryptColors.Red))),
         )
-        Text(label, color = NoryptColors.Text)
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, color = NoryptColors.TextStrong, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "hold ${holdMillis / 1000} s",
+                color = NoryptColors.Text.copy(alpha = 0.7f),
+                fontSize = 11.sp,
+                letterSpacing = 0.6.sp,
+            )
+        }
     }
 }

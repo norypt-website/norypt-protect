@@ -13,13 +13,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -33,13 +31,22 @@ import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.dpm.AntiTamper
 import com.norypt.protect.dpm.EmergencySos
+import com.norypt.protect.dpm.InstallLockdown
 import com.norypt.protect.dpm.LauncherAlias
+import com.norypt.protect.dpm.LockdownMode
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.dpm.SafeBootLockdown
 import com.norypt.protect.dpm.UsbLockdown
+import com.norypt.protect.motion.MotionDetector
+import com.norypt.protect.motion.MotionLockMonitor
 import com.norypt.protect.prefs.ProtectPrefs
-import com.norypt.protect.security.AppPin
-import com.norypt.protect.ui.components.PinEntryDialog
+import com.norypt.protect.ui.components.NoryptCard
+import com.norypt.protect.ui.components.PinGuardedToggleCard
+import com.norypt.protect.ui.components.ScreenHeader
+import com.norypt.protect.ui.components.SecondaryButton
+import com.norypt.protect.ui.components.SectionLabel
+import com.norypt.protect.ui.components.TagPill
+import com.norypt.protect.ui.components.ToggleCard
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.util.AdbInstructions
 import com.norypt.protect.util.DebugTelemetry
@@ -70,12 +77,11 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
     var antiTamperOn by remember { mutableStateOf(AntiTamper.isApplied(ctx)) }
     var launcherHidden by remember { mutableStateOf(LauncherAlias.isHidden(ctx)) }
     var powerMenuBlockOn by remember { mutableStateOf(PowerMenuGuard.isEnabled(ctx)) }
-
-    // Anti-tamper dialog state
-    var showAntiTamperWarning by remember { mutableStateOf(false) }
-    var pendingAntiTamperEnable by remember { mutableStateOf(false) }
-    var showAntiTamperPin by remember { mutableStateOf(false) }
-    var antiTamperPinForDisable by remember { mutableStateOf(false) }
+    var installBlockOn by remember { mutableStateOf(InstallLockdown.isOn(ctx)) }
+    var lockdownOn by remember { mutableStateOf(LockdownMode.isEnabled(ctx)) }
+    var motionOn by remember { mutableStateOf(MotionLockMonitor.isEnabled(ctx)) }
+    var motionSensitivity by remember { mutableIntStateOf(MotionLockMonitor.sensitivity(ctx)) }
+    val motionAvailable = remember { MotionLockMonitor.hasSensor(ctx) }
 
     LaunchedEffect(Unit) { tier = Provisioning.current(ctx) }
 
@@ -96,6 +102,9 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 antiTamperOn = AntiTamper.isApplied(ctx)
                 launcherHidden = LauncherAlias.isHidden(ctx)
                 powerMenuBlockOn = PowerMenuGuard.isEnabled(ctx)
+                installBlockOn = InstallLockdown.isOn(ctx)
+                lockdownOn = LockdownMode.isEnabled(ctx)
+                motionOn = MotionLockMonitor.isEnabled(ctx)
                 DebugTelemetry.put(ctx, "sos_raw_value", rawSos)
                 DebugTelemetry.bump(ctx, "sos_read_count")
             }
@@ -116,11 +125,9 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            "PROTECTION",
-            color = NoryptColors.MutedDeep,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+        ScreenHeader(
+            title = "Protect",
+            subtitle = "Device hardening, lockdown and app settings.",
         )
 
         // ── Card 1: Current Tier ──────────────────────────────────────────
@@ -212,7 +219,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
         )
 
         // ── Card 6: Anti-tamper ────────────────────────────────────────────
-        ToggleCard(
+        PinGuardedToggleCard(
             title = "Anti-tamper",
             subtitle = if (isOwner)
                 "Blocks factory reset and prevents uninstall. Requires App PIN to enable or disable."
@@ -220,18 +227,86 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                 "Requires Device Owner.",
             checked = antiTamperOn,
             enabled = isOwner,
-            onToggle = { on ->
-                if (on) {
-                    // Enabling: show warning first, then PIN
-                    pendingAntiTamperEnable = true
-                    showAntiTamperWarning = true
-                } else {
-                    // Disabling: require PIN directly
-                    antiTamperPinForDisable = true
-                    showAntiTamperPin = true
-                }
-            },
             requiresDeviceOwner = true,
+            warningTitle = "Enable Anti-tamper?",
+            warningText = "Once enabled, factory-reset is blocked, this app cannot be uninstalled, " +
+                "and the only way to remove it is via ADB or another Device Owner app. " +
+                "The toggle requires your App PIN both to enable and to disable. Continue?",
+            apply = { on ->
+                val ok = if (on) AntiTamper.apply(ctx) else AntiTamper.release(ctx)
+                if (ok) ProtectPrefs.setAntiTamperEnabled(ctx, on)
+                ok
+            },
+            onChanged = { antiTamperOn = AntiTamper.isApplied(ctx) },
+        )
+
+        // ── Card 6b: Block app installation ────────────────────────────────
+        PinGuardedToggleCard(
+            title = "Block app installation",
+            subtitle = if (isOwner)
+                "No app can be installed on the owner profile: not from a store, not by sideloading, " +
+                    "not over ADB. Shuts the door on malware, extraction tools and unattended exploits " +
+                    "that need a payload installed. Also blocks updates, including updates to Norypt " +
+                    "Protect — turn off before updating. App PIN required either way."
+            else
+                "Requires Device Owner.",
+            checked = installBlockOn,
+            enabled = isOwner,
+            requiresDeviceOwner = true,
+            warningTitle = "Block all app installation?",
+            warningText = "Every install on the owner profile will be refused, including app updates " +
+                "and updates to Norypt Protect itself. You will need to turn this off, with your App " +
+                "PIN, before installing or updating anything. Continue?",
+            apply = { on -> if (on) InstallLockdown.enable(ctx) else InstallLockdown.disable(ctx) },
+            onChanged = { installBlockOn = InstallLockdown.isOn(ctx) },
+        )
+
+        // ── Card 6c: Lockdown mode ─────────────────────────────────────────
+        PinGuardedToggleCard(
+            title = "Lockdown mode (blank device)",
+            subtitle = if (isOwner)
+                "The phone shows a black screen and nothing else: no launcher, no notifications, no " +
+                    "quick settings, no power menu, no user switching. Survives reboots. Hold a finger " +
+                    "anywhere on the blank screen for 3 seconds and enter your App PIN to reach " +
+                    "Settings, switch user, or exit."
+            else
+                "Requires Device Owner.",
+            checked = lockdownOn,
+            enabled = isOwner,
+            requiresDeviceOwner = true,
+            warningTitle = "Enter lockdown mode?",
+            warningText = "The device will show a blank screen until you hold a finger on it for " +
+                "3 seconds and enter your App PIN. Lockdown survives reboots. If you forget the PIN, " +
+                "the only way out is a factory reset from recovery. Emergency calls from the lock " +
+                "screen should remain available, but verify that on this device before relying on " +
+                "it. Continue?",
+            apply = { on -> if (on) LockdownMode.enable(ctx) else LockdownMode.disable(ctx) },
+            onChanged = { lockdownOn = LockdownMode.isEnabled(ctx) },
+        )
+
+        // ── Card 6d: Anti-snatch ───────────────────────────────────────────
+        ToggleCard(
+            title = "Anti-snatch: lock on sudden movement",
+            subtitle = when {
+                !motionAvailable -> "This device has no accelerometer."
+                tier == Tier.None -> "Requires device admin."
+                else -> "Locks the screen the instant the phone is yanked or dropped. Listens only while " +
+                    "the phone is unlocked and the screen is on, so it costs nothing in a pocket."
+            },
+            checked = motionOn,
+            enabled = motionAvailable && tier != Tier.None,
+            onToggle = { on ->
+                if (on) MotionLockMonitor.enable(ctx) else MotionLockMonitor.disable(ctx)
+                motionOn = MotionLockMonitor.isEnabled(ctx)
+            },
+            extra = if (motionOn) {
+                {
+                    SensitivityRow(motionSensitivity) { level ->
+                        MotionLockMonitor.setSensitivity(ctx, level)
+                        motionSensitivity = level
+                    }
+                }
+            } else null,
         )
 
         // ── Card 7: Hide launcher icon ─────────────────────────────────────
@@ -278,14 +353,15 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
         )
 
         // ── Quick Settings tile helper ─────────────────────────────────────
-        Spacer(Modifier.height(4.dp))
-        OutlinedButton(
+        SectionLabel("More")
+        SecondaryButton(
+            label = "Add Panic tile to Quick Settings",
             onClick = {
                 DebugTelemetry.bump(ctx, "qs_tile_button_clicks")
                 val sbm = ctx.getSystemService(android.app.StatusBarManager::class.java)
                 if (sbm == null) {
                     DebugTelemetry.put(ctx, "qs_tile_last_error", "StatusBarManager null")
-                    return@OutlinedButton
+                    return@SecondaryButton
                 }
                 val component = android.content.ComponentName(
                     ctx,
@@ -308,97 +384,22 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                     DebugTelemetry.put(ctx, "qs_tile_last_error", "${e::class.simpleName}: ${e.message}")
                 }
             },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
-            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
-        ) {
-            Text("Add Panic tile to Quick Settings")
-        }
+        )
 
         // ── Trust report button ─────────────────────────────────────────────
-        Spacer(Modifier.height(4.dp))
-        OutlinedButton(
+        SecondaryButton(
+            label = "Trust report — verify permissions & signer",
+            color = NoryptColors.Green,
             onClick = { showTrust = true },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Green),
-            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Green.copy(alpha = 0.4f)),
-        ) {
-            Text("Trust report — verify permissions & signer")
-        }
+        )
 
         // ── About button ───────────────────────────────────────────────────
-        Spacer(Modifier.height(4.dp))
-        OutlinedButton(
+        SecondaryButton(
+            label = "About this app",
+            color = NoryptColors.Muted,
             onClick = { showAbout = true },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Muted),
-            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
-        ) {
-            Text("About this app")
-        }
-    }
-
-    // Anti-tamper warning dialog
-    if (showAntiTamperWarning) {
-        AlertDialog(
-            onDismissRequest = {
-                showAntiTamperWarning = false
-                pendingAntiTamperEnable = false
-            },
-            icon = {
-                Icon(Icons.Filled.Warning, contentDescription = null, tint = NoryptColors.Amber)
-            },
-            title = { Text("Enable Anti-tamper?", color = NoryptColors.Text) },
-            text = {
-                Text(
-                    "Once enabled, factory-reset is blocked, this app cannot be uninstalled, " +
-                    "and the only way to remove it is via ADB or another Device Owner app. " +
-                    "The toggle requires your App PIN both to enable and to disable. Continue?",
-                    color = NoryptColors.Muted,
-                    fontSize = 13.sp,
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    showAntiTamperWarning = false
-                    showAntiTamperPin = true
-                }) { Text("Continue", color = NoryptColors.Accent) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showAntiTamperWarning = false
-                    pendingAntiTamperEnable = false
-                }) { Text("Cancel", color = NoryptColors.Muted) }
-            },
-            containerColor = NoryptColors.Surface1,
         )
-    }
-
-    // Anti-tamper PIN dialog (enable or disable)
-    if (showAntiTamperPin) {
-        PinEntryDialog(
-            title = if (pendingAntiTamperEnable) "Enter App PIN to enable" else "Enter App PIN to disable",
-            onConfirm = { pin ->
-                if (AppPin.verify(ctx, pin)) {
-                    showAntiTamperPin = false
-                    if (pendingAntiTamperEnable) {
-                        val ok = AntiTamper.apply(ctx)
-                        if (ok) ProtectPrefs.setAntiTamperEnabled(ctx, true)
-                    } else {
-                        val ok = AntiTamper.release(ctx)
-                        if (ok) ProtectPrefs.setAntiTamperEnabled(ctx, false)
-                    }
-                    antiTamperOn = AntiTamper.isApplied(ctx)
-                    pendingAntiTamperEnable = false
-                    antiTamperPinForDisable = false
-                }
-            },
-            onDismiss = {
-                showAntiTamperPin = false
-                pendingAntiTamperEnable = false
-                antiTamperPinForDisable = false
-            },
-        )
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -423,46 +424,28 @@ private fun TierCard(tier: Tier) {
             NoryptColors.Green,
         )
     }
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(12.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(color.copy(alpha = 0.14f))
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-            ) {
-                Text(label.uppercase(), color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+    NoryptCard(accent = color) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Current tier", color = NoryptColors.TextStrong, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            TagPill(label.uppercase(), color)
         }
-        Text(description, color = NoryptColors.Muted, fontSize = 13.sp)
+        Spacer(Modifier.height(6.dp))
+        Text(description, color = NoryptColors.Muted, fontSize = 13.sp, lineHeight = 18.sp)
     }
 }
 
 @Composable
 private fun UpgradeCard(ctx: Context) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(12.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    NoryptCard(tint = NoryptColors.Accent) {
         Text(
             "UPGRADE TO DEVICE OWNER",
-            color = NoryptColors.MutedDeep,
+            color = NoryptColors.Accent,
             fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
         )
+        Spacer(Modifier.height(8.dp))
         Text(
             "Run these ADB commands on a PC. Before step 2, the device must have:",
             color = NoryptColors.Muted,
@@ -476,27 +459,29 @@ private fun UpgradeCard(ctx: Context) {
             color = NoryptColors.Muted,
             fontSize = 12.sp,
         )
+        Spacer(Modifier.height(8.dp))
         CopyableCommand(label = "1. Check no Device Owner is set (output must be empty)", command = AdbInstructions.checkOwners, ctx = ctx)
+        Spacer(Modifier.height(8.dp))
         CopyableCommand(label = "2. Set Device Owner", command = AdbInstructions.setDeviceOwner, ctx = ctx)
+        Spacer(Modifier.height(8.dp))
         CopyableCommand(label = "3. Grant write secure settings", command = AdbInstructions.grantWriteSecureSettings, ctx = ctx)
+        Spacer(Modifier.height(8.dp))
         Text(
             "If step 2 fails: \"already set\" → an old MDM/Knox owner is still active; remove it via ADB or factory reset. \"already accounts\" → remove every account in Settings → Passwords & accounts. \"Unknown admin\" → the package above doesn't match the installed APK; reinstall.",
             color = NoryptColors.Muted,
             fontSize = 11.sp,
         )
-        OutlinedButton(
+        Spacer(Modifier.height(4.dp))
+        SecondaryButton(
+            label = "Open Privacy settings (to remove accounts)",
+            color = NoryptColors.Muted,
             onClick = {
                 ctx.startActivity(
                     Intent(Settings.ACTION_PRIVACY_SETTINGS)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 )
             },
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Muted),
-            border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Open Privacy settings (to remove accounts)", fontSize = 12.sp)
-        }
+        )
     }
 }
 
@@ -531,78 +516,26 @@ private fun CopyableCommand(label: String, command: String, ctx: Context) {
 }
 
 @Composable
-private fun ToggleCard(
-    title: String,
-    subtitle: String,
-    checked: Boolean,
-    enabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-    requiresDeviceOwner: Boolean = false,
-) {
-    val ctxIsOwner = enabled // for DO-required cards, enabled mirrors DO tier
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    title,
-                    color = if (enabled) NoryptColors.Text else NoryptColors.Muted,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f, fill = false),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (requiresDeviceOwner) {
-                    Spacer(Modifier.width(8.dp))
-                    val badgeColor = if (ctxIsOwner) NoryptColors.MutedDeep else NoryptColors.Amber
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(badgeColor.copy(alpha = 0.15f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            "DEVICE OWNER",
-                            color = badgeColor,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Visible,
-                        )
-                    }
-                }
-            }
-            Text(
-                subtitle,
-                color = NoryptColors.Muted,
-                fontSize = 12.sp,
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
+private fun SensitivityRow(selected: Int, onSelect: (Int) -> Unit) {
+    val options = listOf(
+        MotionDetector.SENSITIVITY_LOW to "Low",
+        MotionDetector.SENSITIVITY_MEDIUM to "Medium",
+        MotionDetector.SENSITIVITY_HIGH to "High",
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("Sensitivity", color = NoryptColors.Muted, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        options.forEach { (level, label) ->
+            FilterChip(
+                selected = selected == level,
+                onClick = { onSelect(level) },
+                label = { Text(label, fontSize = 12.sp) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = NoryptColors.AccentDim,
+                    selectedLabelColor = NoryptColors.Accent,
+                    labelColor = NoryptColors.Muted,
+                ),
             )
         }
-        Switch(
-            checked = checked,
-            onCheckedChange = onToggle,
-            enabled = enabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = NoryptColors.Accent,
-                uncheckedThumbColor = NoryptColors.Muted,
-                uncheckedTrackColor = NoryptColors.Surface1,
-                disabledCheckedTrackColor = NoryptColors.Muted,
-                disabledUncheckedTrackColor = NoryptColors.Surface1,
-            ),
-        )
     }
 }
 
