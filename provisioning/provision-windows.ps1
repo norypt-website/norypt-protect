@@ -5,7 +5,7 @@
   Device Owner — the privilege tier that unlocks the full protection feature set.
 
   HOW TO USE
-    1. Drop the release APK (e.g. norypt-protect-1.0.0.apk) into this folder.
+    1. Drop the release APK (e.g. norypt-protect-1.1.0.apk) into this folder.
     2. Put the phone in the required state (see PRECONDITIONS below).
     3. Connect the phone by USB and enable USB debugging.
     4. Double-click  provision-windows.bat  (it launches this script).
