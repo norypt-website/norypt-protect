@@ -74,6 +74,26 @@
             android:exported="true"
             android:theme="@style/Theme.NoryptProtect"/>
 
+        <!-- Lockdown mode's blank HOME. Disabled here and enabled only while lockdown is on
+             (LockdownMode toggles the component), so the app never shows up as a launcher
+             choice otherwise. if_whitelisted: the task enters lock-task mode on launch once
+             setLockTaskPackages allows this package, which is how the kiosk survives a reboot. -->
+        <activity
+            android:name=".service.LockdownHomeActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:stateNotNeeded="true"
+            android:lockTaskMode="if_whitelisted"
+            android:theme="@style/Theme.NoryptProtect.Blank">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.HOME"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
         <activity-alias
             android:name=".LauncherAlias"
             android:targetActivity=".MainActivity"
@@ -120,7 +140,7 @@
             android:exported="false">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Runs the Norypt Protect arming monitors (unlocked-timer, fake-messenger, etc.)."/>
+                android:value="Runs the Norypt Protect arming monitors (unlocked-timer, fake-messenger, tamper timeline, anti-snatch, etc.)."/>
         </service>
 
         <!-- UserPresentReceiver is registered at runtime by UserPresentMonitor:

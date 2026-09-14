@@ -8,4 +8,10 @@
         <item name="android:enforceNavigationBarContrast">false</item>
         <item name="android:enforceStatusBarContrast">false</item>
     </style>
+
+    <!-- Lockdown mode's blank home: pure black, nothing drawn until the owner holds and enters the PIN. -->
+    <style name="Theme.NoryptProtect.Blank" parent="Theme.NoryptProtect">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
 </resources>
