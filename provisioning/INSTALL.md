@@ -1,8 +1,8 @@
-# Norypt Protect 1.0.1 — Installation Guide
+# Norypt Protect 1.1.0 — Installation Guide
 
 Norypt Protect turns an Android phone into a device that can lock or erase itself in an
 emergency. It runs entirely on the phone: **no internet permission, no server, no account,
-no logs.** Nothing you configure ever leaves the device.
+no telemetry.** Nothing you configure ever leaves the device.
 
 This guide takes about 20 minutes.
 
@@ -40,19 +40,19 @@ in transit.
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash norypt-protect-1.0.1.apk -Algorithm SHA256
+Get-FileHash norypt-protect-1.1.0.apk -Algorithm SHA256
 ```
 
 **macOS / Linux:**
 
 ```bash
-shasum -a 256 norypt-protect-1.0.1.apk
+shasum -a 256 norypt-protect-1.1.0.apk
 ```
 
 The result must be exactly:
 
 ```
-75411096706c56d524ba3c55d6b9ac78841133cacf44888a10a92056bdc90a90
+bc8d2cf4917fcedc5b4d6605c4848b3c7dba900db6188cda3e6c824de6b6d859
 ```
 
 **If it does not match, stop.** Do not install it. Ask for a fresh copy.
@@ -136,6 +136,9 @@ It is separate from your phone's lock screen PIN.
 | Block power menu when locked | Hides the Power Off menu on the lock screen. |
 | Disable Emergency SOS | Stops accidental emergency calls from 5 power-button presses. |
 | Anti-tamper | Blocks factory reset from Settings and blocks uninstalling the app. |
+| Block app installation | Refuses every app install on the phone, including over ADB. Also blocks updates to Norypt Protect itself: turn it off before updating. |
+| Lockdown mode | The phone shows only a black screen until the App PIN is entered. Hold a finger anywhere for 3 seconds, enter the PIN, tap Exit lockdown. Survives reboots. |
+| Anti-snatch | Locks the screen the instant the phone is yanked or dropped. Three sensitivity levels. |
 | Hide launcher icon | Removes the app icon from the home screen. |
 
 **Triggers tab** — what causes a wipe. Each one has a switch and a description. Tap a
@@ -150,8 +153,17 @@ Commonly used:
   connectivity — i.e. it has been taken and switched off from the network.
 - **A6 — Secret SMS.** Wipes when a text arrives whose entire content is your secret code.
   Minimum 8 characters; the whole message must match exactly.
+- **C6 — Not unlocked for too long.** Starts a wipe countdown if the phone has not been
+  unlocked for the number of hours you set (48 by default) — for a phone that was seized,
+  lost or left behind. Entering the lock-screen credential cancels the countdown.
 
 Only turn on the ones you actually want. Every one of them erases the phone.
+
+**Timeline tab** — optional. Turn on **Record timeline** before handing the phone over or
+leaving it somewhere, and afterwards the tab lists boots, unlocks, failed unlocks, USB
+connections, SIM changes and fingerprint or face changes, with times. It stays on the
+phone, is cleared with the App PIN, and cannot see attacks below the operating system;
+the tab says so.
 
 ---
 
@@ -191,6 +203,14 @@ Open the trigger and check the **Reliability** panel. If it says exact alarms ar
 allowed, tap **Allow exact alarms**. Android denies this by default and it makes the
 switch less precise.
 
+**The phone shows only a black screen**
+Lockdown mode is on. Hold a finger anywhere on the screen for three seconds, enter the App
+PIN, and tap **Exit lockdown**. If the PIN is lost, the only way out is a factory reset.
+
+**Updating the app fails with "User restriction prevents installing"**
+**Block app installation** is on. Open the app, **Protect tab**, turn it off (it asks for
+your App PIN), then install the update.
+
 **I forgot the App PIN**
 There is no recovery. Factory-reset the phone and set it up again.
 
@@ -222,5 +242,5 @@ Being explicit, so you can plan around it:
 
 ---
 
-*Norypt Protect — [norypt.com](https://norypt.com). Version 1.0.1, certificate fingerprint
+*Norypt Protect — [norypt.com](https://norypt.com). Version 1.1.0, certificate fingerprint
 `13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95`.*
