@@ -22,7 +22,6 @@ import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,6 +44,12 @@ import com.norypt.protect.triggers.DeadmanScheduler
 import com.norypt.protect.triggers.SmsSecretReceiver
 import com.norypt.protect.triggers.Trigger
 import com.norypt.protect.triggers.TriggerRegistry
+import com.norypt.protect.ui.components.NoryptCard
+import com.norypt.protect.ui.components.NoteCard
+import com.norypt.protect.ui.components.ScreenHeader
+import com.norypt.protect.ui.components.TagPill
+import com.norypt.protect.ui.components.noryptFieldColors
+import com.norypt.protect.ui.components.noryptSwitchColors
 import com.norypt.protect.ui.theme.NoryptColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,11 +91,9 @@ fun TriggersScreen(padding: PaddingValues) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            "TRIGGERS",
-            color = NoryptColors.MutedDeep,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
+        ScreenHeader(
+            title = "Triggers",
+            subtitle = "Each trigger arms on its own. Tap a card for its settings.",
         )
         TriggerRegistry.all.forEach { trigger ->
             TriggerRow(
@@ -126,99 +129,57 @@ private fun TriggerRow(
     onToggle: (Boolean) -> Unit,
     onConfigure: () -> Unit,
 ) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
-            .clickable(onClick = onConfigure)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    NoryptCard(
+        accent = if (enabled && tierMet) NoryptColors.Accent else null,
+        onClick = onConfigure,
+        contentPadding = PaddingValues(start = 14.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
     ) {
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    trigger.label,
-                    color = NoryptColors.Text,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f, fill = false),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    trigger.id,
-                    color = NoryptColors.MutedDeep,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (trigger.requiredTier == Tier.DeviceOwner) {
-                    Spacer(Modifier.width(8.dp))
-                    val badgeColor = if (tierMet) NoryptColors.MutedDeep else NoryptColors.Amber
-                    Box(
-                        Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(badgeColor.copy(alpha = 0.15f))
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                    ) {
-                        Text(
-                            "DEVICE OWNER",
-                            color = badgeColor,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            softWrap = false,
-                            overflow = TextOverflow.Visible,
-                        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        trigger.label,
+                        color = NoryptColors.Text,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        trigger.id,
+                        color = NoryptColors.MutedDeep,
+                        fontSize = 11.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        maxLines = 1,
+                    )
+                    if (trigger.requiredTier == Tier.DeviceOwner) {
+                        TagPill("DEVICE OWNER", if (tierMet) NoryptColors.MutedDeep else NoryptColors.Amber)
                     }
                 }
-            }
-            Spacer(Modifier.height(2.dp))
-            Text(
-                trigger.description,
-                color = NoryptColors.Muted,
-                fontSize = 12.sp,
-                maxLines = 6,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val grapheneNote = trigger.grapheneOsNote
-            if (grapheneNote != null && PlatformInfo.isGrapheneOS(LocalContext.current)) {
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(NoryptColors.Amber.copy(alpha = 0.10f))
-                        .border(1.dp, NoryptColors.Amber.copy(alpha = 0.35f), RoundedCornerShape(6.dp))
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                ) {
-                    Text(
-                        "GrapheneOS: $grapheneNote",
-                        color = NoryptColors.Amber,
-                        fontSize = 11.sp,
-                    )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    trigger.description,
+                    color = NoryptColors.Muted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    maxLines = 6,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val grapheneNote = trigger.grapheneOsNote
+                if (grapheneNote != null && PlatformInfo.isGrapheneOS(LocalContext.current)) {
+                    Spacer(Modifier.height(8.dp))
+                    NoteCard(text = "GrapheneOS: $grapheneNote", color = NoryptColors.Amber)
                 }
             }
+            Spacer(Modifier.width(8.dp))
+            Switch(
+                checked = enabled,
+                enabled = tierMet,
+                onCheckedChange = onToggle,
+                colors = noryptSwitchColors(),
+            )
         }
-        Switch(
-            checked = enabled,
-            enabled = tierMet,
-            onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = NoryptColors.Bg,
-                checkedTrackColor = NoryptColors.Accent,
-                uncheckedThumbColor = NoryptColors.Muted,
-                uncheckedTrackColor = NoryptColors.Surface1,
-                uncheckedBorderColor = NoryptColors.Border,
-                disabledCheckedThumbColor = NoryptColors.MutedDeep,
-                disabledCheckedTrackColor = NoryptColors.AccentDim,
-                disabledUncheckedThumbColor = NoryptColors.MutedDeep,
-                disabledUncheckedTrackColor = NoryptColors.Surface1,
-                disabledUncheckedBorderColor = NoryptColors.Border,
-            ),
-        )
     }
 }
 
@@ -409,6 +370,38 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     ProtectPrefs.setDeadmanRequireWifi(ctx, it)
                 }
             }
+            "C6" -> {
+                DeadmanReliabilityPanel(ctx)
+                Spacer(Modifier.height(12.dp))
+                var hours by remember { mutableStateOf(ProtectPrefs.unlockDeadlineHours(ctx).toString()) }
+                var grace by remember { mutableStateOf(ProtectPrefs.unlockDeadlineGraceSeconds(ctx).toString()) }
+                ConfigNumberField(
+                    label = "Hours without an unlock before the countdown (default 48)",
+                    value = hours,
+                    onChange = {
+                        hours = it
+                        it.toIntOrNull()?.let(ProtectPrefs::setUnlockDeadlineHours.curry(ctx))
+                    },
+                )
+                Spacer(Modifier.height(8.dp))
+                ConfigNumberField(
+                    label = "Countdown seconds before wipe (default 60)",
+                    value = grace,
+                    onChange = {
+                        grace = it
+                        it.toIntOrNull()?.let(ProtectPrefs::setUnlockDeadlineGraceSeconds.curry(ctx))
+                    },
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "Counts from the last unlock, or from the moment this trigger was armed. Checked on " +
+                        "the same alarm as the low-battery dead-man switch, so while the phone sleeps the " +
+                        "check runs roughly every ten minutes. When the deadline passes a full-screen " +
+                        "countdown starts; your screen-lock credential cancels it and restarts the clock.",
+                    color = NoryptColors.MutedDeep,
+                    fontSize = 11.sp,
+                )
+            }
             "A7" -> {
                 InfoBlock(
                     title = "What this is",
@@ -420,8 +413,9 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     title = "How to fire it",
                     body = "From any app holding the signature permission " +
                         "com.norypt.protect.permission.TRIGGER, broadcast the action " +
-                        "com.norypt.protect.action.TRIGGER. With dry-run ON, you can test " +
-                        "from a computer over ADB without wiping:",
+                        "com.norypt.protect.action.TRIGGER. The ADB command below only works " +
+                        "where the shell is allowed past the permission; on Android 14 and later " +
+                        "it is refused (verified on Android 17), which is the protection working:",
                 )
                 Spacer(Modifier.height(6.dp))
                 CodeBlock(
@@ -431,8 +425,8 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Because the receiver is gated by a signature-level permission, only apps signed with the " +
-                        "Norypt Protect release key can fire it. ADB is the only exception; it bypasses the " +
-                        "permission for the lifetime of the cable.",
+                        "Norypt Protect release key can fire it. To test it, use a companion app signed with " +
+                        "the same key, with dry-run on.",
                     color = NoryptColors.MutedDeep,
                     fontSize = 11.sp,
                 )
@@ -570,15 +564,8 @@ private fun ConfigTextField(label: String, value: String, onChange: (String) -> 
         label = { Text(label) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = NoryptColors.Accent,
-            unfocusedBorderColor = NoryptColors.Border,
-            focusedTextColor = NoryptColors.Text,
-            unfocusedTextColor = NoryptColors.Text,
-            focusedLabelColor = NoryptColors.Accent,
-            unfocusedLabelColor = NoryptColors.Muted,
-            cursorColor = NoryptColors.Accent,
-        ),
+        shape = RoundedCornerShape(10.dp),
+        colors = noryptFieldColors(),
     )
 }
 
@@ -591,15 +578,8 @@ private fun ConfigNumberField(label: String, value: String, onChange: (String) -
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
         modifier = Modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = NoryptColors.Accent,
-            unfocusedBorderColor = NoryptColors.Border,
-            focusedTextColor = NoryptColors.Text,
-            unfocusedTextColor = NoryptColors.Text,
-            focusedLabelColor = NoryptColors.Accent,
-            unfocusedLabelColor = NoryptColors.Muted,
-            cursorColor = NoryptColors.Accent,
-        ),
+        shape = RoundedCornerShape(10.dp),
+        colors = noryptFieldColors(),
     )
 }
 
@@ -708,13 +688,7 @@ private fun PermissionToggleRow(label: String, permission: String) {
                     }
                 }
             },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = NoryptColors.Bg,
-                checkedTrackColor = NoryptColors.Accent,
-                uncheckedThumbColor = NoryptColors.Muted,
-                uncheckedTrackColor = NoryptColors.Surface1,
-                uncheckedBorderColor = NoryptColors.Border,
-            ),
+            colors = noryptSwitchColors(),
         )
     }
 }
@@ -763,13 +737,7 @@ private fun UsageAccessToggleRow() {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 ctx.startActivity(intent)
             },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = NoryptColors.Bg,
-                checkedTrackColor = NoryptColors.Accent,
-                uncheckedThumbColor = NoryptColors.Muted,
-                uncheckedTrackColor = NoryptColors.Surface1,
-                uncheckedBorderColor = NoryptColors.Border,
-            ),
+            colors = noryptSwitchColors(),
         )
     }
 }
@@ -794,13 +762,7 @@ private fun ToggleConfigRow(label: String, checked: Boolean, onChange: (Boolean)
         Switch(
             checked = checked,
             onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = NoryptColors.Bg,
-                checkedTrackColor = NoryptColors.Accent,
-                uncheckedThumbColor = NoryptColors.Muted,
-                uncheckedTrackColor = NoryptColors.Surface1,
-                uncheckedBorderColor = NoryptColors.Border,
-            ),
+            colors = noryptSwitchColors(),
         )
     }
 }

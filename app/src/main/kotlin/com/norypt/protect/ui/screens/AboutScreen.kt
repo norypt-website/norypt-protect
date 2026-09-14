@@ -3,24 +3,20 @@ package com.norypt.protect.ui.screens
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.BuildConfig
+import com.norypt.protect.ui.components.NoryptCard
+import com.norypt.protect.ui.components.SectionLabel
 import com.norypt.protect.ui.theme.NoryptColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,16 +40,19 @@ fun AboutScreen(padding: PaddingValues) {
             .padding(padding)
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            "ABOUT",
-            color = NoryptColors.MutedDeep,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-
-        InfoCard("Norypt Protect", "Local-only Android security — lock, wipe, harden. No network, no logs, no telemetry.")
+        NoryptCard {
+            Text("Norypt Protect", color = NoryptColors.TextStrong, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "Local-only Android security — lock, wipe, harden. No network, no telemetry. " +
+                    "The optional tamper timeline is the only record kept, and it stays on this device.",
+                color = NoryptColors.Muted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+        }
         InfoRow("Version", "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
         InfoRow("App ID", ctx.packageName)
         InfoRow("License", "GPL-3.0-or-later")
@@ -63,21 +62,8 @@ fun AboutScreen(padding: PaddingValues) {
             ctx.startActivity(intent)
         }
 
-        Text(
-            "INTEGRITY",
-            color = NoryptColors.MutedDeep,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 8.dp),
-        )
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
-                .background(NoryptColors.Surface2)
-                .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
-                .padding(14.dp),
-        ) {
+        SectionLabel("Integrity")
+        NoryptCard(contentPadding = PaddingValues(14.dp)) {
             Text("APK SHA-256", color = NoryptColors.Muted, fontSize = 12.sp)
             Spacer(Modifier.height(6.dp))
             Text(
@@ -89,43 +75,24 @@ fun AboutScreen(padding: PaddingValues) {
         }
 
         Text(
-            "Norypt Protect ships via F-Droid with Reproducible Builds — F-Droid rebuilds from the GitHub-tagged source and byte-compares against the Norypt-signed APK. The verified-build badge appears on the F-Droid listing once the F-Droid pipeline is wired in v1.0.0.",
+            "Norypt Protect ships via F-Droid with Reproducible Builds — F-Droid rebuilds from the " +
+                "GitHub-tagged source and byte-compares against the Norypt-signed APK. The verified-build " +
+                "badge appears on the F-Droid listing once the F-Droid pipeline is wired in v1.0.0.",
             color = NoryptColors.Muted,
             fontSize = 12.sp,
+            lineHeight = 17.sp,
             modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
 
 @Composable
-private fun InfoCard(title: String, body: String) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
-            .padding(14.dp),
-    ) {
-        Text(title, color = NoryptColors.Text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(4.dp))
-        Text(body, color = NoryptColors.Muted, fontSize = 12.sp)
-    }
-}
-
-@Composable
 private fun InfoRow(label: String, value: String, clickable: Boolean = false, onClick: () -> Unit = {}) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(NoryptColors.Surface2)
-            .border(1.dp, NoryptColors.Border, RoundedCornerShape(10.dp))
-            .let { if (clickable) it.clickable(onClick = onClick) else it }
-            .padding(14.dp),
-    ) {
-        Text(label, color = NoryptColors.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
-        Text(value, color = if (clickable) NoryptColors.Accent else NoryptColors.Text, fontSize = 13.sp)
+    NoryptCard(contentPadding = PaddingValues(14.dp), onClick = if (clickable) onClick else null) {
+        Row {
+            Text(label, color = NoryptColors.Muted, fontSize = 13.sp, modifier = Modifier.weight(1f))
+            Text(value, color = if (clickable) NoryptColors.Accent else NoryptColors.Text, fontSize = 13.sp)
+        }
     }
 }
 

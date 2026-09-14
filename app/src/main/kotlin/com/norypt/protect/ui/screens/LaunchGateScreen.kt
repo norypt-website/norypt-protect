@@ -5,6 +5,7 @@ import android.content.Context
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.CancellationSignal
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -16,14 +17,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.norypt.protect.R
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.security.AppPin
 import com.norypt.protect.security.PinLockout
+import com.norypt.protect.ui.components.NoteCard
+import com.norypt.protect.ui.components.PrimaryButton
+import com.norypt.protect.ui.components.SecondaryButton
+import com.norypt.protect.ui.components.noryptFieldColors
 import com.norypt.protect.ui.theme.NoryptColors
 import kotlinx.coroutines.delay
 
@@ -79,24 +86,28 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
         Modifier
             .fillMaxSize()
             .background(NoryptColors.Bg)
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .padding(horizontal = 24.dp),
         contentAlignment = Alignment.Center,
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            GateLogo()
             Text(
                 "Norypt Protect",
-                color = NoryptColors.Text,
+                color = NoryptColors.TextStrong,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.3).sp,
             )
             Text(
                 "Enter your App PIN to continue",
                 color = NoryptColors.Muted,
                 fontSize = 13.sp,
             )
+            Spacer(Modifier.height(4.dp))
             OutlinedTextField(
                 value = pin,
                 onValueChange = {
@@ -106,21 +117,19 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                 label = { Text("App PIN") },
                 singleLine = true,
                 enabled = !lockedOut,
+                isError = error != null,
+                shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
                 visualTransformation = PasswordVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = NoryptColors.Accent,
-                    unfocusedBorderColor = NoryptColors.Border,
-                    focusedLabelColor = NoryptColors.Accent,
-                    unfocusedLabelColor = NoryptColors.Muted,
-                    focusedTextColor = NoryptColors.Text,
-                    unfocusedTextColor = NoryptColors.Text,
-                ),
+                colors = noryptFieldColors(),
+                modifier = Modifier.fillMaxWidth(),
             )
             if (error != null) {
-                Text(error!!, color = NoryptColors.Red, fontSize = 12.sp)
+                Text(error.orEmpty(), color = NoryptColors.Red, fontSize = 12.sp)
             }
-            Button(
+            PrimaryButton(
+                label = "Unlock",
+                enabled = pin.length >= 6 && !lockedOut,
                 onClick = {
                     if (AppPin.verify(ctx, pin)) {
                         PinLockout.recordSuccess(ctx)
@@ -133,14 +142,10 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                         pin = ""
                     }
                 },
-                enabled = pin.length >= 6 && !lockedOut,
-                colors = ButtonDefaults.buttonColors(containerColor = NoryptColors.Accent),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Unlock")
-            }
+            )
             if (showBiometric) {
-                OutlinedButton(
+                SecondaryButton(
+                    label = "Use biometric",
                     onClick = {
                         promptBiometric(
                             ctx,
@@ -148,34 +153,36 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                             onFail = { error = "Biometric declined — enter PIN" },
                         )
                     },
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Accent.copy(alpha = 0.5f)),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("Use biometric")
-                }
+                )
             }
             if (lockedOut) {
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(NoryptColors.Red.copy(alpha = 0.12f))
-                        .border(1.dp, NoryptColors.Red.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    val seconds = ((lockedRemainingMs + 999L) / 1000L).toInt()
-                    Text(
-                        "Too many incorrect PIN attempts. Try again in " +
-                            "${seconds / 60}m ${seconds % 60}s.",
-                        color = NoryptColors.Red,
-                        fontSize = 12.sp,
-                    )
-                }
+                val seconds = ((lockedRemainingMs + 999L) / 1000L).toInt()
+                NoteCard(
+                    text = "Too many incorrect PIN attempts. Try again in ${seconds / 60}m ${seconds % 60}s.",
+                    color = NoryptColors.Red,
+                )
             }
         }
     }
 }
 
+@Composable
+private fun GateLogo() {
+    Box(
+        Modifier
+            .size(84.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(NoryptColors.Surface2)
+            .border(1.dp, NoryptColors.Border, RoundedCornerShape(22.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.norypt_logo),
+            contentDescription = null,
+            modifier = Modifier.size(52.dp),
+        )
+    }
+}
 
 private fun promptBiometric(
     ctx: Context,

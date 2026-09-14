@@ -12,6 +12,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -35,6 +40,7 @@ import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.screens.HomeScreen
 import com.norypt.protect.ui.screens.PinSetupScreen
 import com.norypt.protect.ui.screens.ProtectionLevelScreen
+import com.norypt.protect.ui.screens.TimelineScreen
 import com.norypt.protect.ui.screens.TriggersScreen
 import com.norypt.protect.ui.screens.WipeOptionsScreen
 import com.norypt.protect.ui.theme.NoryptColors
@@ -169,11 +175,19 @@ class MainActivity : ComponentActivity() {
 private fun AppShell(onRequestEnableAdmin: () -> Unit) {
     var selected by remember { mutableStateOf(NavTab.HOME) }
     MainScaffold(selected = selected, onSelect = { selected = it }) { padding ->
-        when (selected) {
-            NavTab.HOME -> HomeScreen(padding = padding, onRequestEnableAdmin = onRequestEnableAdmin)
-            NavTab.TRIGGERS -> TriggersScreen(padding = padding)
-            NavTab.WIPE -> WipeOptionsScreen(padding = padding)
-            NavTab.PROTECT -> ProtectionLevelScreen(padding = padding)
+        // A short crossfade between tabs: enough to feel deliberate, short enough never to wait for.
+        AnimatedContent(
+            targetState = selected,
+            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(120)) },
+            label = "tab",
+        ) { tab ->
+            when (tab) {
+                NavTab.HOME -> HomeScreen(padding = padding, onRequestEnableAdmin = onRequestEnableAdmin)
+                NavTab.TRIGGERS -> TriggersScreen(padding = padding)
+                NavTab.WIPE -> WipeOptionsScreen(padding = padding)
+                NavTab.PROTECT -> ProtectionLevelScreen(padding = padding)
+                NavTab.TIMELINE -> TimelineScreen(padding = padding)
+            }
         }
     }
 }
