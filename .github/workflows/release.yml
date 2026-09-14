@@ -212,10 +212,19 @@ jobs:
       - name: Render release notes
         run: |
           set -euo pipefail
+          # The highest-numbered F-Droid changelog is this version's: files are named by
+          # versionCode, and sort -V orders them numerically. The first line is the version
+          # label; the bullets become a Markdown list.
+          NOTES_FILE="$(ls fastlane/metadata/android/en-US/changelogs/*.txt | sort -V | tail -1)"
+          WHATS_NEW="$(sed -e '1{/^v[0-9]/d}' -e 's/^• /- /' "$NOTES_FILE")"
           cat > release-body.md <<EOF
           **Norypt Protect ${VERSION}** — local-only Android privacy and emergency security, built by [norypt.com](https://norypt.com).
 
-          No internet permission. No server. No logs. No telemetry. No tracking.
+          No internet permission. No server. No account. No telemetry. No tracking.
+
+          ## What's new
+
+          ${WHATS_NEW}
 
           ## Download
 
