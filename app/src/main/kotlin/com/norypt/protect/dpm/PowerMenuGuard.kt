@@ -79,6 +79,9 @@ object PowerMenuGuard {
         val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = ComponentName(ctx, ProtectAdminReceiver::class.java)
         if (!dpm.isDeviceOwnerApp(ctx.packageName)) return
+        // Lockdown mode holds its own lock task with the power menu already suppressed;
+        // rewriting the allow-list here would throw the blank home out of it.
+        if (LockdownMode.isEnabled(ctx)) return
 
         runCatching {
             if (locked) {
