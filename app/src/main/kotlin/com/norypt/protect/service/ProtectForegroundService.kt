@@ -10,6 +10,11 @@ import android.os.IBinder
 import android.os.Looper
 import com.norypt.protect.R
 import com.norypt.protect.dpm.PowerMenuGuard
+import com.norypt.protect.motion.MotionLockMonitor
+import com.norypt.protect.timeline.TamperBootAudit
+import com.norypt.protect.timeline.TamperKind
+import com.norypt.protect.timeline.TamperLog
+import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.DeadmanScheduler
 import com.norypt.protect.triggers.PowerGestureMonitor
 import com.norypt.protect.triggers.UsbLockedMonitor
@@ -50,7 +55,12 @@ class ProtectForegroundService : Service() {
         UsbLockedMonitor.start(this)
         PowerMenuGuard.start(this)
         UserPresentMonitor.start(this)
+        TamperMonitor.start(this)
+        MotionLockMonitor.start(this)
         DeadmanScheduler.schedule(this)
+        // Covers a boot whose broadcast never reached a force-stopped app; a no-op otherwise.
+        TamperBootAudit.check(this, fromBootBroadcast = false)
+        TamperLog.record(this, TamperKind.MONITOR_STARTED)
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)
     }
 
@@ -63,6 +73,8 @@ class ProtectForegroundService : Service() {
         UsbLockedMonitor.stop(this)
         PowerMenuGuard.stop(this)
         UserPresentMonitor.stop(this)
+        TamperMonitor.stop(this)
+        MotionLockMonitor.stop(this)
         super.onDestroy()
     }
 

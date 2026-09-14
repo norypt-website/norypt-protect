@@ -8,6 +8,8 @@ import android.content.IntentFilter
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.timeline.TamperKind
+import com.norypt.protect.timeline.TamperLog
 
 object UnlockedTimerMonitor {
     fun tick(context: Context) {
@@ -42,6 +44,7 @@ class UserPresentReceiver : BroadcastReceiver() {
         // that feeds the duress wipe ends here. onPasswordSucceeded only covers
         // credential unlocks; biometric unlocks would otherwise leave the count standing.
         ProtectPrefs.resetFailedAttempts(context)
+        TamperLog.record(context, TamperKind.UNLOCK)
     }
 }
 

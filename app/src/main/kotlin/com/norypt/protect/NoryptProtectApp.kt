@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
 import com.norypt.protect.triggers.PackageInternetWatcher
 import com.norypt.protect.triggers.UnlockedTimerMonitor
@@ -48,5 +49,7 @@ class NoryptProtectApp : Application() {
         ProtectForegroundService.registerTick { PackageInternetWatcher.tick(it) }
         // Retries a wipe that was attempted and denied — see PanicHandler.retryPendingWipe.
         ProtectForegroundService.registerTick { PanicHandler.retryPendingWipe(it) }
+        // Tamper-timeline sentinels: SIM, USB debugging, lock screen, biometrics, failed unlocks.
+        ProtectForegroundService.registerTick { TamperMonitor.tick(it) }
     }
 }
