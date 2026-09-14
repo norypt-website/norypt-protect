@@ -9,8 +9,8 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Bundle
-import android.view.WindowManager
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
@@ -28,18 +28,23 @@ import androidx.compose.ui.unit.sp
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.triggers.DeadmanMonitor
+import com.norypt.protect.triggers.UnlockDeadlineMonitor
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
 import com.norypt.protect.util.SuspendableCountdown
 import kotlinx.coroutines.delay
 
 /**
- * C4 — Full-screen countdown activity launched over the lockscreen by [DeadmanMonitor].
+ * Full-screen countdown launched over the lockscreen by [DeadmanMonitor] (C4) or
+ * [UnlockDeadlineMonitor] (C6); the [CountdownMode] extra says which.
  *
  * - Shows a countdown timer (grace period from prefs).
  * - Cancel button launches keyguard credential intent; RESULT_OK aborts wipe.
- * - Re-checks conditions on every tick; if connectivity restored → silent abort.
- * - On countdown reaches 0 → [PanicHandler.panic].
+ * - Re-checks the trigger's conditions on every tick; if they clear → silent abort.
+ * - On countdown reaches 0 → [PanicHandler.panic] with the mode's reason.
+ *
+ * Declared singleTask, so a second countdown requested while one is showing is delivered
+ * as onNewIntent and ignored: one countdown at a time, in the mode it started with.
  */
 class WipeCountdownActivity : ComponentActivity() {
 
@@ -52,9 +57,18 @@ class WipeCountdownActivity : ComponentActivity() {
     private val authInProgress = mutableStateOf(false)
 
     private lateinit var countdown: SuspendableCountdown
+    private lateinit var mode: CountdownMode
+
+    /** Wall-clock start, so the C6 abort check can see an unlock that happened after launch. */
+    private var startWallMs: Long = 0L
 
     private val cancelLauncher = registerForActivityResult(StartActivityForResult()) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
+            // A credential entered here proves the owner is present. C6 measures from it;
+            // otherwise the deadline is still in the past and the next tick relaunches.
+            if (mode == CountdownMode.UNLOCK_DEADLINE) {
+                ProtectPrefs.setUnlockDeadlineSeenUnlockedMs(this, System.currentTimeMillis())
+            }
             finish()
         } else {
             authInProgress.value = false
@@ -63,6 +77,7 @@ class WipeCountdownActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        mode = CountdownMode.fromIntent(intent)
 
         // Not screenshot- or recording-able: this screen is shown over the lockscreen and
         // discloses both that the device is armed and that a wipe is imminent.
@@ -74,8 +89,9 @@ class WipeCountdownActivity : ComponentActivity() {
         val km = getSystemService(KeyguardManager::class.java)
         km.requestDismissKeyguard(this, null)
 
-        val graceMs = ProtectPrefs.deadmanGraceSeconds(this) * 1_000L
+        val graceMs = graceSeconds() * 1_000L
         val now = SystemClock.elapsedRealtime()
+        startWallMs = savedInstanceState?.getLong(STATE_START_WALL) ?: System.currentTimeMillis()
         // Restored from saved state so a configuration change continues the countdown
         // instead of restarting the grace period — otherwise repeatedly rotating the
         // phone postpones the wipe indefinitely.
@@ -92,6 +108,7 @@ class WipeCountdownActivity : ComponentActivity() {
                 CountdownScreen(
                     countdown = countdown,
                     paused = authInProgress.value,
+                    subtitle = subtitle(),
                     onCancel = {
                         authInProgress.value = true
                         launchKeyguardCancel()
@@ -99,7 +116,7 @@ class WipeCountdownActivity : ComponentActivity() {
                     onConditionsCleared = { finish() },
                     onTimerExpired = {
                         if (!isFinishing) {
-                            PanicHandler.panic(this@WipeCountdownActivity, "deadman")
+                            PanicHandler.panic(this@WipeCountdownActivity, mode.reason)
                         }
                         finish()
                     },
@@ -109,10 +126,21 @@ class WipeCountdownActivity : ComponentActivity() {
         }
     }
 
+    private fun graceSeconds(): Int = when (mode) {
+        CountdownMode.DEADMAN -> ProtectPrefs.deadmanGraceSeconds(this)
+        CountdownMode.UNLOCK_DEADLINE -> ProtectPrefs.unlockDeadlineGraceSeconds(this)
+    }
+
+    private fun subtitle(): String = when (mode) {
+        CountdownMode.DEADMAN -> "Low battery, no connections"
+        CountdownMode.UNLOCK_DEADLINE -> "Not unlocked for ${ProtectPrefs.unlockDeadlineHours(this)} h"
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putLong(STATE_DEADLINE, countdown.deadlineElapsedMs)
         outState.putLong(STATE_PAUSE_USED, countdown.pauseUsedMs)
+        outState.putLong(STATE_START_WALL, startWallMs)
     }
 
     /**
@@ -127,10 +155,18 @@ class WipeCountdownActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        DeadmanMonitor.countdownActive = false
         // Whether the user cancelled, the conditions cleared, or the wipe was requested,
         // the ongoing alert has done its job and must not outlive this screen.
-        DeadmanMonitor.clearAlert(this)
+        when (mode) {
+            CountdownMode.DEADMAN -> {
+                DeadmanMonitor.countdownActive = false
+                DeadmanMonitor.clearAlert(this)
+            }
+            CountdownMode.UNLOCK_DEADLINE -> {
+                UnlockDeadlineMonitor.countdownActive = false
+                CountdownAlert.clear(this, mode)
+            }
+        }
         super.onDestroy()
     }
 
@@ -148,8 +184,21 @@ class WipeCountdownActivity : ComponentActivity() {
         }
     }
 
-    /** Returns true if the dead-man conditions are no longer met (battery recovered or connectivity restored). */
-    private fun areConditionsCleared(): Boolean {
+    /** True if the launching trigger's conditions no longer hold. */
+    private fun areConditionsCleared(): Boolean = when (mode) {
+        CountdownMode.DEADMAN -> deadmanConditionsCleared()
+        CountdownMode.UNLOCK_DEADLINE -> unlockDeadlineCleared()
+    }
+
+    /** C6 clears the moment the device is opened, by whichever route. */
+    private fun unlockDeadlineCleared(): Boolean {
+        val km = getSystemService(KeyguardManager::class.java)
+        if (km != null && !km.isDeviceLocked) return true
+        return ProtectPrefs.lastUnlockMs(this) > startWallMs
+    }
+
+    /** C4 clears when the battery recovered or a monitored connection came back. */
+    private fun deadmanConditionsCleared(): Boolean {
         val level = batteryLevel(this)
         val threshold = ProtectPrefs.deadmanBatteryPct(this)
         if (level > threshold) return true
@@ -200,6 +249,7 @@ class WipeCountdownActivity : ComponentActivity() {
 private fun CountdownScreen(
     countdown: SuspendableCountdown,
     paused: Boolean,
+    subtitle: String,
     onCancel: () -> Unit,
     onConditionsCleared: () -> Unit,
     onTimerExpired: () -> Unit,
@@ -273,6 +323,12 @@ private fun CountdownScreen(
                 fontWeight = FontWeight.Bold,
             )
 
+            Text(
+                text = subtitle,
+                color = Color.White.copy(alpha = 0.85f),
+                fontSize = 14.sp,
+            )
+
             Button(
                 onClick = onCancel,
                 modifier = Modifier
@@ -306,5 +362,6 @@ private const val MAX_PAUSE_MS = 60_000L
 
 private const val STATE_DEADLINE = "countdown_deadline_elapsed_ms"
 private const val STATE_PAUSE_USED = "countdown_pause_used_ms"
+private const val STATE_START_WALL = "countdown_start_wall_ms"
 
 private fun millisToSeconds(ms: Long): Int = ((ms + 999L) / 1000L).toInt()

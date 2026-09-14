@@ -11,7 +11,8 @@ import android.os.BatteryManager
 import android.os.SystemClock
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
-import com.norypt.protect.service.WipeCountdownActivity
+import com.norypt.protect.service.CountdownAlert
+import com.norypt.protect.service.CountdownMode
 import com.norypt.protect.util.DebugTelemetry
 
 /**
@@ -104,14 +105,14 @@ object DeadmanMonitor {
             return
         }
 
-        if (countdownActive) {
+        if (countdownActive || UnlockDeadlineMonitor.countdownActive) {
             debugBump(ctx, "c4_skip_countdown_active")
             return
         }
 
         debugBump(ctx, "c4_countdown_launched")
         countdownActive = true
-        postFullScreenAlert(ctx)
+        CountdownAlert.post(ctx, CountdownMode.DEADMAN)
     }
 
     // --- Private helpers ---
@@ -157,50 +158,10 @@ object DeadmanMonitor {
         caps.hasTransport(transport)
     }.getOrDefault(false)
 
-    /**
-     * Posts a high-importance notification whose fullScreenIntent points to
-     * [WipeCountdownActivity]. On locked devices this is the approved Android
-     * pattern for taking over the screen — a raw startActivity() from an FGS
-     * is silently suppressed on Android 10+.
-     */
-    private fun postFullScreenAlert(ctx: Context) {
-        val activityIntent = Intent(ctx, WipeCountdownActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        val fullScreenPI = android.app.PendingIntent.getActivity(
-            ctx,
-            0,
-            activityIntent,
-            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notif = android.app.Notification.Builder(ctx, "deadman")
-            .setSmallIcon(com.norypt.protect.R.mipmap.ic_launcher)
-            .setContentTitle("Norypt Protect")
-            .setContentText("Auto-wipe countdown active — tap to respond")
-            .setCategory(android.app.Notification.CATEGORY_ALARM)
-            .setPriority(android.app.Notification.PRIORITY_MAX)
-            .setVisibility(android.app.Notification.VISIBILITY_PUBLIC)
-            .setOngoing(true)
-            .setAutoCancel(false)
-            .setFullScreenIntent(fullScreenPI, true)
-            .build()
-        val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        nm.notify(NOTIF_ID_DEADMAN, notif)
-    }
+    val NOTIF_ID_DEADMAN: Int = CountdownMode.DEADMAN.notificationId
 
-    const val NOTIF_ID_DEADMAN = 5001
-
-    /**
-     * Clears the full-screen alert. It is posted setOngoing(true), so nothing dismisses it
-     * on its own: after a cancelled or aborted countdown a non-dismissible "Auto-wipe
-     * countdown active" notification stayed on the lockscreen indefinitely, telling the user
-     * a wipe was pending when it was not.
-     */
-    fun clearAlert(ctx: Context) {
-        runCatching {
-            ctx.getSystemService(android.app.NotificationManager::class.java)
-                ?.cancel(NOTIF_ID_DEADMAN)
-        }
-    }
+    /** Takes the C4 alert down; see [CountdownAlert.clear] for why this has to be explicit. */
+    fun clearAlert(ctx: Context) = CountdownAlert.clear(ctx, CountdownMode.DEADMAN)
 
     private fun debugBump(ctx: Context, key: String) = DebugTelemetry.bump(ctx, key)
 
@@ -223,6 +184,7 @@ object DeadmanTrigger : Trigger {
 
     override fun disarm(context: Context) {
         ProtectPrefs.setTriggerEnabled(context, id, false)
-        DeadmanScheduler.cancel(context)
+        // Re-evaluates rather than cancels outright: C6 shares the alarm chain.
+        DeadmanScheduler.schedule(context)
     }
 }

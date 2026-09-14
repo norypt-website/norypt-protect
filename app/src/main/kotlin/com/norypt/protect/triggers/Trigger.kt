@@ -36,6 +36,7 @@ object TriggerRegistry {
         DuressPanicTrigger,
         PowerGestureTrigger,
         DeadmanTrigger,
+        UnlockDeadlineTrigger,
         PackageInternetTrigger,
         NotificationListenerTrigger,
         WorkProfileTrigger,

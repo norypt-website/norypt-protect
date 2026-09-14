@@ -11,8 +11,8 @@ import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.util.DebugTelemetry
 
 /**
- * Drives [DeadmanMonitor] from [AlarmManager] instead of the foreground service's
- * `Handler.postDelayed` tick.
+ * Drives [DeadmanMonitor] (C4) and [UnlockDeadlineMonitor] (C6) from [AlarmManager] instead
+ * of the foreground service's `Handler.postDelayed` tick.
  *
  * The handler tick is `uptimeMillis`-based and does not run while the SoC is suspended, so
  * the one trigger whose entire premise is an untouched, sleeping phone was the one that
@@ -34,8 +34,13 @@ object DeadmanScheduler {
 
     private const val REQUEST_CODE = 4001
 
+    /** Whether any trigger that rides this alarm chain is armed. */
+    fun anyArmed(context: Context): Boolean =
+        ProtectPrefs.isTriggerEnabled(context, DeadmanTrigger.id) ||
+            ProtectPrefs.isTriggerEnabled(context, UnlockDeadlineTrigger.id)
+
     fun schedule(context: Context) {
-        if (!ProtectPrefs.isTriggerEnabled(context, "C4")) {
+        if (!anyArmed(context)) {
             cancel(context)
             return
         }
@@ -92,10 +97,10 @@ object DeadmanScheduler {
 }
 
 /**
- * Runs one dead-man check and immediately re-arms the next alarm.
+ * Runs one dead-man check for each trigger and immediately re-arms the next alarm.
  *
- * Rescheduling happens before the check so a throw inside [DeadmanMonitor.tick] cannot end
- * the chain and silently disarm C4 for the rest of the device's uptime.
+ * Rescheduling happens before the checks so a throw inside either tick cannot end the chain
+ * and silently disarm C4 and C6 for the rest of the device's uptime.
  */
 class DeadmanAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -105,5 +110,7 @@ class DeadmanAlarmReceiver : BroadcastReceiver() {
         DeadmanScheduler.schedule(context)
         runCatching { DeadmanMonitor.tick(context) }
             .onFailure { DebugTelemetry.log("c4 tick threw: ${it.javaClass.simpleName}: ${it.message}") }
+        runCatching { UnlockDeadlineMonitor.tick(context) }
+            .onFailure { DebugTelemetry.log("c6 tick threw: ${it.javaClass.simpleName}: ${it.message}") }
     }
 }
