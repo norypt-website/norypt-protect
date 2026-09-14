@@ -1,0 +1,8 @@
+v1.1.0
+• Tamper timeline (opt-in, local, encrypted): boots, unlocks, failed unlocks, USB, SIM, biometric and screen-lock changes.
+• New trigger C6: wipe countdown if the device is not unlocked for N hours.
+• Anti-snatch: locks the screen on a sudden pull or drop.
+• Lockdown mode: blank-screen kiosk until the App PIN is entered (Device Owner).
+• Block app installation on the owner profile (Device Owner).
+• Redesigned interface.
+• Fix: A8 could fire on a stale unlock timestamp after a reboot.
