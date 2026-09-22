@@ -1,0 +1,4 @@
+v1.1.1
+• Fix: "Block power menu when locked" could stay engaged after the screen timed out and was woken before the lock-after delay, leaving Quick Settings and the power menu unavailable until the next unlock.
+• Fix: the same state could make Norypt Protect unresponsive to taps until the phone was locked and unlocked.
+• Fix: opening Norypt Protect, letting the screen lock, and unlocking no longer closes the app.
