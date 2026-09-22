@@ -53,11 +53,14 @@
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules">
 
+        <!-- Own task (empty affinity): it must never sit on top of MainActivity inside
+             Norypt Protect's task, and ending its lock task must never finish MainActivity. -->
         <activity
             android:name=".service.PowerMenuBlockerActivity"
             android:exported="false"
             android:excludeFromRecents="true"
             android:launchMode="singleTask"
+            android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
         <activity
