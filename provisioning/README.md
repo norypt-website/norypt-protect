@@ -1,4 +1,4 @@
-# Norypt Protect 1.1.0 — Provisioning Pack
+# Norypt Protect 1.1.1 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.1.0.apk` | The signed app |
-| `norypt-protect-1.1.0.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.1.1.apk` | The signed app |
+| `norypt-protect-1.1.1.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  bc8d2cf4917fcedc5b4d6605c4848b3c7dba900db6188cda3e6c824de6b6d859
+SHA-256  6b4c7171b057454c213f677eda3527aa78ead09d257b2f99152bfa5e24f61fe6
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```

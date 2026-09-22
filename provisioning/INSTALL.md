@@ -1,4 +1,4 @@
-# Norypt Protect 1.1.0 — Installation Guide
+# Norypt Protect 1.1.1 — Installation Guide
 
 Norypt Protect turns an Android phone into a device that can lock or erase itself in an
 emergency. It runs entirely on the phone: **no internet permission, no server, no account,
@@ -40,19 +40,19 @@ in transit.
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash norypt-protect-1.1.0.apk -Algorithm SHA256
+Get-FileHash norypt-protect-1.1.1.apk -Algorithm SHA256
 ```
 
 **macOS / Linux:**
 
 ```bash
-shasum -a 256 norypt-protect-1.1.0.apk
+shasum -a 256 norypt-protect-1.1.1.apk
 ```
 
 The result must be exactly:
 
 ```
-bc8d2cf4917fcedc5b4d6605c4848b3c7dba900db6188cda3e6c824de6b6d859
+6b4c7171b057454c213f677eda3527aa78ead09d257b2f99152bfa5e24f61fe6
 ```
 
 **If it does not match, stop.** Do not install it. Ask for a fresh copy.
@@ -242,5 +242,5 @@ Being explicit, so you can plan around it:
 
 ---
 
-*Norypt Protect — [norypt.com](https://norypt.com). Version 1.1.0, certificate fingerprint
+*Norypt Protect — [norypt.com](https://norypt.com). Version 1.1.1, certificate fingerprint
 `13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95`.*
