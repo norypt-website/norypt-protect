@@ -174,7 +174,9 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
         ToggleCard(
             title = "Block power menu when locked",
             subtitle = if (isOwner)
-                "While the screen is locked, the stock Power Off menu is hidden. Only a 30-second hard firmware hold can shut the phone down."
+                "While the screen is locked, the stock Power Off menu is hidden and Quick Settings " +
+                    "cannot be opened from the lock screen. Only a 30-second hard firmware hold can " +
+                    "shut the phone down. Both come back the moment you unlock."
             else
                 "Requires Device Owner.",
             checked = powerMenuBlockOn,

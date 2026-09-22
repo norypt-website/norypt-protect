@@ -3,6 +3,7 @@ package com.norypt.protect
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.service.ProtectForegroundService
 import com.norypt.protect.timeline.TamperMonitor
@@ -51,5 +52,8 @@ class NoryptProtectApp : Application() {
         ProtectForegroundService.registerTick { PanicHandler.retryPendingWipe(it) }
         // Tamper-timeline sentinels: SIM, USB debugging, lock screen, biometrics, failed unlocks.
         ProtectForegroundService.registerTick { TamperMonitor.tick(it) }
+        // Power-menu guard self-heal: a lock task held into an unlocked session, or a keyguard
+        // that came up without the guard noticing, is corrected within one tick.
+        ProtectForegroundService.registerTick { PowerMenuGuard.reconcile(it) }
     }
 }
