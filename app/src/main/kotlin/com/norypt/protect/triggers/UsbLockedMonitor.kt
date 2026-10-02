@@ -8,6 +8,7 @@ import android.content.IntentFilter
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.util.DebugTelemetry
 
 /**
  * Fires only when USB DATA is negotiated while the screen is locked.
@@ -51,17 +52,17 @@ object UsbLockedMonitor {
         startedAtMs = System.currentTimeMillis()
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                // Debug telemetry stays local — increments a prefs counter so we can
-                // verify the receiver is actually firing without adding logcat output.
-                debugIncrement(ctx, "a9_usb_state_total")
+                // Debug builds only: DebugTelemetry is a no-op in release, so nothing about
+                // USB events or this trigger's state is written to disk there.
+                DebugTelemetry.bump(ctx, "a9_usb_state_total")
                 if (!ProtectPrefs.isTriggerEnabled(ctx, "A9")) return
-                debugIncrement(ctx, "a9_usb_state_when_enabled")
+                DebugTelemetry.bump(ctx, "a9_usb_state_when_enabled")
                 val connected = intent.getBooleanExtra(EXTRA_CONNECTED, false)
                 if (!connected) return
-                debugIncrement(ctx, "a9_usb_state_connected")
+                DebugTelemetry.bump(ctx, "a9_usb_state_connected")
                 // Drop sticky replays arriving in the window right after registration.
                 if (System.currentTimeMillis() - startedAtMs < STICKY_REPLAY_WINDOW_MS) {
-                    debugIncrement(ctx, "a9_sticky_replay_suppressed")
+                    DebugTelemetry.bump(ctx, "a9_sticky_replay_suppressed")
                     return
                 }
                 val km = ctx.getSystemService(KeyguardManager::class.java)
@@ -71,24 +72,19 @@ object UsbLockedMonitor {
                 val keyguardLocked = km.isKeyguardLocked
                 val deviceLocked = km.isDeviceLocked
                 val locked = keyguardLocked || deviceLocked
-                if (keyguardLocked) debugIncrement(ctx, "a9_usb_state_keyguard_locked")
-                if (deviceLocked) debugIncrement(ctx, "a9_usb_state_device_locked")
-                if (locked) debugIncrement(ctx, "a9_usb_state_locked")
+                if (keyguardLocked) DebugTelemetry.bump(ctx, "a9_usb_state_keyguard_locked")
+                if (deviceLocked) DebugTelemetry.bump(ctx, "a9_usb_state_device_locked")
+                if (locked) DebugTelemetry.bump(ctx, "a9_usb_state_locked")
                 val dataActive = isUsbDataActive(intent)
-                if (dataActive) debugIncrement(ctx, "a9_usb_state_data_active")
+                if (dataActive) DebugTelemetry.bump(ctx, "a9_usb_state_data_active")
                 if (!dataActive) return
                 if (!locked) return
-                debugIncrement(ctx, "a9_panic_fired")
+                DebugTelemetry.bump(ctx, "a9_panic_fired")
                 PanicHandler.panic(ctx, "usb.data.while.locked")
             }
         }
         receiver = r
         context.applicationContext.registerReceiver(r, IntentFilter(ACTION_USB_STATE))
-    }
-
-    private fun debugIncrement(ctx: Context, key: String) {
-        val sp = ctx.getSharedPreferences("norypt_a9_debug", Context.MODE_PRIVATE)
-        sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
     }
 
     fun stop(context: Context) {
