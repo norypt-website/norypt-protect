@@ -226,9 +226,39 @@ val verifyReleaseSigning by tasks.registering {
     }
 }
 
+/**
+ * setPermissionPolicy(AUTO_GRANT) reads like "grant my own permissions" but is device-wide:
+ * every app's runtime permission requests, camera and microphone included, are granted
+ * silently. Versions up to 1.1.1 shipped it. Own permissions go through setPermissionGrantState.
+ */
+val verifyNoDeviceWideAutoGrant by tasks.registering {
+    group = "verification"
+    description = "Fails if any source sets the device-wide runtime-permission auto-grant policy."
+    val sources = fileTree("src") { include("**/*.kt", "**/*.java") }
+    inputs.files(sources)
+    doLast {
+        val call = Regex("""setPermissionPolicy\s*\([^)]*AUTO_GRANT""")
+        // Comments may name the call to warn against it; only code counts.
+        val comments = Regex("""/\*[\s\S]*?\*/|//[^\n]*""")
+        val offenders = sources.files.filter { call.containsMatchIn(it.readText().replace(comments, "")) }
+        if (offenders.isNotEmpty()) {
+            throw GradleException(
+                "SECURITY GATE: setPermissionPolicy(...AUTO_GRANT) in ${offenders.map { it.name }}. " +
+                    "It silently grants every app's permissions; grant Norypt's own one by one.",
+            )
+        }
+        logger.lifecycle("✓ no device-wide permission auto-grant")
+    }
+}
+
 /** One entry point for CI and for humans. */
 val securityGates by tasks.registering {
     group = "verification"
     description = "Runs every build-time security gate."
-    dependsOn(verifyReleaseSigning, verifyNoNetworkPermission, verifyNoTelemetryInReleaseDex)
+    dependsOn(
+        verifyReleaseSigning,
+        verifyNoNetworkPermission,
+        verifyNoTelemetryInReleaseDex,
+        verifyNoDeviceWideAutoGrant,
+    )
 }

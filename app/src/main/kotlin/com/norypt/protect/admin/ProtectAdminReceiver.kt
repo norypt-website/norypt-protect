@@ -47,6 +47,8 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
             Manifest.permission.RECEIVE_SMS,
             Manifest.permission.BLUETOOTH_CONNECT,
         )
+        // Granted one by one. Never setPermissionPolicy(AUTO_GRANT): that policy is device-wide
+        // and would silently grant every other app's permission requests (see PermissionPolicyGuard).
         runCatching {
             runtimePermissions.forEach { perm ->
                 dpm.setPermissionGrantState(
@@ -56,8 +58,6 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
                     DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED,
                 )
             }
-            // Auto-grant every future runtime permission so the user is never prompted.
-            dpm.setPermissionPolicy(admin, DevicePolicyManager.PERMISSION_POLICY_AUTO_GRANT)
         }
     }
 
