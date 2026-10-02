@@ -60,6 +60,39 @@ class TamperLogStoreTest {
     }
 
     @Test
+    fun `a flood of routine entries cannot push out an alert`() {
+        // Plugging a cable in and out costs nothing; it must not be able to erase the record
+        // of a SIM swap or a credential change.
+        val store = TamperLogStore(FakeKvStore(), capacity = 3, alertCapacity = 2)
+        store.append(event(1, TamperKind.SIM_CHANGED))
+        (2L..50L).forEach { store.append(event(it)) }
+
+        assertEquals(listOf(50L, 49L, 48L, 1L), store.all().map { it.elapsedMs })
+        assertEquals(4, store.size())
+    }
+
+    @Test
+    fun `alerts and routine entries read back in time order`() {
+        val store = TamperLogStore(FakeKvStore(), capacity = 4, alertCapacity = 4)
+        store.append(event(1))
+        store.append(event(2, TamperKind.SIM_CHANGED))
+        store.append(event(3))
+
+        assertEquals(listOf(3L, 2L, 1L), store.all().map { it.elapsedMs })
+    }
+
+    @Test
+    fun `clear empties alerts too`() {
+        val store = TamperLogStore(FakeKvStore(), capacity = 4, alertCapacity = 4)
+        store.append(event(1, TamperKind.SIM_CHANGED))
+        store.append(event(2))
+        store.clear()
+
+        assertEquals(0, store.size())
+        assertTrue(store.all().isEmpty())
+    }
+
+    @Test
     fun `an append is a bounded write regardless of history size`() {
         val kv = FakeKvStore()
         val store = TamperLogStore(kv, capacity = 3)

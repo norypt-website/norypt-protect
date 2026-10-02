@@ -39,6 +39,16 @@ object TamperMonitor {
     /** "connected/data". Seeded by the sticky replay on registration, so the first delivery is never an event. */
     private var usbSignature: String? = null
 
+    /** When the last routine and the last alert-level USB entry were written (elapsedRealtime). */
+    private var lastUsbEntryAt = 0L
+    private var lastUsbAlertAt = 0L
+
+    /** USB changes skipped since the last USB entry, reported on the next one. */
+    private var suppressedUsbChanges = 0
+
+    /** USB changes closer together than this are merged into the next entry. */
+    private const val USB_BURST_MS = 10_000L
+
     /** Wall clock minus monotonic clock; a step in it is a clock change. In-memory: a new process re-seeds. */
     private var clockOffsetMs: Long = Long.MIN_VALUE
     private var lastBiometricProbeElapsedMs = 0L
@@ -101,7 +111,8 @@ object TamperMonitor {
     private fun onUsbState(ctx: Context, intent: Intent) {
         val connected = intent.getBooleanExtra("connected", false)
         val functions = USB_DATA_FUNCTIONS.filter { intent.getBooleanExtra(it, false) }
-        val data = connected && (functions.isNotEmpty() || intent.getBooleanExtra("data_unlocked", false))
+        // "unlocked" is UsbManager.USB_DATA_UNLOCKED; "data_unlocked" was never set.
+        val data = connected && (functions.isNotEmpty() || intent.getBooleanExtra("unlocked", false))
         val signature = "$connected/$data"
         val previous = usbSignature
         // Tracked even while recording is off, so switching it on mid-session has a baseline.
@@ -109,27 +120,41 @@ object TamperMonitor {
         if (previous == null || previous == signature || !TamperLog.isEnabled(ctx)) return
 
         val locked = isLocked(ctx)
+        // A cable plugged in and out costs nothing, so bursts are merged into one entry. An
+        // alert (data while locked) is only ever merged with another alert, never hidden
+        // behind a routine charge-only entry written a moment before it.
+        val isAlert = data && locked
+        val now = SystemClock.elapsedRealtime()
+        val lastSameKind = if (isAlert) lastUsbAlertAt else lastUsbEntryAt
+        if (lastSameKind != 0L && now - lastSameKind < USB_BURST_MS) {
+            suppressedUsbChanges++
+            return
+        }
+        lastUsbEntryAt = now
+        if (isAlert) lastUsbAlertAt = now
+        val burst = if (suppressedUsbChanges > 0) " Plus $suppressedUsbChanges rapid USB changes before this." else ""
+        suppressedUsbChanges = 0
         val previousHadData = previous.endsWith("/true")
         when {
             !connected -> TamperLog.record(
                 ctx,
                 TamperKind.USB_DISCONNECTED,
-                if (previousHadData) "Data link ended." else "",
+                (if (previousHadData) "Data link ended." else "") + burst,
             )
             data -> {
                 val link = functions.ifEmpty { listOf("data unlocked") }.joinToString(", ")
                 TamperLog.record(
                     ctx,
                     TamperKind.USB_CONNECTED,
-                    "Data link negotiated ($link)" + if (locked) " while the device was LOCKED." else ".",
+                    "Data link negotiated ($link)" + (if (locked) " while the device was LOCKED." else ".") + burst,
                     if (locked) Severity.Alert else Severity.Notable,
                 )
             }
-            previousHadData -> TamperLog.record(ctx, TamperKind.USB_DISCONNECTED, "Data link ended; still connected.")
+            previousHadData -> TamperLog.record(ctx, TamperKind.USB_DISCONNECTED, "Data link ended; still connected.$burst")
             else -> TamperLog.record(
                 ctx,
                 TamperKind.USB_CONNECTED,
-                "Charge-only, no data function negotiated" + if (locked) " (device locked)." else ".",
+                "Charge-only, no data function negotiated" + (if (locked) " (device locked)." else ".") + burst,
             )
         }
     }
