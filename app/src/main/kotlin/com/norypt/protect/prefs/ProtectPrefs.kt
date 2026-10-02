@@ -198,6 +198,10 @@ internal object ProtectPrefsKeys {
     fun setLastUnlockMs(store: KvStore, value: Long) =
         store.putLong(KEY_LAST_UNLOCK_MS, value)
 
+    /** Why the power-menu guard last failed to engage, or null after a success. */
+    fun powerMenuGuardError(store: KvStore): String? = store.getString("power_menu_guard_error", null)
+    fun setPowerMenuGuardError(store: KvStore, value: String?) = store.putString("power_menu_guard_error", value)
+
     /** A10: wall-clock time up to which usage events have been checked. */
     fun fakeMessengerCursorMs(store: KvStore): Long = store.getLong("fake_messenger_cursor_ms", 0L)
     fun setFakeMessengerCursorMs(store: KvStore, value: Long) = store.putLong("fake_messenger_cursor_ms", value)
@@ -558,6 +562,10 @@ object ProtectPrefs {
 
     fun setLastUnlockMs(context: Context, value: Long) =
         ProtectPrefsKeys.setLastUnlockMs(store(context), value)
+
+    fun powerMenuGuardError(context: Context): String? = ProtectPrefsKeys.powerMenuGuardError(store(context))
+    fun setPowerMenuGuardError(context: Context, value: String?) =
+        ProtectPrefsKeys.setPowerMenuGuardError(store(context), value)
 
     fun fakeMessengerCursorMs(context: Context): Long = ProtectPrefsKeys.fakeMessengerCursorMs(store(context))
     fun setFakeMessengerCursorMs(context: Context, value: Long) =

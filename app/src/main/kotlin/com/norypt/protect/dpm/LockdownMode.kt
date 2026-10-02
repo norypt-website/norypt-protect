@@ -79,14 +79,33 @@ object LockdownMode {
         return true
     }
 
-    /** Turns lockdown off, releases every policy and tells the blank home to leave. */
+    /**
+     * Turns lockdown off, releases every policy and tells the blank home to leave. The flag is
+     * cleared only once the release succeeded: clearing it first, as before, left the blank
+     * home as the preferred HOME after a partial release while the switch read off, and that
+     * home closes itself when the flag is off, so the phone had no launcher.
+     */
     fun disable(ctx: Context): Boolean {
         if (!isDeviceOwner(ctx)) return false
+        if (!releasePolicies(ctx)) return false
         ProtectPrefs.setLockdownEnabled(ctx, false)
-        val ok = releasePolicies(ctx)
         TamperLog.record(ctx, TamperKind.LOCKDOWN, "Lockdown disabled.")
         ctx.sendBroadcast(Intent(ACTION_STOP).setPackage(ctx.packageName))
-        return ok
+        return true
+    }
+
+    /**
+     * Releases what a failed or interrupted disable left behind: lockdown is off, yet its home
+     * or its user restriction is still in force. Called when the app starts.
+     */
+    fun releaseLeftovers(ctx: Context) {
+        if (!isDeviceOwner(ctx) || isEnabled(ctx)) return
+        val homeEnabled = ctx.packageManager.getComponentEnabledSetting(homeComponent(ctx)) ==
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        val restricted = runCatching {
+            dpm(ctx).getUserRestrictions(admin(ctx)).getBoolean(UserManager.DISALLOW_USER_SWITCH, false)
+        }.getOrDefault(false)
+        if (homeEnabled || restricted) releasePolicies(ctx)
     }
 
     /** Applies (or re-applies) every lockdown policy. Safe to call repeatedly. */
@@ -114,26 +133,34 @@ object LockdownMode {
         }.getOrDefault(false)
     }
 
-    /** Undoes [applyPolicies]. Clearing the allow-list also ends any lock task the blank home holds. */
+    /**
+     * Undoes [applyPolicies]. Clearing the allow-list also ends any lock task the blank home
+     * holds. Every step runs on its own, so one refused call cannot leave the rest in force;
+     * the result is true only if all of them succeeded.
+     */
     fun releasePolicies(ctx: Context): Boolean {
         if (!isDeviceOwner(ctx)) return false
-        return runCatching {
-            val d = dpm(ctx)
-            val a = admin(ctx)
-            d.clearPackagePersistentPreferredActivities(a, ctx.packageName)
-            RESTRICTIONS.forEach { d.clearUserRestriction(a, it) }
-            d.setLockTaskPackages(a, arrayOf())
-            d.setLockTaskFeatures(
-                a,
-                DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS or DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD,
-            )
-            ctx.packageManager.setComponentEnabledSetting(
-                homeComponent(ctx),
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-                PackageManager.DONT_KILL_APP,
-            )
-            true
-        }.getOrDefault(false)
+        val d = dpm(ctx)
+        val a = admin(ctx)
+        val steps = listOf<() -> Unit>(
+            { d.clearPackagePersistentPreferredActivities(a, ctx.packageName) },
+            { RESTRICTIONS.forEach { d.clearUserRestriction(a, it) } },
+            { d.setLockTaskPackages(a, arrayOf()) },
+            {
+                d.setLockTaskFeatures(
+                    a,
+                    DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS or DevicePolicyManager.LOCK_TASK_FEATURE_KEYGUARD,
+                )
+            },
+            {
+                ctx.packageManager.setComponentEnabledSetting(
+                    homeComponent(ctx),
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+            },
+        )
+        return steps.map { step -> runCatching { step() }.isSuccess }.all { it }
     }
 
     /**

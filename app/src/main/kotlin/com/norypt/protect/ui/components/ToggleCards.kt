@@ -126,6 +126,7 @@ fun PinGuardedToggleCard(
     var pendingValue by remember { mutableStateOf<Boolean?>(null) }
     var showWarning by remember { mutableStateOf(false) }
     var showPin by remember { mutableStateOf(false) }
+    var refused by remember { mutableStateOf(false) }
 
     ToggleCard(
         title = title,
@@ -170,7 +171,8 @@ fun PinGuardedToggleCard(
             title = if (pendingValue == true) "Enter App PIN to enable" else "Enter App PIN to disable",
             onVerified = {
                 showPin = false
-                pendingValue?.let { apply(it) }
+                // A refused policy used to just snap the switch back with no explanation.
+                refused = pendingValue?.let { !apply(it) } ?: false
                 pendingValue = null
                 onChanged()
             },
@@ -178,6 +180,27 @@ fun PinGuardedToggleCard(
                 showPin = false
                 pendingValue = null
             },
+        )
+    }
+
+    if (refused) {
+        AlertDialog(
+            onDismissRequest = { refused = false },
+            title = { Text("Not changed", color = NoryptColors.TextStrong) },
+            text = {
+                Text(
+                    "Android refused this change, so the setting is as shown. Check that Norypt Protect " +
+                        "is still Device Owner, then try again.",
+                    color = NoryptColors.Muted,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { refused = false }) { Text("OK", color = NoryptColors.Accent) }
+            },
+            containerColor = NoryptColors.Surface2,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
         )
     }
 }

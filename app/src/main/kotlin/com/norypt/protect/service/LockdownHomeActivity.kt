@@ -105,7 +105,14 @@ class LockdownHomeActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (!LockdownMode.isEnabled(this)) {
+        // This is the device's HOME: if it crashed here it would be relaunched and crash again,
+        // with no PIN panel and only a recovery-mode reset left. Unreadable state therefore
+        // gives the phone back rather than trapping its owner.
+        val enabled = runCatching { LockdownMode.isEnabled(this) }.getOrElse {
+            LockdownMode.releasePolicies(this)
+            false
+        }
+        if (!enabled) {
             runCatching { stopLockTask() }
             finish()
             return

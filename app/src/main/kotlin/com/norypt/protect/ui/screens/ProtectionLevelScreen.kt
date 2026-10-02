@@ -47,6 +47,7 @@ import com.norypt.protect.ui.components.SecondaryButton
 import com.norypt.protect.ui.components.SectionLabel
 import com.norypt.protect.ui.components.TagPill
 import com.norypt.protect.ui.components.ToggleCard
+import com.norypt.protect.ui.components.NoteCard
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.wipe.WipeEngine
 import com.norypt.protect.util.AdbInstructions
@@ -188,6 +189,14 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             },
             requiresDeviceOwner = true,
         )
+        val guardError = remember(powerMenuBlockOn) { ProtectPrefs.powerMenuGuardError(ctx) }
+        if (powerMenuBlockOn && guardError != null) {
+            NoteCard(
+                text = "The last time the phone locked, blocking the power menu failed ($guardError). " +
+                    "It is retried at every lock.",
+                color = NoryptColors.Red,
+            )
+        }
 
         // ── Card 5: Auto-disable Emergency SOS ────────────────────────────
         // -1 means the platform would not tell us the value, usually because
