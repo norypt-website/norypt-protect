@@ -1,8 +1,10 @@
 package com.norypt.protect.triggers
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.provider.Telephony
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
@@ -27,6 +29,20 @@ class SmsSecretReceiver : BroadcastReceiver() {
          * prefix of the intended code from being live against inbound SMS.
          */
         const val MIN_CODE_LENGTH = 8
+
+        /** What the settings recommend, and what [generateCode] produces at least. */
+        const val RECOMMENDED_CODE_LENGTH = 12
+
+        private const val GENERATED_LENGTH = 16
+
+        /** No 0/O, 1/l/I: the code is read off a screen and typed on another phone. */
+        private const val CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+
+        /** A random code of [GENERATED_LENGTH] characters, about 93 bits. */
+        fun generateCode(): String {
+            val random = java.security.SecureRandom()
+            return String(CharArray(GENERATED_LENGTH) { CODE_ALPHABET[random.nextInt(CODE_ALPHABET.length)] })
+        }
 
         /**
          * Whitespace-ish code points that `Char.isWhitespace()` does not cover and that SMS
@@ -76,9 +92,23 @@ class SmsSecretReceiver : BroadcastReceiver() {
 object SmsSecretTrigger : Trigger {
     override val id = "A6"
     override val label = "Secret SMS"
-    override val description = "Wipe device when an SMS containing your secret code is received. " +
-        "Requires Device Owner — the wipe call is denied for non-DO admins on Android 13+."
+    override val description = "Wipe the device when an SMS consisting of exactly your secret code " +
+        "arrives. Send it as a plain SMS: between phones that both use RCS chat, a message travels as " +
+        "chat and is never seen as an SMS. Requires Device Owner — the wipe call is denied for non-DO " +
+        "admins on Android 13+."
     override val requiredTier = Tier.DeviceOwner
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A6", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A6", false)
+
+    override fun problem(context: Context): String? {
+        val code = ProtectPrefs.smsSecretCode(context)
+        return when {
+            code.isNullOrEmpty() -> "No secret code is set."
+            !SmsSecretReceiver.isUsableCode(code) ->
+                "The code is shorter than ${SmsSecretReceiver.MIN_CODE_LENGTH} characters, so it is ignored."
+            context.checkSelfPermission(Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED ->
+                "The SMS permission is not granted."
+            else -> null
+        }
+    }
 }

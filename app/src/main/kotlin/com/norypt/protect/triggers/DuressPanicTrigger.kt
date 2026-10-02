@@ -26,4 +26,7 @@ object DuressPanicTrigger : Trigger {
 
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, id, true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, id, false)
+
+    override fun problem(context: Context): String? =
+        if (ProtectPrefs.duressThreshold(context) == 0) "The threshold is 0, which means off. Set it to 2 or more." else null
 }

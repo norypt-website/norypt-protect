@@ -30,7 +30,9 @@ object UsbLockedMonitor {
 
     private const val ACTION_USB_STATE = "android.hardware.usb.action.USB_STATE"
     private const val EXTRA_CONNECTED = "connected"
-    private const val EXTRA_DATA_UNLOCKED = "data_unlocked"
+    // UsbManager.USB_DATA_UNLOCKED. It was "data_unlocked", a key that is never set, so
+    // only the function flags below ever detected a data link.
+    private const val EXTRA_DATA_UNLOCKED = "unlocked"
 
     // Function flags that ACTION_USB_STATE includes when each USB function is up.
     private val DATA_FUNCTION_FLAGS = listOf(
@@ -38,18 +40,9 @@ object UsbLockedMonitor {
     )
 
     private var receiver: BroadcastReceiver? = null
-    private var startedAtMs: Long = 0L
-
-    // Window after registration during which we suppress panic because Android
-    // replays the sticky ACTION_USB_STATE to freshly-registered receivers. Without
-    // this, re-installing the APK with the cable plugged while the device is
-    // locked would wipe the phone as the sticky broadcast arrives to the new
-    // receiver before any real plug event.
-    private const val STICKY_REPLAY_WINDOW_MS = 3_000L
 
     fun start(context: Context) {
         if (receiver != null) return
-        startedAtMs = System.currentTimeMillis()
         val r = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 // Debug builds only: DebugTelemetry is a no-op in release, so nothing about
@@ -60,8 +53,11 @@ object UsbLockedMonitor {
                 val connected = intent.getBooleanExtra(EXTRA_CONNECTED, false)
                 if (!connected) return
                 DebugTelemetry.bump(ctx, "a9_usb_state_connected")
-                // Drop sticky replays arriving in the window right after registration.
-                if (System.currentTimeMillis() - startedAtMs < STICKY_REPLAY_WINDOW_MS) {
+                // Android replays the sticky USB_STATE to a newly registered receiver.
+                // Without this, restarting the service (an update, a reboot) with a cable
+                // already plugged into a locked phone would wipe it. Asked of the platform
+                // rather than guessed from a time window, which slow startup could outlast.
+                if (isInitialStickyBroadcast) {
                     DebugTelemetry.bump(ctx, "a9_sticky_replay_suppressed")
                     return
                 }

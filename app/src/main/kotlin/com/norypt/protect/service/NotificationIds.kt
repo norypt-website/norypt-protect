@@ -7,7 +7,6 @@ package com.norypt.protect.service
  */
 object NotificationIds {
     const val SERVICE = 1001
-    const val WORK_PROFILE = 1200
     const val COUNTDOWN_DEADMAN = 5001
     const val WIPE_FAILED = 5002
     const val COUNTDOWN_UNLOCK_DEADLINE = 5003

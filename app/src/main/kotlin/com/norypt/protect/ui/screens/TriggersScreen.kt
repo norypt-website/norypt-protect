@@ -57,6 +57,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.focus.onFocusChanged
 import com.norypt.protect.prefs.SettingBounds
 import com.norypt.protect.util.GrapheneDetect
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +72,15 @@ fun TriggersScreen(padding: PaddingValues) {
             TriggerRegistry.all.forEach { put(it.id, ProtectPrefs.isTriggerEnabled(ctx, it.id)) }
         }
     }
+    // Why an armed trigger cannot fire, re-read whenever its inputs may have changed.
+    val problems = remember { mutableStateMapOf<String, String>() }
+    fun refreshProblems() {
+        TriggerRegistry.all.forEach { trigger ->
+            val problem = trigger.problem(ctx)
+            if (problem == null) problems.remove(trigger.id) else problems[trigger.id] = problem
+        }
+    }
+    LaunchedEffect(Unit) { refreshProblems() }
     var currentTier by remember { mutableStateOf(Provisioning.current(ctx)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -81,6 +92,7 @@ fun TriggersScreen(padding: PaddingValues) {
                 TriggerRegistry.all.forEach {
                     enabledMap[it.id] = ProtectPrefs.isTriggerEnabled(ctx, it.id)
                 }
+                refreshProblems()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -106,9 +118,12 @@ fun TriggersScreen(padding: PaddingValues) {
                 trigger = trigger,
                 enabled = enabledMap[trigger.id] == true,
                 tierMet = trigger.requiredTier <= currentTier,
+                problem = problems[trigger.id],
                 onToggle = { newValue ->
-                    enabledMap[trigger.id] = newValue
                     if (newValue) trigger.arm(ctx) else trigger.disarm(ctx)
+                    // Read back rather than trusting the switch.
+                    enabledMap[trigger.id] = ProtectPrefs.isTriggerEnabled(ctx, trigger.id)
+                    refreshProblems()
                 },
                 onConfigure = { configuring = trigger },
             )
@@ -119,10 +134,16 @@ fun TriggersScreen(padding: PaddingValues) {
     val cur = configuring
     if (cur != null) {
         ModalBottomSheet(
-            onDismissRequest = { configuring = null },
+            onDismissRequest = {
+                configuring = null
+                refreshProblems()
+            },
             containerColor = NoryptColors.Surface1,
         ) {
-            ConfigSheet(trigger = cur, onDone = { configuring = null })
+            ConfigSheet(trigger = cur, onDone = {
+                configuring = null
+                refreshProblems()
+            })
         }
     }
 }
@@ -132,6 +153,7 @@ private fun TriggerRow(
     trigger: Trigger,
     enabled: Boolean,
     tierMet: Boolean,
+    problem: String?,
     onToggle: (Boolean) -> Unit,
     onConfigure: () -> Unit,
 ) {
@@ -176,6 +198,10 @@ private fun TriggerRow(
                 if (grapheneNote != null && PlatformInfo.isGrapheneOS(LocalContext.current)) {
                     Spacer(Modifier.height(8.dp))
                     NoteCard(text = "GrapheneOS: $grapheneNote", color = NoryptColors.Amber)
+                }
+                if (enabled && tierMet && problem != null) {
+                    Spacer(Modifier.height(8.dp))
+                    NoteCard(text = "Armed, but it cannot fire: $problem Tap to fix.", color = NoryptColors.Red)
                 }
             }
             Spacer(Modifier.width(8.dp))
@@ -222,40 +248,7 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
         Spacer(Modifier.height(16.dp))
 
         when (trigger.id) {
-            "A6" -> {
-                var code by remember { mutableStateOf(ProtectPrefs.smsSecretCode(ctx).orEmpty()) }
-                ConfigTextField(
-                    label = "Secret SMS code",
-                    value = code,
-                    onChange = {
-                        code = it
-                        ProtectPrefs.setSmsSecretCode(ctx, it.ifEmpty { null })
-                    },
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    if (code.isNotEmpty() && !SmsSecretReceiver.isUsableCode(code))
-                        "Not armed: needs at least ${SmsSecretReceiver.MIN_CODE_LENGTH} characters."
-                    else
-                        "At least ${SmsSecretReceiver.MIN_CODE_LENGTH} characters. The whole message " +
-                            "must be exactly this code — a message that merely contains it will not " +
-                            "trigger a wipe.",
-                    color = if (code.isNotEmpty() && !SmsSecretReceiver.isUsableCode(code))
-                        NoryptColors.Amber else NoryptColors.MutedDeep,
-                    fontSize = 11.sp,
-                )
-                Spacer(Modifier.height(12.dp))
-                PermissionToggleRow(
-                    label = "SMS permission (RECEIVE_SMS)",
-                    permission = Manifest.permission.RECEIVE_SMS,
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "On Device Owner tier the permission is auto-granted with no prompt. On Device Admin tier the toggle launches the standard system dialog; revoke from system Settings if needed.",
-                    color = NoryptColors.MutedDeep,
-                    fontSize = 11.sp,
-                )
-            }
+            "A6" -> SmsTriggerConfig()
             "A8" -> {
                 ConfigNumberField(
                     label = "Max unlocked minutes",
@@ -280,7 +273,8 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     value = pkg,
                     onChange = {
                         pkg = it
-                        ProtectPrefs.setFakeMessengerPackage(ctx, it.ifEmpty { null })
+                        // Trimmed: a keyboard's trailing space would otherwise never match a package.
+                        ProtectPrefs.setFakeMessengerPackage(ctx, it.trim().ifEmpty { null })
                     },
                 )
                 Spacer(Modifier.height(12.dp))
@@ -503,32 +497,6 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                         "INTERNET permission after an update — a common stealth-tracking pattern. No wipe.",
                 )
             }
-            "B6" -> {
-                InfoBlock(
-                    title = "What this is",
-                    body = "Registers a Notification Listener so Norypt Protect can react to lock/package events. " +
-                        "Granting Notification Access in system Settings is required.",
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = {
-                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        ctx.startActivity(intent)
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
-                ) { Text("Open Notification Access settings") }
-            }
-            "A12" -> {
-                InfoBlock(
-                    title = "What this is",
-                    body = "When Norypt Protect is installed inside an Android Work Profile, this trigger limits " +
-                        "wipe to the work profile only — personal data is preserved. Has no effect outside a " +
-                        "work profile.",
-                )
-            }
             "C3" -> {
                 InfoBlock(
                     title = "What this is",
@@ -574,6 +542,72 @@ private fun ConfigTextField(label: String, value: String, onChange: (String) -> 
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = noryptFieldColors(),
+    )
+}
+
+/** A6's settings: the secret code and the SMS permission. */
+@Composable
+private fun SmsTriggerConfig() {
+    val ctx = LocalContext.current
+    var code by remember { mutableStateOf(ProtectPrefs.smsSecretCode(ctx).orEmpty()) }
+    var showCode by remember { mutableStateOf(false) }
+    // Masked, and typed with a password keyboard so the IME does not learn it.
+    OutlinedTextField(
+        value = code,
+        onValueChange = {
+            code = it
+            ProtectPrefs.setSmsSecretCode(ctx, it.ifEmpty { null })
+        },
+        label = { Text("Secret SMS code") },
+        singleLine = true,
+        visualTransformation = if (showCode) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+        trailingIcon = {
+            TextButton(onClick = { showCode = !showCode }) {
+                Text(if (showCode) "Hide" else "Show", color = NoryptColors.Accent, fontSize = 12.sp)
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        colors = noryptFieldColors(),
+    )
+    Spacer(Modifier.height(6.dp))
+    OutlinedButton(
+        onClick = {
+            code = SmsSecretReceiver.generateCode()
+            showCode = true
+            ProtectPrefs.setSmsSecretCode(ctx, code)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = NoryptColors.Accent),
+        border = androidx.compose.foundation.BorderStroke(1.dp, NoryptColors.Border),
+    ) { Text("Generate a strong code") }
+    Spacer(Modifier.height(6.dp))
+    Text(
+        when {
+            code.isNotEmpty() && !SmsSecretReceiver.isUsableCode(code) ->
+                "Not armed: needs at least ${SmsSecretReceiver.MIN_CODE_LENGTH} characters."
+            code.isNotEmpty() && code.length < SmsSecretReceiver.RECOMMENDED_CODE_LENGTH ->
+                "Works, but a short code is easier to guess. Use " +
+                    "${SmsSecretReceiver.RECOMMENDED_CODE_LENGTH}+ characters or generate one."
+            else ->
+                "The whole message must be exactly this code; a message that merely contains " +
+                    "it will not trigger a wipe. Keep a copy somewhere safe off this phone."
+        },
+        color = if (code.isNotEmpty() && code.length < SmsSecretReceiver.RECOMMENDED_CODE_LENGTH)
+            NoryptColors.Amber else NoryptColors.MutedDeep,
+        fontSize = 11.sp,
+    )
+    Spacer(Modifier.height(12.dp))
+    PermissionToggleRow(
+        label = "SMS permission (RECEIVE_SMS)",
+        permission = Manifest.permission.RECEIVE_SMS,
+    )
+    Spacer(Modifier.height(6.dp))
+    Text(
+        "On Device Owner tier the permission is auto-granted with no prompt. On Device Admin tier the toggle launches the standard system dialog; revoke from system Settings if needed.",
+        color = NoryptColors.MutedDeep,
+        fontSize = 11.sp,
     )
 }
 
