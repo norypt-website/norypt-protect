@@ -1,0 +1,6 @@
+v1.3.0
+• Spyware shield: only the accessibility services and keyboards you approve can be switched on.
+• App audit: apps with powerful access, from device admin to camera and location.
+• The Timeline can include Android's own security log: failed unlocks before the first unlock, boot state, USB debugging, certificate authorities.
+• Privacy checkup: device and Bluetooth names, screen lock, patch age, VPN, DNS, 2G and more, with fixes.
+• Optional: location off while locked.

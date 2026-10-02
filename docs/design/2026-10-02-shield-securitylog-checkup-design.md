@@ -1,6 +1,6 @@
 # Design: spyware shield, Android security log in the Timeline, privacy checkup
 
-Date: 2026-10-02. Status: proposed, awaiting owner review. Target release: 1.3.0 (1.2.0 shipped the hardening fixes alone).
+Date: 2026-10-02. Status: implemented in 1.3.0. Target release: 1.3.0 (1.2.0 shipped the hardening fixes alone).
 
 This note records the design for three additions and the decisions taken where the request left room. A fourth addition, the sensitive space (a separate encrypted user for sensitive apps), gets its own design note after a feasibility test on Android 17.
 
@@ -99,3 +99,13 @@ Changed: `ProtectAdminReceiver` (security-log callback), `BootCompletedReceiver`
 ## Verification
 
 Unit tests for every pure part; detekt, lint and the security gates green. On the Pixel 10a (stock Android 17, provisioned as Device Owner for the test): each shield toggle with and without an enabled outside keyboard; audit lists match Settings; security log toggled, a failed unlock and an ADB session appear after a forced batch; every checkup fix applied and reverted. On the owner's GrapheneOS Pixel 9a: read-only checks only, unless the owner says otherwise.
+
+## Changes during implementation
+
+- The shield switches sit on a "Spyware shield" sub-screen opened from the Protect tab; the tab was already long.
+- The app audit lists each app once with all its reasons instead of one section per kind of access.
+- The review notification keeps opening the system privacy page, because the app ignores intent extras since 1.2.1; the Home review card links to the audit instead.
+- The watermark filters only pre-reboot logs and starts when the owner turns the log on. Regular batches are handed over once by Android and are not filtered by clock time, so setting the clock back cannot hide events.
+- `TamperMonitor` is unchanged: its failed-unlock polling runs only on the Device Admin tier, where the security log is unavailable.
+- Reading or changing the Bluetooth name needs the Nearby devices permission, which the checkup asks for with the system prompt.
+- The location switch does not promise that emergency calls carry location while location is off; it says that navigation, location sharing and Find My Device stop working while the screen is off.
