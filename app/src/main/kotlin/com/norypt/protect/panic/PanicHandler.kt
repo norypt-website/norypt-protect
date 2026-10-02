@@ -11,6 +11,7 @@ import com.norypt.protect.util.DebugTelemetry
 import com.norypt.protect.wipe.WipeEngine
 import com.norypt.protect.wipe.WipeError
 import com.norypt.protect.wipe.WipeOptions
+import com.norypt.protect.service.NotificationIds
 
 object PanicHandler {
 
@@ -129,11 +130,10 @@ object PanicHandler {
                 .setOngoing(true)
                 .build()
             // Fixed id so retries replace the alert instead of stacking one per attempt.
-            nm.notify(NOTIF_ID_WIPE_FAILED, notif)
+            nm.notify(NotificationIds.WIPE_FAILED, notif)
         }
     }
 
-    private const val NOTIF_ID_WIPE_FAILED = 5002
 
     /**
      * Internal pure-logic overload: takes all values already resolved from prefs.

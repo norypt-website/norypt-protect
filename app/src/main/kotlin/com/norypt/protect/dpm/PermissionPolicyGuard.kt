@@ -10,6 +10,7 @@ import android.content.Intent
 import android.provider.Settings
 import com.norypt.protect.R
 import com.norypt.protect.admin.ProtectAdminReceiver
+import com.norypt.protect.service.NotificationIds
 
 /**
  * Keeps the device-wide runtime-permission policy at "ask the user".
@@ -21,8 +22,6 @@ import com.norypt.protect.admin.ProtectAdminReceiver
  * the policy is put back to PROMPT wherever an older version left it on auto-grant.
  */
 object PermissionPolicyGuard {
-
-    private const val NOTIF_ID_REVIEW = 5003
 
     /** True when the current policy has to go back to PROMPT. Split out so it is unit-testable. */
     internal fun needsReset(isDeviceOwner: Boolean, policy: Int): Boolean =
@@ -65,7 +64,7 @@ object PermissionPolicyGuard {
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()
-            nm.notify(NOTIF_ID_REVIEW, notif)
+            nm.notify(NotificationIds.PERMISSION_REVIEW, notif)
         }
     }
 }

@@ -63,6 +63,7 @@ object UnlockDeadlineMonitor {
         if (km != null && !km.isDeviceLocked) {
             // The device is open right now, so someone holding the credential is present.
             ProtectPrefs.setUnlockDeadlineSeenUnlockedMs(ctx, now)
+            CountdownAlert.forgetDeadline(ctx, CountdownMode.UNLOCK_DEADLINE)
             return
         }
 
@@ -71,7 +72,11 @@ object UnlockDeadlineMonitor {
             ProtectPrefs.unlockDeadlineArmedAtMs(ctx),
             ProtectPrefs.unlockDeadlineSeenUnlockedMs(ctx),
         )
-        if (!deadlineReached(baseline, now, ProtectPrefs.unlockDeadlineHours(ctx))) return
+        if (!deadlineReached(baseline, now, ProtectPrefs.unlockDeadlineHours(ctx))) {
+            // A countdown left open from an earlier lapse must not resume a later one.
+            CountdownAlert.forgetDeadline(ctx, CountdownMode.UNLOCK_DEADLINE)
+            return
+        }
 
         if (countdownActive || DeadmanMonitor.countdownActive) {
             DebugTelemetry.bump(ctx, "c6_skip_countdown_active")

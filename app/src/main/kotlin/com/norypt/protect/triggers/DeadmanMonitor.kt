@@ -1,5 +1,6 @@
 package com.norypt.protect.triggers
 
+import android.app.KeyguardManager
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -13,6 +14,7 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.CountdownAlert
 import com.norypt.protect.service.CountdownMode
+import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.util.DebugTelemetry
 
 /**
@@ -33,6 +35,9 @@ object DeadmanMonitor {
     private const val COUNTDOWN_GUARD_MS = 30 * 60_000L
 
     private var countdownStartedAtMs: Long = 0L
+
+    /** How long C4 stays quiet after the owner cancelled a countdown with the credential. */
+    const val SNOOZE_AFTER_CANCEL_MS = 30 * 60_000L
 
     /**
      * True while [WipeCountdownActivity] is expected to be up, to prevent duplicate
@@ -58,6 +63,16 @@ object DeadmanMonitor {
         }
         debugBump(ctx, "c4_ticks_when_enabled")
 
+        // C4 is for a locked phone left to die. The owner using it, a charger, or a recent
+        // cancel with the credential all mean that is not what is happening.
+        val ownerUsingIt = ctx.getSystemService(KeyguardManager::class.java)?.isDeviceLocked == false
+        if (ownerUsingIt || isCharging(ctx) || isSnoozed(ctx)) {
+            debugBump(ctx, "c4_skip_owner_or_charging")
+            countdownActive = false
+            CountdownAlert.forgetDeadline(ctx, CountdownMode.DEADMAN)
+            return
+        }
+
         val disarmMinutes = ProtectPrefs.deadmanDisarmMinutesAfterUnlock(ctx)
         if (disarmMinutes > 0) {
             val lastUnlock = ProtectPrefs.lastUnlockMs(ctx)
@@ -77,6 +92,7 @@ object DeadmanMonitor {
             // rather than waiting out its expiry, and take the alert down with it.
             countdownActive = false
             clearAlert(ctx)
+            CountdownAlert.forgetDeadline(ctx, CountdownMode.DEADMAN)
             return
         }
 
@@ -92,16 +108,12 @@ object DeadmanMonitor {
         debugStore(ctx, "c4_require_gsm", if (requireGsm) 1 else 0)
         debugStore(ctx, "c4_require_wifi", if (requireWifi) 1 else 0)
 
-        if (requireBt && isBluetoothUp(ctx)) {
-            debugBump(ctx, "c4_skip_bt_up")
-            return
-        }
-        if (requireGsm && isCellularConnected(ctx)) {
-            debugBump(ctx, "c4_skip_gsm_up")
-            return
-        }
-        if (requireWifi && isWifiConnected(ctx)) {
-            debugBump(ctx, "c4_skip_wifi_up")
+        val connected = (requireBt && isBluetoothUp(ctx)) ||
+            (requireGsm && isCellularConnected(ctx)) ||
+            (requireWifi && isWifiConnected(ctx))
+        if (connected) {
+            debugBump(ctx, "c4_skip_connection_up")
+            CountdownAlert.forgetDeadline(ctx, CountdownMode.DEADMAN)
             return
         }
 
@@ -113,6 +125,20 @@ object DeadmanMonitor {
         debugBump(ctx, "c4_countdown_launched")
         countdownActive = true
         CountdownAlert.post(ctx, CountdownMode.DEADMAN)
+    }
+
+    /** Plugged into any power source, from the sticky battery broadcast. */
+    fun isCharging(ctx: Context): Boolean {
+        val intent = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return false
+        return intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != 0
+    }
+
+    private fun isSnoozed(ctx: Context): Boolean {
+        val until = ProtectPrefs.deadmanSnoozeUntil(ctx)
+        if (until <= 0L) return false
+        // elapsedRealtime restarts at boot, so a snooze from an earlier boot no longer applies.
+        if (ProtectPrefs.deadmanSnoozeBoot(ctx) != (TamperBootAudit.bootCount(ctx) ?: 0)) return false
+        return SystemClock.elapsedRealtime() < until
     }
 
     // --- Private helpers ---

@@ -365,6 +365,27 @@ internal object ProtectPrefsKeys {
     fun setUnlockDeadlineSeenUnlockedMs(store: KvStore, value: Long) =
         store.putLong(KEY_UNLOCK_DEADLINE_SEEN_UNLOCKED_MS, value)
 
+    // --- Wipe countdown (C4, C6) ---
+
+    /** Deadline of an open countdown, as elapsedRealtime, per mode; 0 when none is open. */
+    fun countdownDeadline(store: KvStore, mode: String): Long = store.getLong("countdown_deadline_$mode", 0L)
+
+    /** Boot count the deadline belongs to; elapsedRealtime restarts at every boot. */
+    fun countdownBoot(store: KvStore, mode: String): Int = store.getInt("countdown_boot_$mode", -1)
+
+    fun setCountdownDeadline(store: KvStore, mode: String, deadlineElapsedMs: Long, bootCount: Int) {
+        store.putLong("countdown_deadline_$mode", deadlineElapsedMs)
+        store.putInt("countdown_boot_$mode", bootCount)
+    }
+
+    /** C4 stays quiet until this elapsedRealtime after the owner cancelled with the credential. */
+    fun deadmanSnoozeUntil(store: KvStore): Long = store.getLong("deadman_snooze_until_elapsed", 0L)
+    fun deadmanSnoozeBoot(store: KvStore): Int = store.getInt("deadman_snooze_boot", -1)
+    fun setDeadmanSnooze(store: KvStore, untilElapsedMs: Long, bootCount: Int) {
+        store.putLong("deadman_snooze_until_elapsed", untilElapsedMs)
+        store.putInt("deadman_snooze_boot", bootCount)
+    }
+
     // --- Anti-snatch motion lock ---
     const val KEY_MOTION_LOCK_ENABLED = "motion_lock_enabled"
     const val KEY_MOTION_LOCK_SENSITIVITY = "motion_lock_sensitivity"
@@ -643,6 +664,20 @@ object ProtectPrefs {
     fun timelineFailedAttemptsSeen(context: Context): Int = ProtectPrefsKeys.timelineFailedAttemptsSeen(store(context))
     fun setTimelineFailedAttemptsSeen(context: Context, value: Int) =
         ProtectPrefsKeys.setTimelineFailedAttemptsSeen(store(context), value)
+
+    // --- Wipe countdown (C4, C6) ---
+
+    fun countdownDeadline(context: Context, mode: String): Long = ProtectPrefsKeys.countdownDeadline(store(context), mode)
+    fun countdownBoot(context: Context, mode: String): Int = ProtectPrefsKeys.countdownBoot(store(context), mode)
+    fun setCountdownDeadline(context: Context, mode: String, deadlineElapsedMs: Long, bootCount: Int) =
+        ProtectPrefsKeys.setCountdownDeadline(store(context), mode, deadlineElapsedMs, bootCount)
+    fun clearCountdownDeadline(context: Context, mode: String) =
+        ProtectPrefsKeys.setCountdownDeadline(store(context), mode, 0L, -1)
+
+    fun deadmanSnoozeUntil(context: Context): Long = ProtectPrefsKeys.deadmanSnoozeUntil(store(context))
+    fun deadmanSnoozeBoot(context: Context): Int = ProtectPrefsKeys.deadmanSnoozeBoot(store(context))
+    fun setDeadmanSnooze(context: Context, untilElapsedMs: Long, bootCount: Int) =
+        ProtectPrefsKeys.setDeadmanSnooze(store(context), untilElapsedMs, bootCount)
 
     // --- C6 Unlock deadline ---
 

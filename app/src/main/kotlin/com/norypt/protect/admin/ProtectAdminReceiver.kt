@@ -15,6 +15,7 @@ import com.norypt.protect.service.ProtectForegroundService
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.util.DebugTelemetry
+import com.norypt.protect.service.NotificationIds
 
 class ProtectAdminReceiver : DeviceAdminReceiver() {
 
@@ -120,6 +121,6 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
             .setContentText("Norypt Protect detected a failed unlock.")
             .setAutoCancel(true)
             .build()
-        nm.notify(System.currentTimeMillis().toInt(), notif)
+        nm.notify(NotificationIds.FAILED_UNLOCK, notif)
     }
 }

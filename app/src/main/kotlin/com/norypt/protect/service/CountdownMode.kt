@@ -8,10 +8,10 @@ import android.content.Intent
  */
 enum class CountdownMode(val extraValue: String, val notificationId: Int, val reason: String) {
     /** C4 — low battery with every monitored connection down. */
-    DEADMAN("deadman", 5001, "deadman"),
+    DEADMAN("deadman", NotificationIds.COUNTDOWN_DEADMAN, "deadman"),
 
     /** C6 — the device has not been unlocked for the configured number of hours. */
-    UNLOCK_DEADLINE("unlock_deadline", 5003, "unlock.deadline"),
+    UNLOCK_DEADLINE("unlock_deadline", NotificationIds.COUNTDOWN_UNLOCK_DEADLINE, "unlock.deadline"),
     ;
 
     companion object {
