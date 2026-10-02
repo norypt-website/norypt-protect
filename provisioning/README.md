@@ -1,4 +1,4 @@
-# Norypt Protect 1.2.0 — Provisioning Pack
+# Norypt Protect 1.2.1 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.2.0.apk` | The signed app |
-| `norypt-protect-1.2.0.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.2.1.apk` | The signed app |
+| `norypt-protect-1.2.1.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  25cdb6e29983b8a90686c96191308bdfd607004234a1ef702c70a787bb1ecadb
+SHA-256  87e0b20100a7fd3aaf348f706abf21c51c20e665214fa75ae2523489ef670d2c
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -63,12 +63,15 @@ stops — because this app can erase the phone it is installed on.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
 
-## New in 1.2
+## New in 1.2 (1.2.1)
 
-A security-hardening release. Phones updated from 1.1.x show a **Review app permissions**
-notification once: earlier versions let other apps receive permissions without asking. Open
+A security-hardening release. On phones updated from 1.1.x, the first start resets the
+permission policy and, in the background for a few minutes, unlocks the permissions earlier
+versions granted to other apps without asking (they were locked so Settings could not revoke
+them). A **Review app permissions** card on Home and a notification follow. Open
 Settings › Security & privacy › Permission manager with the customer and remove what an app
-should not have.
+should not have. Install 1.2.1, not 1.2.0: 1.2.0 left those grants locked and could stop its own
+protection until the app was opened.
 
 - Countdowns can no longer wipe while the owner is cancelling, and Back no longer ends them.
 - **A8** (unlocked too long) now shows a cancellable countdown instead of wiping at once.
