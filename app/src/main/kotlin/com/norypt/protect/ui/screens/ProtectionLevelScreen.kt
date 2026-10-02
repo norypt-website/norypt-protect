@@ -58,6 +58,8 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
     val ctx = LocalContext.current
     var showAbout by remember { mutableStateOf(false) }
     var showTrust by remember { mutableStateOf(false) }
+    var showShield by remember { mutableStateOf(false) }
+    var showAudit by remember { mutableStateOf(false) }
 
     if (showAbout) {
         AboutSubScreen(onBack = { showAbout = false }, padding = padding)
@@ -66,6 +68,16 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
 
     if (showTrust) {
         TrustReportSubScreen(onBack = { showTrust = false }, padding = padding)
+        return
+    }
+
+    if (showAudit) {
+        AppAuditSubScreen(onBack = { showAudit = false }, padding = padding)
+        return
+    }
+
+    if (showShield) {
+        ShieldSubScreen(onBack = { showShield = false }, onOpenAudit = { showAudit = true }, padding = padding)
         return
     }
 
@@ -399,6 +411,12 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                     DebugTelemetry.put(ctx, "qs_tile_last_error", "${e::class.simpleName}: ${e.message}")
                 }
             },
+        )
+
+        // ── Spyware shield ─────────────────────────────────────────────────
+        SecondaryButton(
+            label = "Spyware shield — keyboards, accessibility, app audit",
+            onClick = { showShield = true },
         )
 
         // ── Trust report button ─────────────────────────────────────────────
