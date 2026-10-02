@@ -22,6 +22,13 @@ object SecurityLogFeature {
     /** True when Android last refused the log because another, unaffiliated user exists. */
     fun unavailable(ctx: Context): Boolean = ProtectPrefs.securityLogUnavailable(ctx)
 
+    /**
+     * Whether the app writes its own failed-unlock entries. Only a log that Android actually
+     * delivers replaces them: while another, unaffiliated user exists the switch can stay on but
+     * Android pauses the log, and the Timeline must not lose failed unlocks meanwhile.
+     */
+    internal fun recordsOwnFailedUnlock(logOn: Boolean, unavailable: Boolean): Boolean = !logOn || unavailable
+
     fun enable(ctx: Context): Boolean {
         val dpm = dpm(ctx) ?: return false
         if (!dpm.isDeviceOwnerApp(ctx.packageName)) return false
@@ -30,6 +37,13 @@ object SecurityLogFeature {
         // Nothing from before this moment: the logs from before the current boot are skipped too.
         ProtectPrefs.setSecurityLogWatermarkNanos(ctx, nowNanos())
         ProtectPrefs.setSecurityLogPreRebootBoot(ctx, TamperBootAudit.bootCount(ctx) ?: -1)
+        // Android accepts the switch even when it will pause the log for another, unaffiliated user;
+        // asking for a batch now is how that shows. Then the switch stays off and says why.
+        importNew(ctx)
+        if (unavailable(ctx)) {
+            disable(ctx)
+            return false
+        }
         return isOn(ctx)
     }
 

@@ -75,7 +75,10 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         val count = ProtectPrefs.recordFailedAttempt(context)
         // With Android's security log on, failed unlocks reach the Timeline from it (it also sees attempts
         // before the first unlock after a restart); A11 and B1 below keep counting from this callback.
-        if (!SecurityLogFeature.isOn(context)) TamperLog.record(context, TamperKind.UNLOCK_FAILED, "$count in a row.")
+        val logOn = SecurityLogFeature.isOn(context)
+        if (SecurityLogFeature.recordsOwnFailedUnlock(logOn, SecurityLogFeature.unavailable(context))) {
+            TamperLog.record(context, TamperKind.UNLOCK_FAILED, "$count in a row.")
+        }
 
         // A11 — duress fast-wipe (stricter threshold, checked first)
         if (ProtectPrefs.isTriggerEnabled(context, "A11")) {
@@ -107,7 +110,23 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
     override fun onSecurityLogsAvailable(context: Context, intent: Intent) {
         super.onSecurityLogsAvailable(context, intent)
-        // A batch can hold thousands of events: read it off the main thread.
+        importSecurityLogInBackground(context)
+    }
+
+    // Android pauses the security log while any user or profile is not affiliated with the Device
+    // Owner; asking for a batch after a user comes or goes updates whether the log is delivered.
+    override fun onUserAdded(context: Context, intent: Intent, addedUser: UserHandle) {
+        super.onUserAdded(context, intent, addedUser)
+        importSecurityLogInBackground(context)
+    }
+
+    override fun onUserRemoved(context: Context, intent: Intent, removedUser: UserHandle) {
+        super.onUserRemoved(context, intent, removedUser)
+        importSecurityLogInBackground(context)
+    }
+
+    /** A batch can hold thousands of events: read it off the main thread. */
+    private fun importSecurityLogInBackground(context: Context) {
         val pending = goAsync()
         Thread {
             try {

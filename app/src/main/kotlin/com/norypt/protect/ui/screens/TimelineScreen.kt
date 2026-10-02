@@ -174,7 +174,7 @@ private fun SecurityLogToggle(timelineOn: Boolean, isOwner: Boolean) {
     val ctx = LocalContext.current
     // Keyed on the Timeline switch: turning the Timeline off turns the security log off too.
     var on by remember(timelineOn) { mutableStateOf(SecurityLogFeature.isOn(ctx)) }
-    val unavailable = remember(on) { SecurityLogFeature.unavailable(ctx) }
+    var unavailable by remember(timelineOn) { mutableStateOf(SecurityLogFeature.unavailable(ctx)) }
     ToggleCard(
         title = "Include Android's security log",
         subtitle = when {
@@ -191,6 +191,7 @@ private fun SecurityLogToggle(timelineOn: Boolean, isOwner: Boolean) {
         onToggle = { wanted ->
             if (wanted) SecurityLogFeature.enable(ctx) else SecurityLogFeature.disable(ctx)
             on = SecurityLogFeature.isOn(ctx)
+            unavailable = SecurityLogFeature.unavailable(ctx)
         },
     )
 }
