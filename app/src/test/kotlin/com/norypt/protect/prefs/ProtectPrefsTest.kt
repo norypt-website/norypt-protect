@@ -142,4 +142,13 @@ class ProtectPrefsTest {
         ProtectPrefsKeys.setLastUnlockMs(store, 1_700_000_000_000L)
         assertEquals(1_700_000_000_000L, ProtectPrefsKeys.lastUnlockMs(store))
     }
+
+    @Test
+    fun `a shield allowlist starts empty and survives a round trip`() {
+        assertTrue(ProtectPrefsKeys.shieldAllowlist(store, "KEYBOARD").isEmpty())
+        ProtectPrefsKeys.setShieldAllowlist(store, "KEYBOARD", setOf("b.pkg", "a.pkg"))
+        assertEquals(setOf("a.pkg", "b.pkg"), ProtectPrefsKeys.shieldAllowlist(store, "KEYBOARD"))
+        ProtectPrefsKeys.setShieldAllowlist(store, "KEYBOARD", emptySet())
+        assertTrue(ProtectPrefsKeys.shieldAllowlist(store, "KEYBOARD").isEmpty())
+    }
 }
