@@ -29,25 +29,17 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         // tier still has to ask the user once via the in-app prompt.
         if (Provisioning.current(context) == Tier.DeviceOwner) {
             grantNotificationPermission(context)
-
-            // T3.8: if SOS hasn't been auto-disabled yet, do it now.
-            if (!ProtectPrefs.sosDisabledOnPromotion(context) &&
-                EmergencySos.currentValue(context) == 1
-            ) {
-                EmergencySos.disableIfPossible(context)
-                ProtectPrefs.setSosDisabledOnPromotion(context, true)
-            }
+            // Retried at every app start too: the permission it needs is granted after promotion.
+            EmergencySos.disableAfterPromotion(context)
         }
     }
 
     private fun grantNotificationPermission(context: Context) {
         val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val admin = ComponentName(context, ProtectAdminReceiver::class.java)
-        val runtimePermissions = listOf(
-            Manifest.permission.POST_NOTIFICATIONS,
-            Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.BLUETOOTH_CONNECT,
-        )
+        // Only what the app needs whatever is armed. A policy grant is fixed (Settings cannot
+        // revoke it), so RECEIVE_SMS is granted only while the SMS trigger is armed.
+        val runtimePermissions = listOf(Manifest.permission.POST_NOTIFICATIONS)
         // Granted one by one. Never setPermissionPolicy(AUTO_GRANT): that policy is device-wide
         // and would silently grant every other app's permission requests (see PermissionPolicyGuard).
         runCatching {

@@ -407,8 +407,9 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
             "A7" -> {
                 InfoBlock(
                     title = "What this is",
-                    body = "A signed entry point so a trusted companion app on this same phone can fire the wipe " +
-                        "remotely (e.g. a smart-watch tile, a Tasker shortcut, or another Norypt app).",
+                    body = "An entry point for a companion app on this phone that is signed with the same key " +
+                        "as Norypt Protect, such as another Norypt app. Automation apps like Tasker cannot use " +
+                        "it; for third-party panic apps use the PanicKit trigger (A5).",
                 )
                 Spacer(Modifier.height(8.dp))
                 InfoBlock(

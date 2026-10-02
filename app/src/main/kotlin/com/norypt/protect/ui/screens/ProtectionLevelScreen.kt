@@ -211,7 +211,8 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
                     "app. Grant WRITE_SECURE_SETTINGS over ADB, or check Settings › Safety & " +
                     "emergency yourself. Do not assume SOS is disabled."
             else
-                "Prevent accidental SOS calls from the lockscreen. Works via WRITE_SECURE_SETTINGS (ADB) or Device Owner.",
+                "Prevent accidental SOS calls from the lockscreen. Needs WRITE_SECURE_SETTINGS, granted over " +
+                    "ADB during provisioning; otherwise the switch opens the Settings page.",
             checked = sosOn,
             enabled = true,
             onToggle = { on ->

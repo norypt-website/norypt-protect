@@ -22,8 +22,10 @@ class ExternalTriggerReceiver : BroadcastReceiver() {
 object ExternalBroadcastTrigger : Trigger {
     override val id = "A7"
     override val label = "External Broadcast"
-    override val description = "Trigger panic via a signed broadcast from a trusted companion app. " +
-        "Requires Device Owner — the wipe call is denied for non-DO admins on Android 13+."
+    override val description = "Trigger panic with a broadcast from a companion app signed with the same " +
+        "key as Norypt Protect. It is a signature permission, so general automation apps such as Tasker " +
+        "cannot send it; use the PanicKit trigger (A5) for third-party panic apps. Requires Device Owner " +
+        "— the wipe call is denied for non-DO admins on Android 13+."
     override val requiredTier = Tier.DeviceOwner
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A7", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A7", false)

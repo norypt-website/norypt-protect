@@ -69,16 +69,20 @@ class ProtectForegroundService : Service() {
         // the stored unlock may be hours old while the owner has been using the phone; A8
         // would read that as unlocked for hours. Unlocked right now is a fresh baseline.
         if (getSystemService(KeyguardManager::class.java)?.isDeviceLocked == false) UnlockedTimer.stamp(this)
-        PowerGestureMonitor.start(this)
-        UsbLockedMonitor.start(this)
-        PowerMenuGuard.start(this)
-        UserPresentMonitor.start(this)
-        TamperMonitor.start(this)
-        MotionLockMonitor.start(this)
-        DeadmanScheduler.schedule(this)
-        // Covers a boot whose broadcast never reached a force-stopped app; a no-op otherwise.
-        TamperBootAudit.check(this, fromBootBroadcast = false)
-        TamperLog.record(this, TamperKind.MONITOR_STARTED)
+        // Each on its own: one monitor throwing must not leave every later one, and the
+        // dead-man alarm, unstarted.
+        listOf<() -> Unit>(
+            { PowerGestureMonitor.start(this) },
+            { UsbLockedMonitor.start(this) },
+            { PowerMenuGuard.start(this) },
+            { UserPresentMonitor.start(this) },
+            { TamperMonitor.start(this) },
+            { MotionLockMonitor.start(this) },
+            { DeadmanScheduler.schedule(this) },
+            // Covers a boot whose broadcast never reached a force-stopped app; a no-op otherwise.
+            { TamperBootAudit.check(this, fromBootBroadcast = false) },
+            { TamperLog.record(this, TamperKind.MONITOR_STARTED) },
+        ).forEach { start -> runCatching { start() } }
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)
     }
 

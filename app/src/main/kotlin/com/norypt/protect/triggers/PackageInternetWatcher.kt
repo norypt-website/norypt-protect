@@ -8,6 +8,7 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.util.DebugTelemetry
 import com.norypt.protect.service.NotificationIds
 
@@ -28,8 +29,18 @@ object PackageInternetWatcher {
             return
         }
 
-        val current = currentInternetPackages(ctx)
+        // Scanning every package with its permissions on the main thread every tick cost battery
+        // for nothing; the platform says whether anything was installed or updated since.
+        val pm = ctx.packageManager
+        val boot = TamperBootAudit.bootCount(ctx) ?: 0
+        val sameBoot = ProtectPrefs.b5SequenceBoot(ctx) == boot
         val known = ProtectPrefs.knownInternetPackages(ctx)
+        val changes = if (sameBoot) pm.getChangedPackages(ProtectPrefs.b5Sequence(ctx)) else null
+        if (sameBoot && known.isNotEmpty() && changes == null) return
+        // Sequence numbers restart at boot, so the first look of each boot is a full scan.
+        ProtectPrefs.setB5Sequence(ctx, changes?.sequenceNumber ?: 0, boot)
+
+        val current = currentInternetPackages(ctx)
 
         val newEntries = current - known
 

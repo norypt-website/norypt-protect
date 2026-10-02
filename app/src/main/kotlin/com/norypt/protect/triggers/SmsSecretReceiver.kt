@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.provider.Telephony
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
+import com.norypt.protect.dpm.OwnPermissions
 import com.norypt.protect.prefs.ProtectPrefs
 
 class SmsSecretReceiver : BroadcastReceiver() {
@@ -97,8 +98,15 @@ object SmsSecretTrigger : Trigger {
         "chat and is never seen as an SMS. Requires Device Owner — the wipe call is denied for non-DO " +
         "admins on Android 13+."
     override val requiredTier = Tier.DeviceOwner
-    override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A6", true)
-    override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A6", false)
+    override fun arm(context: Context) {
+        ProtectPrefs.setTriggerEnabled(context, "A6", true)
+        OwnPermissions.grant(context, Manifest.permission.RECEIVE_SMS)
+    }
+
+    override fun disarm(context: Context) {
+        ProtectPrefs.setTriggerEnabled(context, "A6", false)
+        OwnPermissions.revoke(context, Manifest.permission.RECEIVE_SMS)
+    }
 
     override fun problem(context: Context): String? {
         val code = ProtectPrefs.smsSecretCode(context)
