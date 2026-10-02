@@ -1,4 +1,4 @@
-# Norypt Protect 1.1.1 — Installation Guide
+# Norypt Protect 1.2.0 — Installation Guide
 
 Norypt Protect turns an Android phone into a device that can lock or erase itself in an
 emergency. It runs entirely on the phone: **no internet permission, no server, no account,
@@ -40,19 +40,19 @@ in transit.
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash norypt-protect-1.1.1.apk -Algorithm SHA256
+Get-FileHash norypt-protect-1.2.0.apk -Algorithm SHA256
 ```
 
 **macOS / Linux:**
 
 ```bash
-shasum -a 256 norypt-protect-1.1.1.apk
+shasum -a 256 norypt-protect-1.2.0.apk
 ```
 
 The result must be exactly:
 
 ```
-6b4c7171b057454c213f677eda3527aa78ead09d257b2f99152bfa5e24f61fe6
+25cdb6e29983b8a90686c96191308bdfd607004234a1ef702c70a787bb1ecadb
 ```
 
 **If it does not match, stop.** Do not install it. Ask for a fresh copy.
@@ -139,7 +139,7 @@ It is separate from your phone's lock screen PIN.
 | Block app installation | Refuses every app install on the phone, including over ADB. Also blocks updates to Norypt Protect itself: turn it off before updating. |
 | Lockdown mode | The phone shows only a black screen until the App PIN is entered. Hold a finger anywhere for 3 seconds, enter the PIN, tap Exit lockdown. Survives reboots. |
 | Anti-snatch | Locks the screen the instant the phone is yanked or dropped. Three sensitivity levels. |
-| Hide launcher icon | Removes the app icon from the home screen. |
+| Hide launcher icon | Removes the app icon from the home screen. To open the app again: Settings › Apps › Norypt Protect › the gear icon, or tap its ongoing notification. |
 
 **Triggers tab** — what causes a wipe. Each one has a switch and a description. Tap a
 trigger to configure it.
@@ -152,12 +152,15 @@ Commonly used:
 - **C4 — Dead-man switch.** Wipes if the battery gets low while the phone has no
   connectivity — i.e. it has been taken and switched off from the network.
 - **A6 — Secret SMS.** Wipes when a text arrives whose entire content is your secret code.
-  Minimum 8 characters; the whole message must match exactly.
+  Tap **Generate a strong code** and keep a copy off the phone; the whole message must match
+  exactly. Send it as a plain SMS: between two phones using RCS chat it never arrives as one.
 - **C6 — Not unlocked for too long.** Starts a wipe countdown if the phone has not been
-  unlocked for the number of hours you set (48 by default) — for a phone that was seized,
-  lost or left behind. Entering the lock-screen credential cancels the countdown.
+  unlocked for the number of hours you set (12 by default) — for a phone that was seized,
+  lost or left behind. Entering the lock-screen credential cancels the countdown. On
+  GrapheneOS, keep it shorter than the auto-reboot time, or the countdown never comes.
 
-Only turn on the ones you actually want. Every one of them erases the phone.
+Only turn on the ones you actually want. Every one of them erases the phone. A trigger
+that is switched on but cannot fire (no code, a missing permission) says why in red.
 
 **Timeline tab** — optional. Turn on **Record timeline** before handing the phone over or
 leaving it somewhere, and afterwards the tab lists boots, unlocks, failed unlocks, USB
@@ -180,7 +183,7 @@ chosen trigger behaves the way you expect.
 
 Then, when you are ready:
 
-4. **Wipe tab → turn Dry-run OFF**
+4. **Wipe tab → turn Dry-run OFF** (it asks for the App PIN)
 
 **From this moment the triggers really will erase the phone.** There is no confirmation
 prompt and no undo.
@@ -242,5 +245,5 @@ Being explicit, so you can plan around it:
 
 ---
 
-*Norypt Protect — [norypt.com](https://norypt.com). Version 1.1.1, certificate fingerprint
+*Norypt Protect — [norypt.com](https://norypt.com). Version 1.2.0, certificate fingerprint
 `13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95`.*
