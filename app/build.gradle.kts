@@ -181,7 +181,7 @@ val verifyNoTelemetryInReleaseDex by tasks.registering {
         val forbidden = listOf(
             "panic_total", "wipe_last_call", "sos_click_count", "fgs_ticks_total",
             "c3_screen_on", "c4_alarm_fired", "a5_intents_total", "a7_receiver_invocations",
-            "b5_tick_entered", "dump_dry_run",
+            "b5_tick_entered", "dump_dry_run", "a9_usb_state_total", "a9_panic_fired",
         )
         val dex = StringBuilder()
         ZipFile(apk).use { zip ->
