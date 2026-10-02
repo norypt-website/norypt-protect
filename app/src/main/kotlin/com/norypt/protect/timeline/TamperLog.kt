@@ -46,17 +46,24 @@ object TamperLog {
         }
     }
 
+    /**
+     * Best effort, and never throws: it is called on the way to a wipe and before the
+     * failed-unlock triggers, and a Keystore or storage failure in this opt-in log must not
+     * be able to stop either.
+     */
     fun record(ctx: Context, kind: TamperKind, detail: String = "", severity: Severity = kind.defaultSeverity) {
-        if (!isEnabled(ctx)) return
-        val event = TamperEvent(
-            epochMs = System.currentTimeMillis(),
-            elapsedMs = SystemClock.elapsedRealtime(),
-            kind = kind,
-            severity = severity,
-            detail = detail,
-        )
-        synchronized(this) { store(ctx).append(event) }
-        ProtectPrefs.setTimelineLastAliveMs(ctx, event.epochMs)
+        runCatching {
+            if (!isEnabled(ctx)) return
+            val event = TamperEvent(
+                epochMs = System.currentTimeMillis(),
+                elapsedMs = SystemClock.elapsedRealtime(),
+                kind = kind,
+                severity = severity,
+                detail = detail,
+            )
+            synchronized(this) { store(ctx).append(event) }
+            ProtectPrefs.setTimelineLastAliveMs(ctx, event.epochMs)
+        }
     }
 
     /** Newest first. */

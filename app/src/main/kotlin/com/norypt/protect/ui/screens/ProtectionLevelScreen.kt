@@ -48,6 +48,7 @@ import com.norypt.protect.ui.components.SectionLabel
 import com.norypt.protect.ui.components.TagPill
 import com.norypt.protect.ui.components.ToggleCard
 import com.norypt.protect.ui.theme.NoryptColors
+import com.norypt.protect.wipe.WipeEngine
 import com.norypt.protect.util.AdbInstructions
 import com.norypt.protect.util.DebugTelemetry
 
@@ -417,7 +418,11 @@ private fun TierCard(tier: Tier) {
         )
         Tier.DeviceAdmin -> Triple(
             "Device Admin",
-            "Lock and wipe are active. Upgrade to Device Owner via ADB to unlock USB lockdown, safe-boot block, anti-tamper, and launcher hiding.",
+            (
+                if (WipeEngine.canFactoryReset(tier)) "Lock and wipe are active. "
+                else "Lock is active; wiping needs Device Owner on Android 14 and later. "
+            ) + "Upgrade to Device Owner via ADB to unlock USB lockdown, safe-boot block, " +
+                "anti-tamper, and launcher hiding.",
             NoryptColors.Amber,
         )
         Tier.DeviceOwner -> Triple(

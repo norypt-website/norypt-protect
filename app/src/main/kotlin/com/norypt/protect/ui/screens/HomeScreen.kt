@@ -42,6 +42,7 @@ import com.norypt.protect.ui.components.StatusCard
 import com.norypt.protect.ui.components.StatusLevel
 import com.norypt.protect.ui.components.TagPill
 import com.norypt.protect.ui.theme.NoryptColors
+import com.norypt.protect.wipe.WipeEngine
 
 @Composable
 fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
@@ -51,6 +52,7 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     var dryRun by remember { mutableStateOf(ProtectPrefs.dryRun(ctx)) }
     var timelineOn by remember { mutableStateOf(TamperLog.isEnabled(ctx)) }
     var showPinForWipe by remember { mutableStateOf(false) }
+    val canWipe = WipeEngine.canFactoryReset(tier)
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -89,10 +91,13 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
                 Tier.DeviceAdmin -> "Armed — Device Admin tier"
                 Tier.DeviceOwner -> "Fully armed — Device Owner"
             },
-            subtitle = when (tier) {
-                Tier.None -> "Grant device admin to arm Lock + Wipe."
-                Tier.DeviceAdmin -> "Upgrade to Device Owner via ADB for the full feature set."
-                Tier.DeviceOwner -> "All protections active."
+            subtitle = when {
+                tier == Tier.None -> "Grant device admin to arm Lock + Wipe."
+                dryRun -> "Dry-run is on: triggers only simulate a wipe. Turn it off in the Wipe tab."
+                tier == Tier.DeviceAdmin && !canWipe ->
+                    "Lock works. Wiping needs Device Owner on Android 14 and later."
+                tier == Tier.DeviceAdmin -> "Upgrade to Device Owner via ADB for the full feature set."
+                else -> "Every feature is available. Arm the triggers you need."
             },
         )
 
@@ -102,15 +107,19 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
             SummaryRow(armedCount = armedCount, total = TriggerRegistry.all.size, dryRun = dryRun, timelineOn = timelineOn)
             SectionLabel("Quick actions")
             PrimaryButton(label = "Lock now", onClick = { lockNow(ctx) })
-            LongPressHoldButton(
-                label = "Hold to wipe",
-                onComplete = { PanicHandler.panic(ctx, reason = "home.longpress") },
-            )
-            SecondaryButton(
-                label = "Wipe with App PIN instead",
-                onClick = { showPinForWipe = true },
-                color = NoryptColors.Muted,
-            )
+            // Only where a wipe can actually happen: on Android 14+ a plain Device Admin is
+            // refused by the platform, and a button that cannot wipe must not look like one.
+            if (canWipe) {
+                LongPressHoldButton(
+                    label = "Hold to wipe",
+                    onComplete = { PanicHandler.panic(ctx, reason = "home.longpress") },
+                )
+                SecondaryButton(
+                    label = "Wipe with App PIN instead",
+                    onClick = { showPinForWipe = true },
+                    color = NoryptColors.Muted,
+                )
+            }
         }
 
         Spacer(Modifier.height(4.dp))
