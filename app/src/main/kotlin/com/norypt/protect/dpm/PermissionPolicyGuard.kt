@@ -41,18 +41,28 @@ object PermissionPolicyGuard {
         val reset = runCatching {
             dpm.setPermissionPolicy(admin, DevicePolicyManager.PERMISSION_POLICY_PROMPT)
         }.isSuccess
-        if (reset) askForReview(ctx)
+        if (reset) {
+            // Remembered so the grants the policy locked are handed back below.
+            ProtectPrefs.setAutoGrantWasOn(ctx, true)
+            askForReview(ctx)
+        }
     }
 
     /**
-     * Releases, once, the grants the old policy fixed on other apps, off the main thread, and
-     * asks for a review if there were any. Marked done only after it ran as Device Owner.
+     * Hands back, once, the grants the old policy locked on other apps, off the main thread, and
+     * asks for a review if there were any. Only on a phone that was on auto-grant; marked done
+     * only after it ran as Device Owner.
      */
     fun releaseFixedGrantsOnce(ctx: Context) {
-        if (ProtectPrefs.policyGrantsReleased(ctx)) return
+        val due = PolicyGrantRelease.shouldRun(
+            autoGrantWasOn = ProtectPrefs.autoGrantWasOn(ctx),
+            earlierBuildRan = ProtectPrefs.policyGrantsReleased(ctx),
+            alreadyDone = ProtectPrefs.policyGrantsReleasedV2(ctx),
+        )
+        if (!due) return
         Thread {
             val released = runCatching { PolicyGrantRelease.releaseAll(ctx) }.getOrNull() ?: return@Thread
-            ProtectPrefs.setPolicyGrantsReleased(ctx, true)
+            ProtectPrefs.setPolicyGrantsReleasedV2(ctx, true)
             if (released > 0) askForReview(ctx)
         }.start()
     }
