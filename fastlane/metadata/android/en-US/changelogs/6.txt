@@ -1,0 +1,4 @@
+v1.2.1
+• Fix: permissions that earlier versions granted to other apps without asking were also locked, so they could not be revoked in Settings. They are unlocked now; Home asks you to review them.
+• Fix: after updating to 1.2.0, the app could close itself on first start, leaving protection off until it was opened.
+• Turning off the SMS trigger no longer closes the app.

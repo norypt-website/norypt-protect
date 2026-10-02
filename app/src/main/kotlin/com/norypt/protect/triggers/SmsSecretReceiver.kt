@@ -105,7 +105,7 @@ object SmsSecretTrigger : Trigger {
 
     override fun disarm(context: Context) {
         ProtectPrefs.setTriggerEnabled(context, "A6", false)
-        OwnPermissions.revoke(context, Manifest.permission.RECEIVE_SMS)
+        OwnPermissions.release(context, Manifest.permission.RECEIVE_SMS)
     }
 
     override fun problem(context: Context): String? {

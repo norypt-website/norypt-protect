@@ -3,6 +3,8 @@ package com.norypt.protect.ui.screens
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
+import android.provider.Settings
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,6 +53,7 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     var tier by remember { mutableStateOf(Provisioning.current(ctx)) }
     var armedCount by remember { mutableIntStateOf(countArmed(ctx)) }
     var brokenCount by remember { mutableIntStateOf(countBroken(ctx)) }
+    var reviewPending by remember { mutableStateOf(ProtectPrefs.permissionReviewPending(ctx)) }
     var dryRun by remember { mutableStateOf(ProtectPrefs.dryRun(ctx)) }
     var timelineOn by remember { mutableStateOf(TamperLog.isEnabled(ctx)) }
     var showPinForWipe by remember { mutableStateOf(false) }
@@ -63,6 +66,7 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
                 tier = Provisioning.current(ctx)
                 armedCount = countArmed(ctx)
                 brokenCount = countBroken(ctx)
+                reviewPending = ProtectPrefs.permissionReviewPending(ctx)
                 dryRun = ProtectPrefs.dryRun(ctx)
                 timelineOn = TamperLog.isEnabled(ctx)
             }
@@ -108,6 +112,12 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
             EnableAdminScreen(onRequestEnableAdmin = onRequestEnableAdmin)
         } else {
             SummaryRow(armedCount = armedCount, total = TriggerRegistry.all.size, dryRun = dryRun, timelineOn = timelineOn)
+            if (reviewPending) {
+                PermissionReviewCard(onDone = {
+                    ProtectPrefs.setPermissionReviewPending(ctx, false)
+                    reviewPending = false
+                })
+            }
             if (brokenCount > 0) {
                 NoteCard(
                     text = "$brokenCount armed trigger${if (brokenCount == 1) "" else "s"} cannot fire. " +
@@ -145,6 +155,32 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
             onDismiss = { showPinForWipe = false },
         )
     }
+}
+
+/**
+ * Until the owner taps Done: earlier versions let apps receive permissions without asking, and
+ * those grants were locked as set by the admin. 1.2.1 unlocked them; this is how the owner finds
+ * out that there is something to undo.
+ */
+@Composable
+private fun PermissionReviewCard(onDone: () -> Unit) {
+    val ctx = LocalContext.current
+    NoteCard(
+        title = "Review app permissions",
+        text = "Earlier versions let apps receive permissions without asking you, and kept them locked " +
+            "as set by your admin. They are unlocked now. Open Permission manager and remove what an " +
+            "app should not have, starting with camera, microphone and location.",
+        color = NoryptColors.Amber,
+    )
+    SecondaryButton(
+        label = "Open privacy settings",
+        onClick = {
+            runCatching {
+                ctx.startActivity(Intent(Settings.ACTION_PRIVACY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        },
+    )
+    SecondaryButton(label = "Done, I have reviewed them", onClick = onDone, color = NoryptColors.Muted)
 }
 
 @Composable

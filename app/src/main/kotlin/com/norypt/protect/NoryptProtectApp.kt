@@ -50,6 +50,7 @@ class NoryptProtectApp : Application() {
         // Undoes the device-wide permission auto-grant older versions set on promotion. Runs on
         // every process start, so the update itself (MY_PACKAGE_REPLACED) repairs existing phones.
         PermissionPolicyGuard.enforce(this)
+        PermissionPolicyGuard.releaseFixedGrantsOnce(this)
         // A lockdown that was switched off but not fully released would leave a blank HOME.
         runCatching { LockdownMode.releaseLeftovers(this) }
         runCatching { OwnPermissions.releaseUnused(this) }

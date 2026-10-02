@@ -8,10 +8,14 @@ import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.prefs.ProtectPrefs
 
 /**
- * Norypt's own runtime permissions, held only while a feature needs them.
+ * Norypt's own runtime permissions, held fixed only while a feature needs them.
  *
- * Promotion used to grant SMS and Bluetooth for good. An admin grant is fixed, so the owner
- * could not take them back in Settings even with no feature using them.
+ * Promotion used to grant SMS and Bluetooth for good, fixed by policy, so the owner could not
+ * take them back in Settings even with no feature using them.
+ *
+ * Nothing here revokes. Android kills an app's process the moment one of its own runtime
+ * permissions is revoked: 1.2.0 did that at startup, and the process died before the monitoring
+ * service could start. Releasing (DEFAULT) keeps the current grant and lets the owner decide.
  */
 object OwnPermissions {
 
@@ -21,16 +25,11 @@ object OwnPermissions {
     /** Grants [permission] to this app; Device Owner only, otherwise a no-op. */
     fun grant(ctx: Context, permission: String) = setState(ctx, permission, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
 
-    /** Takes [permission] back and leaves it to the owner (not fixed either way). */
-    fun revoke(ctx: Context, permission: String) {
-        setState(ctx, permission, DevicePolicyManager.PERMISSION_GRANT_STATE_DENIED)
+    /** Stops holding [permission] fixed; whether it stays granted is then the owner's call. */
+    fun release(ctx: Context, permission: String) =
         setState(ctx, permission, DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT)
-    }
 
-    /**
-     * Releases grants older versions fixed at promotion that no armed feature uses. Runs at
-     * every start; it only acts on a grant that is still fixed by policy.
-     */
+    /** Releases grants no armed feature uses. Runs at every start; acts only on a fixed state. */
     fun releaseUnused(ctx: Context) {
         val dpm = dpm(ctx) ?: return
         if (!dpm.isDeviceOwnerApp(ctx.packageName)) return
@@ -39,11 +38,11 @@ object OwnPermissions {
             if (!ProtectPrefs.isTriggerEnabled(ctx, "A6")) add(Manifest.permission.RECEIVE_SMS)
         }
         unused.forEach { permission ->
-            val fixedGranted = runCatching {
-                dpm.getPermissionGrantState(admin(ctx), ctx.packageName, permission) ==
-                    DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED
+            val fixed = runCatching {
+                dpm.getPermissionGrantState(admin(ctx), ctx.packageName, permission) !=
+                    DevicePolicyManager.PERMISSION_GRANT_STATE_DEFAULT
             }.getOrDefault(false)
-            if (fixedGranted) revoke(ctx, permission)
+            if (fixed) release(ctx, permission)
         }
     }
 

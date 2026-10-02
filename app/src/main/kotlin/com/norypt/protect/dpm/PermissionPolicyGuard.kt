@@ -10,6 +10,7 @@ import android.content.Intent
 import android.provider.Settings
 import com.norypt.protect.R
 import com.norypt.protect.admin.ProtectAdminReceiver
+import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.NotificationIds
 
 /**
@@ -40,7 +41,29 @@ object PermissionPolicyGuard {
         val reset = runCatching {
             dpm.setPermissionPolicy(admin, DevicePolicyManager.PERMISSION_POLICY_PROMPT)
         }.isSuccess
-        if (reset) notifyReviewPermissions(ctx)
+        if (reset) askForReview(ctx)
+    }
+
+    /**
+     * Releases, once, the grants the old policy fixed on other apps, off the main thread, and
+     * asks for a review if there were any. Marked done only after it ran as Device Owner.
+     */
+    fun releaseFixedGrantsOnce(ctx: Context) {
+        if (ProtectPrefs.policyGrantsReleased(ctx)) return
+        Thread {
+            val released = runCatching { PolicyGrantRelease.releaseAll(ctx) }.getOrNull() ?: return@Thread
+            ProtectPrefs.setPolicyGrantsReleased(ctx, true)
+            if (released > 0) askForReview(ctx)
+        }.start()
+    }
+
+    /**
+     * Shown as a card on Home until the owner taps Done, and as a notification. The card is the
+     * part that cannot be missed: a notification can be dismissed unread or never shown.
+     */
+    fun askForReview(ctx: Context) {
+        ProtectPrefs.setPermissionReviewPending(ctx, true)
+        notifyReviewPermissions(ctx)
     }
 
     private fun notifyReviewPermissions(ctx: Context) {
@@ -52,9 +75,10 @@ object PermissionPolicyGuard {
                 Intent(Settings.ACTION_PRIVACY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                 PendingIntent.FLAG_IMMUTABLE,
             )
-            val text = "An earlier version let apps receive permissions without asking you. " +
-                "Open Permission manager and remove camera, microphone, location and other " +
-                "permissions from apps that should not have them."
+            val text = "An earlier version let apps receive permissions without asking you, and kept " +
+                "them locked as set by your admin. They are unlocked now: open Permission manager and " +
+                "remove camera, microphone, location and other permissions from apps that should not " +
+                "have them."
             val notif = Notification.Builder(ctx, "alerts")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("Review app permissions")
