@@ -41,13 +41,22 @@ object SecurityLogFeature {
         // asking for a batch now is how that shows. Then the switch stays off and says why.
         importNew(ctx)
         if (unavailable(ctx)) {
-            disable(ctx)
+            turnOff(ctx)
             return false
         }
-        return isOn(ctx)
+        val on = isOn(ctx)
+        // The owner can later tell from when failed unlocks came from the system's log.
+        if (on) TamperLog.record(ctx, TamperKind.TIMELINE, "Android's security log is now included.")
+        return on
     }
 
     fun disable(ctx: Context) {
+        val wasOn = isOn(ctx)
+        turnOff(ctx)
+        if (wasOn) TamperLog.record(ctx, TamperKind.TIMELINE, "Android's security log is no longer included.")
+    }
+
+    private fun turnOff(ctx: Context) {
         runCatching { dpm(ctx)?.setSecurityLoggingEnabled(admin(ctx), false) }
     }
 

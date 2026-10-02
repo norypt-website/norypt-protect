@@ -262,10 +262,13 @@ private fun ScopeCard(isGraphene: Boolean) {
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            "It sees only what Android reports to an app: boots, unlocks and failed unlocks, USB " +
+            "On its own it sees what Android reports to any app: boots, unlocks and failed unlocks, USB " +
                 "connections, SIM changes, fingerprint or face enrollment changes, screen-lock " +
                 "changes, USB debugging, and clock changes. Shutdowns cannot be observed on modern " +
-                "Android, so each boot entry says when the phone was last seen running instead.",
+                "Android, so each boot entry says when the phone was last seen running instead. With " +
+                "Android's security log included, it also sees what only the system logs: failed " +
+                "unlocks before the first unlock after a restart, the boot state at every start, USB " +
+                "debugging commands, certificate authorities and failed wipes.",
             color = NoryptColors.Text,
             fontSize = 12.sp,
             lineHeight = 17.sp,
