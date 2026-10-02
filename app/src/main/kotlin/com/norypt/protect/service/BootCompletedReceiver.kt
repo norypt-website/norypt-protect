@@ -35,7 +35,18 @@ import com.norypt.protect.triggers.UnlockedTimer
  */
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
+        val action = intent.action
+        if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        // The service first: the bookkeeping below reads encrypted storage, and a failure there
+        // must not leave every trigger unregistered until the next time the app is opened.
+        if (Provisioning.current(context) != Tier.None) {
+            ProtectForegroundService.start(context)
+        }
+        runCatching { record(context, action) }
+    }
+
+    private fun record(context: Context, action: String) {
+        when (action) {
             Intent.ACTION_BOOT_COMPLETED -> {
                 // On a file-based-encryption device this broadcast is delivered only after the
                 // first unlock of the boot — an unlock whose USER_PRESENT no receiver of ours
@@ -47,10 +58,6 @@ class BootCompletedReceiver : BroadcastReceiver() {
             }
             Intent.ACTION_MY_PACKAGE_REPLACED ->
                 TamperLog.record(context, TamperKind.APP_UPDATED, "Version ${BuildConfig.VERSION_NAME} installed.")
-            else -> return
-        }
-        if (Provisioning.current(context) != Tier.None) {
-            ProtectForegroundService.start(context)
         }
     }
 }

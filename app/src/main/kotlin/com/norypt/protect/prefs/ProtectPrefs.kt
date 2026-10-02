@@ -198,6 +198,14 @@ internal object ProtectPrefsKeys {
     fun setLastUnlockMs(store: KvStore, value: Long) =
         store.putLong(KEY_LAST_UNLOCK_MS, value)
 
+    /** B5: the package-change sequence number last seen, and the boot it belongs to. */
+    fun b5Sequence(store: KvStore): Int = store.getInt("b5_sequence", 0)
+    fun b5SequenceBoot(store: KvStore): Int = store.getInt("b5_sequence_boot", -1)
+    fun setB5Sequence(store: KvStore, sequence: Int, bootCount: Int) {
+        store.putInt("b5_sequence", sequence)
+        store.putInt("b5_sequence_boot", bootCount)
+    }
+
     /** Why the power-menu guard last failed to engage, or null after a success. */
     fun powerMenuGuardError(store: KvStore): String? = store.getString("power_menu_guard_error", null)
     fun setPowerMenuGuardError(store: KvStore, value: String?) = store.putString("power_menu_guard_error", value)
@@ -562,6 +570,11 @@ object ProtectPrefs {
 
     fun setLastUnlockMs(context: Context, value: Long) =
         ProtectPrefsKeys.setLastUnlockMs(store(context), value)
+
+    fun b5Sequence(context: Context): Int = ProtectPrefsKeys.b5Sequence(store(context))
+    fun b5SequenceBoot(context: Context): Int = ProtectPrefsKeys.b5SequenceBoot(store(context))
+    fun setB5Sequence(context: Context, sequence: Int, bootCount: Int) =
+        ProtectPrefsKeys.setB5Sequence(store(context), sequence, bootCount)
 
     fun powerMenuGuardError(context: Context): String? = ProtectPrefsKeys.powerMenuGuardError(store(context))
     fun setPowerMenuGuardError(context: Context, value: String?) =

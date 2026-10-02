@@ -55,6 +55,26 @@ object EmergencySos {
     fun disableIfPossible(ctx: Context): DisableResult =
         selectPath(contextState(ctx), 0)
 
+    /**
+     * The one change made without asking: on a Device Owner, SOS is switched off once,
+     * because C3's five power presses would otherwise also dial emergency services. It needs
+     * WRITE_SECURE_SETTINGS, which provisioning grants only after promotion, so it is tried
+     * at every start until it has actually happened. It never falls back to opening Settings
+     * on its own; that is left to the owner's switch.
+     */
+    fun disableAfterPromotion(ctx: Context) {
+        if (com.norypt.protect.prefs.ProtectPrefs.sosDisabledOnPromotion(ctx)) return
+        val state = contextState(ctx)
+        if (!state.isDeviceOwner() || !state.hasWriteSecureSettings()) return
+        val done = when (state.currentValue()) {
+            0 -> true
+            1 -> state.applyViaSecureSettings(0)
+            // Unreadable (GrapheneOS scopes this key): not known, so not marked done.
+            else -> false
+        }
+        if (done) com.norypt.protect.prefs.ProtectPrefs.setSosDisabledOnPromotion(ctx, true)
+    }
+
     /** Re-enable Emergency SOS gesture. Returns which path was used. */
     fun enableIfPossible(ctx: Context): DisableResult =
         selectPath(contextState(ctx), 1)
