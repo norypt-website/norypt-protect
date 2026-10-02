@@ -129,7 +129,7 @@ Supporting hardening:
 - R8 strips `Log.*` calls from release builds. Diagnostic counters exist only in debug builds; a release build writes nothing but its encrypted configuration and, if the owner turns it on, the encrypted timeline. A build gate fails if a counter key reaches the release dex.
 - Nothing of the app is included in cloud backups or device-to-device transfers.
 - Lock-screen notifications that would reveal the app's state (armed, wipe failed, failed unlocks) are hidden on the lock screen.
-- Device Owner never auto-grants other apps' permissions. Versions up to 1.1.1 set the device-wide auto-grant policy; 1.2.0 resets it on its first start and asks the owner to review permissions granted meanwhile.
+- Device Owner never auto-grants other apps' permissions. Versions up to 1.1.1 set the device-wide auto-grant policy, which also locked each grant so Settings could not revoke it. From 1.2.1 the first start resets the policy, unlocks those grants (apps keep their access; the owner can now take it away) and asks the owner to review them.
 - No third-party analytics, crash reporting, or advertising SDKs. The dependency graph is short and pinned in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), with checksums in [`gradle/verification-metadata.xml`](gradle/verification-metadata.xml).
 
 ---
@@ -295,7 +295,9 @@ Verified on 2026-10-02 with the debug build and dry-run on, read back from `dump
 | Expiry | Pass | `WIPE_TRIGGERED "unlocked.timer" (dry-run: nothing erased)`, stored as an Alert |
 | Locking ends `A8`'s countdown | Pass | The 30 s screen timeout locked the phone; the countdown ended without a wipe |
 
-Not exercised on a device: the repair of a 1.1.x auto-grant policy (unit-tested; visible on the first phone updated from 1.1.x), PanicKit signer binding, and USB-while-locked.
+Not exercised on a device: PanicKit signer binding and USB-while-locked.
+
+**Repair of the old auto-grant policy — Pixel 9a, GrapheneOS, updated from 1.1.0 (2026-10-02).** 1.2.0 reset the policy to "ask" (`Permission policy: {0=0}`) but left 41 grants on other apps fixed by policy, so Settings could not revoke them, and its own permission cleanup killed its first start. With 1.2.1 the update started the service without the app being opened and without any process being killed, the locked grants on other apps went from 41 to 0, and the review notice was posted.
 
 ### Android 14+ platform findings
 
