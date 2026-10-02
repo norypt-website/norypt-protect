@@ -210,6 +210,14 @@ internal object ProtectPrefsKeys {
     fun policyGrantsReleased(store: KvStore): Boolean = store.getBoolean("policy_grants_released", false)
     fun setPolicyGrantsReleased(store: KvStore, value: Boolean) = store.putBoolean("policy_grants_released", value)
 
+    /** This phone had the device-wide auto-grant policy until PermissionPolicyGuard reset it. */
+    fun autoGrantWasOn(store: KvStore): Boolean = store.getBoolean("auto_grant_was_on", false)
+    fun setAutoGrantWasOn(store: KvStore, value: Boolean) = store.putBoolean("auto_grant_was_on", value)
+
+    /** The working release of grants locked by the old policy has run (two-step, since 1.2.1). */
+    fun policyGrantsReleasedV2(store: KvStore): Boolean = store.getBoolean("policy_grants_released_v2", false)
+    fun setPolicyGrantsReleasedV2(store: KvStore, value: Boolean) = store.putBoolean("policy_grants_released_v2", value)
+
     /** The owner still has to review app permissions handed out under the old auto-grant policy. */
     fun permissionReviewPending(store: KvStore): Boolean = store.getBoolean("permission_review_pending", false)
     fun setPermissionReviewPending(store: KvStore, value: Boolean) = store.putBoolean("permission_review_pending", value)
@@ -587,6 +595,13 @@ object ProtectPrefs {
     fun policyGrantsReleased(context: Context): Boolean = ProtectPrefsKeys.policyGrantsReleased(store(context))
     fun setPolicyGrantsReleased(context: Context, value: Boolean) =
         ProtectPrefsKeys.setPolicyGrantsReleased(store(context), value)
+
+    fun autoGrantWasOn(context: Context): Boolean = ProtectPrefsKeys.autoGrantWasOn(store(context))
+    fun setAutoGrantWasOn(context: Context, value: Boolean) = ProtectPrefsKeys.setAutoGrantWasOn(store(context), value)
+
+    fun policyGrantsReleasedV2(context: Context): Boolean = ProtectPrefsKeys.policyGrantsReleasedV2(store(context))
+    fun setPolicyGrantsReleasedV2(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setPolicyGrantsReleasedV2(store(context), value)
 
     fun permissionReviewPending(context: Context): Boolean = ProtectPrefsKeys.permissionReviewPending(store(context))
     fun setPermissionReviewPending(context: Context, value: Boolean) =
