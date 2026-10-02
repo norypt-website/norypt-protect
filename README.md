@@ -277,6 +277,26 @@ Verified on 2026-09-14 with dry-run on throughout. Every "pass" below was read b
 | SIM change, biometric change | Not run | No SIM and no enrolled biometric on the test device |
 | Emergency call from the lock screen under lockdown | Not run | See [Emergency services](#emergency-services) |
 
+### Version 1.2 hardening — Pixel 10a, GrapheneOS (Android 17), Device Owner
+
+Verified on 2026-10-02 with the debug build and dry-run on, read back from `dumpsys`, the activity stack and the device's own timeline.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Permission policy after promotion | Pass | `Permission policy: {0=0}` (ask the user); Norypt's SMS and Bluetooth grants not fixed |
+| Armed notification on the lock screen | Pass | `vis=SECRET` |
+| Shortcut screen from another app | Pass | `am start` from the shell refused: the activity is not exported |
+| Launcher Lock shortcut | Pass | Long-press, Lock: the phone went to `Dozing` |
+| Old `action` extra on the main screen | Pass | Ignored; the phone stayed awake on the PIN gate |
+| Way back in with the icon hidden | Pass | `APPLICATION_PREFERENCES` (the Settings gear) opens the gated main screen |
+| `A8` on an unlocked phone | Pass | Countdown started directly by the Device Owner, alert id 5006 posted |
+| Countdown while the credential prompt is open | Pass | No wipe 18 s past the original deadline; it resumed after the prompt closed |
+| Back on the countdown | Pass | Still on top after two presses |
+| Expiry | Pass | `WIPE_TRIGGERED "unlocked.timer" (dry-run: nothing erased)`, stored as an Alert |
+| Locking ends `A8`'s countdown | Pass | The 30 s screen timeout locked the phone; the countdown ended without a wipe |
+
+Not exercised on a device: the repair of a 1.1.x auto-grant policy (unit-tested; visible on the first phone updated from 1.1.x), PanicKit signer binding, and USB-while-locked.
+
 ### Android 14+ platform findings
 
 Three platform changes shaped the current design. They apply to stock Android and GrapheneOS alike and are documented here because they are not obvious from the Android reference.
