@@ -30,6 +30,8 @@ import com.norypt.protect.R
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
+import com.norypt.protect.checkup.CheckupReadings
+import com.norypt.protect.checkup.CheckupRules
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.timeline.TamperLog
@@ -50,15 +52,22 @@ import com.norypt.protect.wipe.WipeEngine
 @Composable
 fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     var showAudit by remember { mutableStateOf(false) }
-    if (showAudit) {
-        AppAuditSubScreen(onBack = { showAudit = false }, padding = padding)
-    } else {
-        HomeContent(padding = padding, onRequestEnableAdmin = onRequestEnableAdmin, onOpenAudit = { showAudit = true })
+    var showCheckup by remember { mutableStateOf(false) }
+    when {
+        // The audit first: opened from the checkup, its Back returns there.
+        showAudit -> AppAuditSubScreen(onBack = { showAudit = false }, padding = padding)
+        showCheckup -> CheckupSubScreen(onBack = { showCheckup = false }, onOpenAudit = { showAudit = true }, padding = padding)
+        else -> HomeContent(
+            padding = padding,
+            onRequestEnableAdmin = onRequestEnableAdmin,
+            onOpenAudit = { showAudit = true },
+            onOpenCheckup = { showCheckup = true },
+        )
     }
 }
 
 @Composable
-private fun HomeContent(padding: PaddingValues, onRequestEnableAdmin: () -> Unit, onOpenAudit: () -> Unit) {
+private fun HomeContent(padding: PaddingValues, onRequestEnableAdmin: () -> Unit, onOpenAudit: () -> Unit, onOpenCheckup: () -> Unit) {
     val ctx = LocalContext.current
     var tier by remember { mutableStateOf(Provisioning.current(ctx)) }
     var armedCount by remember { mutableIntStateOf(countArmed(ctx)) }
@@ -66,6 +75,7 @@ private fun HomeContent(padding: PaddingValues, onRequestEnableAdmin: () -> Unit
     var reviewPending by remember { mutableStateOf(ProtectPrefs.permissionReviewPending(ctx)) }
     var dryRun by remember { mutableStateOf(ProtectPrefs.dryRun(ctx)) }
     var timelineOn by remember { mutableStateOf(TamperLog.isEnabled(ctx)) }
+    var checkupCount by remember { mutableIntStateOf(checkupAttention(ctx)) }
     var showPinForWipe by remember { mutableStateOf(false) }
     val canWipe = WipeEngine.canFactoryReset(tier)
 
@@ -79,6 +89,7 @@ private fun HomeContent(padding: PaddingValues, onRequestEnableAdmin: () -> Unit
                 reviewPending = ProtectPrefs.permissionReviewPending(ctx)
                 dryRun = ProtectPrefs.dryRun(ctx)
                 timelineOn = TamperLog.isEnabled(ctx)
+                checkupCount = checkupAttention(ctx)
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -122,6 +133,7 @@ private fun HomeContent(padding: PaddingValues, onRequestEnableAdmin: () -> Unit
             EnableAdminScreen(onRequestEnableAdmin = onRequestEnableAdmin)
         } else {
             SummaryRow(armedCount = armedCount, total = TriggerRegistry.all.size, dryRun = dryRun, timelineOn = timelineOn)
+            CheckupCard(count = checkupCount, onOpen = onOpenCheckup)
             if (reviewPending) {
                 PermissionReviewCard(
                     onOpenAudit = onOpenAudit,
@@ -196,6 +208,25 @@ private fun PermissionReviewCard(onOpenAudit: () -> Unit, onDone: () -> Unit) {
     SecondaryButton(label = "Open App audit", onClick = onOpenAudit)
     SecondaryButton(label = "Done, I have reviewed them", onClick = onDone, color = NoryptColors.Muted)
 }
+
+/** Opens the privacy checkup; the count is what still needs the owner. */
+@Composable
+private fun CheckupCard(count: Int, onOpen: () -> Unit) {
+    NoryptCard(onClick = onOpen) {
+        Text("Privacy checkup", color = NoryptColors.TextStrong, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            when (count) {
+                0 -> "Nothing needs your attention."
+                1 -> "1 item needs your attention."
+                else -> "$count items need your attention."
+            },
+            color = if (count == 0) NoryptColors.Muted else NoryptColors.Amber,
+            fontSize = 12.sp,
+        )
+    }
+}
+
+private fun checkupAttention(ctx: Context): Int = CheckupRules.needsAttention(CheckupRules.evaluate(CheckupReadings.read(ctx)))
 
 @Composable
 private fun HomeHeader(tier: Tier) {
