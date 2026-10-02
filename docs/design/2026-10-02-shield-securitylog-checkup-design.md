@@ -94,7 +94,7 @@ This note records the design for three additions and the decisions taken where t
 ## Files
 
 New: `shield/AccessShield.kt` (allowlist policies), `shield/AppAudit.kt` (audit readings), `timeline/SecurityLogImport.kt` (adapter, mapping, watermark), `checkup/CheckupRules.kt` (pure checks), `checkup/CheckupReadings.kt` (platform reads and fixes), `checkup/LocationWhileLocked.kt`, `ui/screens/AppAuditScreen.kt`, `ui/screens/CheckupScreen.kt`, plus unit tests for each pure part.
-Changed: `ProtectAdminReceiver` (security-log callback), `BootCompletedReceiver` (pre-reboot import), `TamperKind`, `TamperMonitor` (failed-unlock source switch), `ProtectPrefs` (allowlists, watermark, toggles), `ProtectionLevelScreen` (toggles, links), `HomeScreen` (checkup card), `TimelineScreen` (sub-toggle), `PermissionPolicyGuard` (notification opens the audit), `AndroidManifest.xml` (`REQUEST_PASSWORD_COMPLEXITY`, a normal permission), README and changelog.
+Changed: `ProtectAdminReceiver` (security-log callback), `BootCompletedReceiver` (pre-reboot import), `TamperKind`, `ProtectPrefs` (allowlists, watermark, toggles), `ProtectionLevelScreen` (toggles, links), `HomeScreen` (checkup card), `TimelineScreen` (sub-toggle), `AndroidManifest.xml` (`REQUEST_PASSWORD_COMPLEXITY`, a normal permission), README and changelog.
 
 ## Verification
 
