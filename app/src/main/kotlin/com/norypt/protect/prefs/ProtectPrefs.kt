@@ -465,6 +465,19 @@ internal object ProtectPrefsKeys {
         decodeSet(store.getString(KEY_SHIELD_ALLOW_PREFIX + kind, null))
     fun setShieldAllowlist(store: KvStore, kind: String, value: Set<String>) =
         store.putString(KEY_SHIELD_ALLOW_PREFIX + kind, encodeSet(value))
+
+    // --- Android security log ---
+    const val KEY_SECURITY_LOG_WATERMARK_NS = "security_log_watermark_ns"
+    const val KEY_SECURITY_LOG_UNAVAILABLE = "security_log_unavailable"
+    const val KEY_SECURITY_LOG_PRE_REBOOT_BOOT = "security_log_pre_reboot_boot"
+
+    fun securityLogWatermarkNanos(store: KvStore): Long = store.getLong(KEY_SECURITY_LOG_WATERMARK_NS, 0L)
+    fun setSecurityLogWatermarkNanos(store: KvStore, value: Long) = store.putLong(KEY_SECURITY_LOG_WATERMARK_NS, value)
+    fun securityLogUnavailable(store: KvStore): Boolean = store.getBoolean(KEY_SECURITY_LOG_UNAVAILABLE, false)
+    fun setSecurityLogUnavailable(store: KvStore, value: Boolean) = store.putBoolean(KEY_SECURITY_LOG_UNAVAILABLE, value)
+    /** Boot count whose pre-reboot logs were already read; -1 = none yet. */
+    fun securityLogPreRebootBoot(store: KvStore): Int = store.getInt(KEY_SECURITY_LOG_PRE_REBOOT_BOOT, -1)
+    fun setSecurityLogPreRebootBoot(store: KvStore, value: Int) = store.putInt(KEY_SECURITY_LOG_PRE_REBOOT_BOOT, value)
 }
 
 /**
@@ -820,4 +833,16 @@ object ProtectPrefs {
         ProtectPrefsKeys.shieldAllowlist(store(context), kind)
     fun setShieldAllowlist(context: Context, kind: String, value: Set<String>) =
         ProtectPrefsKeys.setShieldAllowlist(store(context), kind, value)
+
+    // --- Android security log ---
+
+    fun securityLogWatermarkNanos(context: Context): Long = ProtectPrefsKeys.securityLogWatermarkNanos(store(context))
+    fun setSecurityLogWatermarkNanos(context: Context, value: Long) =
+        ProtectPrefsKeys.setSecurityLogWatermarkNanos(store(context), value)
+    fun securityLogUnavailable(context: Context): Boolean = ProtectPrefsKeys.securityLogUnavailable(store(context))
+    fun setSecurityLogUnavailable(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setSecurityLogUnavailable(store(context), value)
+    fun securityLogPreRebootBoot(context: Context): Int = ProtectPrefsKeys.securityLogPreRebootBoot(store(context))
+    fun setSecurityLogPreRebootBoot(context: Context, value: Int) =
+        ProtectPrefsKeys.setSecurityLogPreRebootBoot(store(context), value)
 }

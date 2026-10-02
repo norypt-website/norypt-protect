@@ -12,6 +12,7 @@ import com.norypt.protect.dpm.EmergencySos
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.timeline.SecurityLogFeature
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.util.DebugTelemetry
@@ -72,7 +73,9 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
         // Shared run length (used by both A11 and B1)
         val count = ProtectPrefs.recordFailedAttempt(context)
-        TamperLog.record(context, TamperKind.UNLOCK_FAILED, "$count in a row.")
+        // With Android's security log on, failed unlocks reach the Timeline from it (it also sees attempts
+        // before the first unlock after a restart); A11 and B1 below keep counting from this callback.
+        if (!SecurityLogFeature.isOn(context)) TamperLog.record(context, TamperKind.UNLOCK_FAILED, "$count in a row.")
 
         // A11 — duress fast-wipe (stricter threshold, checked first)
         if (ProtectPrefs.isTriggerEnabled(context, "A11")) {
@@ -100,6 +103,19 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
     override fun onPasswordChanged(context: Context, intent: Intent, user: UserHandle) {
         super.onPasswordChanged(context, intent, user)
         TamperLog.record(context, TamperKind.CREDENTIAL_CHANGED, "The device PIN, pattern or password was changed.")
+    }
+
+    override fun onSecurityLogsAvailable(context: Context, intent: Intent) {
+        super.onSecurityLogsAvailable(context, intent)
+        // A batch can hold thousands of events: read it off the main thread.
+        val pending = goAsync()
+        Thread {
+            try {
+                SecurityLogFeature.importNew(context)
+            } finally {
+                pending.finish()
+            }
+        }.start()
     }
 
     private fun debugIncrement(ctx: Context, key: String) = DebugTelemetry.bump(ctx, key)

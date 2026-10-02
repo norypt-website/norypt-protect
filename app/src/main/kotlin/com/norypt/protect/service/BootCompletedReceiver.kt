@@ -7,6 +7,7 @@ import com.norypt.protect.BuildConfig
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.timeline.SecurityLogFeature
 import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
@@ -55,6 +56,8 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 // after a reboot against a stale pre-reboot timestamp.
                 UnlockedTimer.stamp(context)
                 TamperBootAudit.check(context, fromBootBroadcast = true)
+                // The logs from before this restart, once per boot; the service started above keeps the process up.
+                if (SecurityLogFeature.isOn(context)) Thread { SecurityLogFeature.importNew(context, fromBoot = true) }.start()
             }
             Intent.ACTION_MY_PACKAGE_REPLACED ->
                 TamperLog.record(context, TamperKind.APP_UPDATED, "Version ${BuildConfig.VERSION_NAME} installed.")
