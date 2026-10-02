@@ -45,8 +45,8 @@ android {
         // The v1.0.0 release shipped with these still at 1 / "0.1.0-mvp", so the published
         // APK reports a version that contradicts its own release notes. Android orders
         // updates by versionCode, so it must increase on every release from here.
-        versionCode = 6
-        versionName = "1.2.1"
+        versionCode = 7
+        versionName = "1.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += listOf("en")
     }

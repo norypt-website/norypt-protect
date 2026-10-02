@@ -69,14 +69,16 @@ aapt dump permissions norypt-protect-1.0.0.apk | grep -E 'INTERNET|LOCATION|CAME
 
 There is no `INTERNET` permission, so even a hypothetical compromise of the application could not transmit data off the device. The same list is rendered on the in-app **Trust Report** screen, read live from `PackageManager` on the running binary.
 
-Two features are commonly flagged as stalkerware patterns. Both exist for the device's own owner, are off by default, and are reversible by that owner:
+Some features are commonly flagged as stalkerware patterns. Each exists for the device's own owner and does nothing until that owner turns it on or opens it; whatever it changes, the owner can undo:
 
 | Feature | What it actually does | Why it is not covert monitoring |
 |---|---|---|
 | Hide from launcher | Disables the application's own `activity-alias`, removing its icon from the app drawer. | Standard `PackageManager.setComponentEnabledSetting` on the app's own component. It hides the *configuration UI* from someone handling the unlocked phone. It collects nothing. The owner reaches the app again through Settings → Apps → Norypt Protect → the gear icon, or by tapping its ongoing notification, and can show the icon again from there. |
 | Decoy-app tripwire (`A10`) | Polls `UsageStatsManager` for a single package name the owner chooses, and triggers a wipe if that package is opened. | It matches one owner-nominated package name. It reads no content from that app or any other, and reports nothing anywhere. |
-| Tamper timeline | Records, on the owner's own device and only after the owner turns it on, events the operating system already reports to any app: boots, unlocks, failed unlocks, USB connections, SIM changes, biometric and screen-lock changes. | Off by default. Shown only in the app's own Timeline tab, stored encrypted on the device, cleared with the App PIN, never transmitted. It reads no messages, calls, location, keystrokes, or other apps' data. It exists so an owner can tell whether their own phone was handled while out of their hands. |
+| Tamper timeline | Records, on the owner's own device and only after the owner turns it on, events the operating system already reports to any app: boots, unlocks, failed unlocks, USB connections, SIM changes, biometric and screen-lock changes. A second switch adds entries from Android's own security log, which only a Device Owner can read: failed unlocks, startups with the verified-boot state, USB debugging commands, certificate authorities, storage mounts and failed wipes. | Off by default. Shown only in the app's own Timeline tab, stored encrypted on the device, cleared with the App PIN, never transmitted. It reads no messages, calls, location, keystrokes, or other apps' data; app starts and Wi-Fi and Bluetooth connections are left out of the security log on purpose. It exists so an owner can tell whether their own phone was handled while out of their hands. |
 | Lockdown mode | Makes the owner's device show a blank screen until the owner enters their App PIN, using Android's standard Device Owner lock-task API. | Enabled by the owner, from the app, with a warning and the App PIN, on a device they administer. It is the same kiosk mechanism Android offers every device-management product, and the owner always has an exit (hold, PIN, Exit). Using it to lock another person out of a device they use is prohibited under [Intended use and restrictions](#intended-use-and-restrictions). |
+| App audit | Lists the apps that hold powerful access: device admin, accessibility, keyboard, notification access, always-on VPN, sensitive permissions, and installs from outside an app store. | Read-only and on screen only: nothing is stored or sent. It reads what Settings shows about each app, never an app's content, and links to the system page where the owner can take access away. |
+| Location off while locked | Switches location services off when the screen goes off and back on at unlock, if they were on. | Uses the Device Owner switch for location services. The app holds no location permission and never reads a location. |
 
 If you believe this application has been installed on your device without your consent, see [SECURITY.md](SECURITY.md) for how to identify and remove it.
 
@@ -207,6 +209,10 @@ An optional, local, encrypted record of events that show whether the phone was h
 
 It sees only what Android reports to an application. It cannot see bootloader-level, firmware-level, or hardware attacks; a phone imaged through a bootloader exploit and put back shows nothing. For that, use hardware attestation such as [GrapheneOS Auditor](https://attestation.app), which verifies the OS and firmware from a second device and also works on many stock phones.
 
+### Android's security log in the Timeline
+
+With the Timeline on, a second switch adds Android's own security log (Tier 2): failed unlocks, including those before the first unlock after a restart; the verified-boot state at every start; USB debugging activity, one entry per ten minutes with the number of commands and the first one; certificate authorities added or removed; storage mounted; failed wipes. Android hands entries over in batches, so they can appear up to a couple of hours late. App starts, Wi-Fi and Bluetooth connections and network activity are not imported. The log is unavailable while another, unaffiliated user exists on the phone.
+
 ### Triggers
 
 Thirteen triggers plus the tile and the launcher shortcuts, each armed and disarmed individually, all subject to the dry-run default.
@@ -232,6 +238,14 @@ Thirteen triggers plus the tile and the launcher shortcuts, each armed and disar
 `A7` accepts intents only from applications signed with the same key. `A5` accepts only the PanicKit app the owner paired with the App PIN, checked against its signing certificate.
 
 The notification-listener stub (`B6`) and the work-profile wipe (`A12`) were removed in 1.2.0: the first asked for access to every notification and used none, and nothing read the second's switch.
+
+### Spyware shield and app audit
+
+Two Device Owner switches allow only approved accessibility services and keyboards, the two channels stalkerware and keyloggers rely on; system ones are always allowed. Nothing is switched off silently: Android refuses the policy while an outside service or keyboard is on and not approved, so the app lists it and the owner approves it or turns it off first. The app audit lists every app with powerful access and why, with a link to its system page. It finds risky access, not mercenary spyware that hides inside the system; that needs a forensic examination.
+
+### Privacy checkup
+
+One screen checks the device and Bluetooth names, USB debugging, screen-lock strength, security-patch age, always-on VPN, Private DNS, lock-screen notification content, Smart Lock and 2G, with a fix where the app can apply one and a Settings link otherwise. Every status is read back from the system, so a fix that did not take stays flagged. On GrapheneOS it lists auto reboot, the USB-C port setting, the duress PIN and 2-factor fingerprint unlock, which no app can read, for the owner to confirm. There are no Wi-Fi checks: listing saved networks needs the location permission. An optional switch turns location services off while the screen is off (Tier 2).
 
 ---
 
