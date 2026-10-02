@@ -50,7 +50,7 @@ class ProtectForegroundService : Service() {
             .setContentTitle("Norypt Protect is armed")
             .setOngoing(true)
             .build()
-        startForeground(NOTIFICATION_ID, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        startForeground(NotificationIds.SERVICE, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         PowerGestureMonitor.start(this)
         UsbLockedMonitor.start(this)
         PowerMenuGuard.start(this)
@@ -82,7 +82,6 @@ class ProtectForegroundService : Service() {
 
     companion object {
         const val CHANNEL_ID = "service"
-        const val NOTIFICATION_ID = 1001
         const val TICK_INTERVAL_MS = 30_000L
 
         private val tickListeners = mutableListOf<(Context) -> Unit>()

@@ -56,3 +56,27 @@ class SuspendableCountdown(
 
     fun isExpired(nowMs: Long): Boolean = remainingMs(nowMs) == 0L
 }
+
+/**
+ * Where a wipe countdown resumes when its screen comes back without having reached an
+ * outcome (cancelled with the credential, conditions cleared, or expired).
+ *
+ * Without a stored deadline every relaunch restarted the full grace period, so closing the
+ * screen once a minute postponed the wipe forever.
+ */
+object CountdownResume {
+
+    /** Shortest time a resumed countdown is shown, so a closed screen never becomes an unseen wipe. */
+    const val MIN_RESUME_MS = 10_000L
+
+    /**
+     * @param savedDeadline elapsedRealtime deadline stored by the previous screen, 0 if none.
+     * @param savedBoot boot count when it was stored; elapsedRealtime restarts at every boot.
+     */
+    fun deadline(savedDeadline: Long, savedBoot: Int, nowElapsed: Long, bootCount: Int, graceMs: Long): Long =
+        when {
+            savedDeadline <= 0L || savedBoot != bootCount -> nowElapsed + graceMs
+            savedDeadline - nowElapsed > graceMs -> nowElapsed + graceMs
+            else -> maxOf(savedDeadline, nowElapsed + MIN_RESUME_MS)
+        }
+}

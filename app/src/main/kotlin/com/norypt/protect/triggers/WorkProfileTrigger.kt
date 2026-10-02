@@ -6,6 +6,7 @@ import android.content.Context
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.service.NotificationIds
 
 /**
  * A12 — Work-profile-only wipe path.
@@ -44,6 +45,6 @@ object WorkProfileTrigger : Trigger {
             .setContentText("Norypt Protect is not running in a work profile.")
             .setAutoCancel(true)
             .build()
-        nm.notify(1200, notification)
+        nm.notify(NotificationIds.WORK_PROFILE, notification)
     }
 }

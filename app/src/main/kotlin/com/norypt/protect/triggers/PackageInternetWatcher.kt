@@ -9,6 +9,7 @@ import android.content.pm.PackageManager
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.util.DebugTelemetry
+import com.norypt.protect.service.NotificationIds
 
 /**
  * B5 — App Internet permission monitor.
@@ -18,8 +19,6 @@ import com.norypt.protect.util.DebugTelemetry
  * notification on the "alerts" channel.
  */
 object PackageInternetWatcher {
-
-    private var notificationId = 5000
 
     fun tick(ctx: Context) {
         DebugTelemetry.bump(ctx, "b5_tick_entered")
@@ -81,7 +80,7 @@ object PackageInternetWatcher {
             .setContentText("$pkg now has internet access")
             .setAutoCancel(true)
             .build()
-        nm.notify(notificationId++, notification)
+        nm.notify(NotificationIds.internetAlert(pkg), notification)
     }
 }
 

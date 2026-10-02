@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult
 import androidx.compose.foundation.background
@@ -27,10 +28,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.UnlockDeadlineMonitor
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
+import com.norypt.protect.util.CountdownResume
 import com.norypt.protect.util.SuspendableCountdown
 import kotlinx.coroutines.delay
 
@@ -66,10 +69,17 @@ class WipeCountdownActivity : ComponentActivity() {
         if (result.resultCode == Activity.RESULT_OK) {
             // A credential entered here proves the owner is present. C6 measures from it;
             // otherwise the deadline is still in the past and the next tick relaunches.
-            if (mode == CountdownMode.UNLOCK_DEADLINE) {
-                ProtectPrefs.setUnlockDeadlineSeenUnlockedMs(this, System.currentTimeMillis())
+            // C4 has no such baseline, so it is snoozed instead of relaunching within a minute.
+            when (mode) {
+                CountdownMode.UNLOCK_DEADLINE ->
+                    ProtectPrefs.setUnlockDeadlineSeenUnlockedMs(this, System.currentTimeMillis())
+                CountdownMode.DEADMAN -> ProtectPrefs.setDeadmanSnooze(
+                    this,
+                    SystemClock.elapsedRealtime() + DeadmanMonitor.SNOOZE_AFTER_CANCEL_MS,
+                    TamperBootAudit.bootCount(this) ?: 0,
+                )
             }
-            finish()
+            finishWithOutcome()
         } else {
             authInProgress.value = false
         }
@@ -91,16 +101,35 @@ class WipeCountdownActivity : ComponentActivity() {
 
         val graceMs = graceSeconds() * 1_000L
         val now = SystemClock.elapsedRealtime()
+        val boot = TamperBootAudit.bootCount(this) ?: 0
         startWallMs = savedInstanceState?.getLong(STATE_START_WALL) ?: System.currentTimeMillis()
-        // Restored from saved state so a configuration change continues the countdown
-        // instead of restarting the grace period — otherwise repeatedly rotating the
-        // phone postpones the wipe indefinitely.
+        // A configuration change restores the deadline from saved state; a screen that was
+        // closed and relaunched by the next alarm resumes the stored one. Either way the
+        // grace period never restarts, or rotating or closing the screen would postpone the
+        // wipe indefinitely.
+        val deadline = savedInstanceState?.getLong(STATE_DEADLINE) ?: CountdownResume.deadline(
+            savedDeadline = ProtectPrefs.countdownDeadline(this, mode.extraValue),
+            savedBoot = ProtectPrefs.countdownBoot(this, mode.extraValue),
+            nowElapsed = now,
+            bootCount = boot,
+            graceMs = graceMs,
+        )
+        ProtectPrefs.setCountdownDeadline(this, mode.extraValue, deadline, boot)
         countdown = SuspendableCountdown(
             startElapsedMs = now,
             graceMs = graceMs,
             maxPauseMs = MAX_PAUSE_MS,
             pauseUsedMs = savedInstanceState?.getLong(STATE_PAUSE_USED) ?: 0L,
-            deadlineElapsedMs = savedInstanceState?.getLong(STATE_DEADLINE) ?: (now + graceMs),
+            deadlineElapsedMs = deadline,
+        )
+
+        // Back must not end the countdown: only the credential, the conditions clearing, or
+        // the deadline may. Otherwise anyone holding the phone could press Back once a minute.
+        onBackPressedDispatcher.addCallback(
+            this,
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() = Unit
+            },
         )
 
         setContent {
@@ -108,17 +137,17 @@ class WipeCountdownActivity : ComponentActivity() {
                 CountdownScreen(
                     countdown = countdown,
                     paused = authInProgress.value,
-                    subtitle = subtitle(),
+                    subtitle = COUNTDOWN_SUBTITLE,
                     onCancel = {
                         authInProgress.value = true
                         launchKeyguardCancel()
                     },
-                    onConditionsCleared = { finish() },
+                    onConditionsCleared = { finishWithOutcome() },
                     onTimerExpired = {
                         if (!isFinishing) {
                             PanicHandler.panic(this@WipeCountdownActivity, mode.reason)
                         }
-                        finish()
+                        finishWithOutcome()
                     },
                     conditionChecker = { areConditionsCleared() },
                 )
@@ -131,10 +160,6 @@ class WipeCountdownActivity : ComponentActivity() {
         CountdownMode.UNLOCK_DEADLINE -> ProtectPrefs.unlockDeadlineGraceSeconds(this)
     }
 
-    private fun subtitle(): String = when (mode) {
-        CountdownMode.DEADMAN -> "Low battery, no connections"
-        CountdownMode.UNLOCK_DEADLINE -> "Not unlocked for ${ProtectPrefs.unlockDeadlineHours(this)} h"
-    }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -155,19 +180,23 @@ class WipeCountdownActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        // Whether the user cancelled, the conditions cleared, or the wipe was requested,
-        // the ongoing alert has done its job and must not outlive this screen.
+        // Released whatever happened, so the next alarm tick may bring the screen back.
         when (mode) {
-            CountdownMode.DEADMAN -> {
-                DeadmanMonitor.countdownActive = false
-                DeadmanMonitor.clearAlert(this)
-            }
-            CountdownMode.UNLOCK_DEADLINE -> {
-                UnlockDeadlineMonitor.countdownActive = false
-                CountdownAlert.clear(this, mode)
-            }
+            CountdownMode.DEADMAN -> DeadmanMonitor.countdownActive = false
+            CountdownMode.UNLOCK_DEADLINE -> UnlockDeadlineMonitor.countdownActive = false
         }
         super.onDestroy()
+    }
+
+    /**
+     * Ends the countdown for good, on an outcome: cancelled with the credential, conditions
+     * cleared, or expired. Only then do the stored deadline and the ongoing alert go; a screen
+     * that merely closed keeps both, so it resumes where it was instead of starting over.
+     */
+    private fun finishWithOutcome() {
+        ProtectPrefs.clearCountdownDeadline(this, mode.extraValue)
+        CountdownAlert.clear(this, mode)
+        finish()
     }
 
     private fun launchKeyguardCancel() {
@@ -180,7 +209,7 @@ class WipeCountdownActivity : ComponentActivity() {
             cancelLauncher.launch(intent)
         } else {
             // No lock screen set — treat as authorised
-            finish()
+            finishWithOutcome()
         }
     }
 
@@ -197,8 +226,14 @@ class WipeCountdownActivity : ComponentActivity() {
         return ProtectPrefs.lastUnlockMs(this) > startWallMs
     }
 
-    /** C4 clears when the battery recovered or a monitored connection came back. */
+    /**
+     * C4 clears when the owner unlocks, the phone is charging, the battery recovered, or a
+     * monitored connection came back.
+     */
     private fun deadmanConditionsCleared(): Boolean {
+        val km = getSystemService(KeyguardManager::class.java)
+        if (km != null && !km.isDeviceLocked) return true
+        if (DeadmanMonitor.isCharging(this)) return true
         val level = batteryLevel(this)
         val threshold = ProtectPrefs.deadmanBatteryPct(this)
         if (level > threshold) return true
@@ -258,6 +293,13 @@ private fun CountdownScreen(
     var secondsLeft by remember {
         mutableIntStateOf(millisToSeconds(countdown.remainingMs(SystemClock.elapsedRealtime())))
     }
+    // The effect below is launched once and runs for the whole countdown, so it must read
+    // these through State: a plain parameter would stay at its first value, and `paused`
+    // would never become true while the owner types the credential to cancel.
+    val isPaused by rememberUpdatedState(paused)
+    val checkConditions by rememberUpdatedState(conditionChecker)
+    val conditionsCleared by rememberUpdatedState(onConditionsCleared)
+    val timerExpired by rememberUpdatedState(onTimerExpired)
 
     // A single always-running ticker drives the deadline; `paused` is passed into advance()
     // rather than keying the effect, so suspension is bounded by the pause budget instead of
@@ -267,7 +309,7 @@ private fun CountdownScreen(
         while (true) {
             delay(TICK_MS)
             val now = SystemClock.elapsedRealtime()
-            val remaining = countdown.advance(now, paused)
+            val remaining = countdown.advance(now, isPaused)
             secondsLeft = millisToSeconds(remaining)
 
             // Conditions are polled once a second, not every tick — each check is several
@@ -276,15 +318,15 @@ private fun CountdownScreen(
             // They are not polled at all while the user is authenticating: the credential
             // prompt lighting the screen can bring a radio up briefly, and reading that as
             // "conditions cleared" would silently abort a legitimate wipe.
-            if (!paused && secondsLeft != lastConditionCheckSecond) {
+            if (!isPaused && secondsLeft != lastConditionCheckSecond) {
                 lastConditionCheckSecond = secondsLeft
-                if (conditionChecker()) {
-                    onConditionsCleared()
+                if (checkConditions()) {
+                    conditionsCleared()
                     return@LaunchedEffect
                 }
             }
             if (remaining == 0L) {
-                onTimerExpired()
+                timerExpired()
                 return@LaunchedEffect
             }
         }
@@ -359,6 +401,12 @@ private const val TICK_MS = 250L
  * grace period. Bounds the "tap Cancel and walk away" disable.
  */
 private const val MAX_PAUSE_MS = 60_000L
+
+/**
+ * Shown over the lock screen to whoever holds the phone, so it names neither the trigger nor
+ * its threshold; the owner finds the reason in the timeline.
+ */
+private const val COUNTDOWN_SUBTITLE = "Cancel with your screen lock."
 
 private const val STATE_DEADLINE = "countdown_deadline_elapsed_ms"
 private const val STATE_PAUSE_USED = "countdown_pause_used_ms"

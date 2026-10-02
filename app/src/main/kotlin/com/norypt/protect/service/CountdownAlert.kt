@@ -6,6 +6,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import com.norypt.protect.R
+import com.norypt.protect.prefs.ProtectPrefs
 
 /**
  * Posts the high-importance notification whose fullScreenIntent brings up
@@ -30,14 +31,14 @@ object CountdownAlert {
             activityIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val text = when (mode) {
-            CountdownMode.DEADMAN -> "Auto-wipe countdown active — tap to respond"
-            CountdownMode.UNLOCK_DEADLINE -> "Not unlocked for too long — wipe countdown active, tap to respond"
-        }
+        // Public on the lock screen by necessity, so it names neither the trigger nor its
+        // threshold. Tapping it opens the countdown even where the full-screen intent was
+        // downgraded to a heads-up, which happens when the permission was revoked.
         val notif = Notification.Builder(ctx, "deadman")
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Norypt Protect")
-            .setContentText(text)
+            .setContentText("Wipe countdown active. Tap to respond.")
+            .setContentIntent(fullScreenPI)
             .setCategory(Notification.CATEGORY_ALARM)
             .setPriority(Notification.PRIORITY_MAX)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -56,5 +57,17 @@ object CountdownAlert {
      */
     fun clear(ctx: Context, mode: CountdownMode) {
         runCatching { ctx.getSystemService(NotificationManager::class.java)?.cancel(mode.notificationId) }
+    }
+
+    /**
+     * Drops a countdown that was left open without an outcome, once its trigger's conditions
+     * no longer hold. Without this, the next time the trigger fired in the same boot it would
+     * resume the old, long-expired deadline and show only the minimum resume time.
+     */
+    fun forgetDeadline(ctx: Context, mode: CountdownMode) {
+        if (ProtectPrefs.countdownDeadline(ctx, mode.extraValue) != 0L) {
+            ProtectPrefs.clearCountdownDeadline(ctx, mode.extraValue)
+            clear(ctx, mode)
+        }
     }
 }
