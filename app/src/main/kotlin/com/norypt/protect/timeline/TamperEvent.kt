@@ -32,6 +32,15 @@ enum class TamperKind(val label: String, val defaultSeverity: Severity) {
     INSTALL_BLOCK("App installation block", Severity.Notable),
     MOTION_LOCK("Locked by sudden movement", Severity.Notable),
     TIMELINE("Timeline", Severity.Info),
+    // Imported from Android's security log (1.3.0). Appended: names are persisted.
+    SYS_UNLOCK_FAILED("Failed unlock (system log)", Severity.Notable),
+    SYS_STARTUP("Started (system log)", Severity.Info),
+    SYS_DEBUG_SHELL("USB debugging activity", Severity.Notable),
+    SYS_CA_CERT("Certificate authority change", Severity.Alert),
+    SYS_STORAGE("External storage", Severity.Info),
+    SYS_WIPE_FAILURE("Wipe failed (system log)", Severity.Alert),
+    SYS_LOG_STATUS("System log interrupted", Severity.Notable),
+    SYS_INTEGRITY("Integrity warning", Severity.Notable),
 }
 
 data class TamperEvent(
