@@ -57,7 +57,7 @@ class DpmTestReceiver : BroadcastReceiver() {
             "powermenu_off" -> { PowerMenuGuard.disable(ctx); log("powermenu.disable done") }
             "sos_off" -> log("sos.disableIfPossible -> ${EmergencySos.disableIfPossible(ctx)}")
             "sos_on" -> log("sos.enableIfPossible -> ${EmergencySos.enableIfPossible(ctx)}")
-            else -> handleFeatureAction(ctx, intent)
+            else -> if (!handleTestAction(ctx, intent)) handleFeatureAction(ctx, intent)
         }
 
         // App-reported state
@@ -118,6 +118,22 @@ class DpmTestReceiver : BroadcastReceiver() {
                 UnlockDeadlineMonitor.tick(ctx)
                 log("c6.tick -> countdownActive=${UnlockDeadlineMonitor.countdownActive}")
             }
+            // Hands the test device back: releases every policy, then gives up Device Owner so the
+            // debug build can be uninstalled. onDisabled fires a panic; keep dry-run on first.
+            "clear_do" -> {
+                LockdownMode.disable(ctx)
+                InstallLockdown.disable(ctx)
+                val dpm = ctx.getSystemService(DevicePolicyManager::class.java)
+                log("clear_do -> dryRun=${ProtectPrefs.dryRun(ctx)} " + runCatching {
+                    dpm.clearDeviceOwnerApp(ctx.packageName); "cleared"
+                }.getOrElse { "failed: ${it.javaClass.simpleName}: ${it.message}" })
+            }
+        }
+    }
+
+    /** Test affordances added for 1.2: arming, A8 timing, permission policy and grant states. */
+    private fun handleTestAction(ctx: Context, intent: Intent): Boolean {
+        when (intent.getStringExtra("action")) {
             // Arms or disarms one trigger by id, through the same path as the Triggers tab.
             "arm", "disarm" -> {
                 val id = intent.getStringExtra("id")
@@ -141,26 +157,38 @@ class DpmTestReceiver : BroadcastReceiver() {
                 UnlockedTimerMonitor.tick(ctx)
                 log("a8.tick -> countdownActive=${UnlockedTimerMonitor.countdownActive}")
             }
+            // Fixes a permission of another app (or of this one) by policy, as the old auto-grant did.
+            "fix_grant" -> {
+                val dpm = ctx.getSystemService(DevicePolicyManager::class.java)
+                val admin = ComponentName(ctx, ProtectAdminReceiver::class.java)
+                val pkg = intent.getStringExtra("pkg") ?: ctx.packageName
+                val perm = intent.getStringExtra("perm").orEmpty()
+                val ok = runCatching {
+                    dpm.setPermissionGrantState(admin, pkg, perm, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                }.getOrElse { false }
+                log("fix_grant $pkg $perm -> $ok state=${dpm.getPermissionGrantState(admin, pkg, perm)}")
+            }
+            "reset_release_flag" -> {
+                ProtectPrefs.setPolicyGrantsReleased(ctx, false)
+                ProtectPrefs.setPermissionReviewPending(ctx, false)
+                log("release flag reset")
+            }
             "policy_dump" -> {
                 val dpm = ctx.getSystemService(DevicePolicyManager::class.java)
                 val admin = ComponentName(ctx, ProtectAdminReceiver::class.java)
+                val pkg = intent.getStringExtra("pkg")
+                val perm = intent.getStringExtra("perm")
+                if (pkg != null && perm != null) log("state $pkg $perm = ${dpm.getPermissionGrantState(admin, pkg, perm)}")
+                log("released=${ProtectPrefs.policyGrantsReleased(ctx)} reviewPending=${ProtectPrefs.permissionReviewPending(ctx)}")
                 log(
                 "permissionPolicy=${dpm.getPermissionPolicy(admin)} dryRun=${ProtectPrefs.dryRun(ctx)} " +
                     "sms=${dpm.getPermissionGrantState(admin, ctx.packageName, android.Manifest.permission.RECEIVE_SMS)} " +
                     "bt=${dpm.getPermissionGrantState(admin, ctx.packageName, android.Manifest.permission.BLUETOOTH_CONNECT)}",
                 )
             }
-            // Hands the test device back: releases every policy, then gives up Device Owner so the
-            // debug build can be uninstalled. onDisabled fires a panic; keep dry-run on first.
-            "clear_do" -> {
-                LockdownMode.disable(ctx)
-                InstallLockdown.disable(ctx)
-                val dpm = ctx.getSystemService(DevicePolicyManager::class.java)
-                log("clear_do -> dryRun=${ProtectPrefs.dryRun(ctx)} " + runCatching {
-                    dpm.clearDeviceOwnerApp(ctx.packageName); "cleared"
-                }.getOrElse { "failed: ${it.javaClass.simpleName}: ${it.message}" })
-            }
+            else -> return false
         }
+        return true
     }
 
     private fun log(m: String) = DebugTelemetry.log("DPMTEST $m")

@@ -206,6 +206,14 @@ internal object ProtectPrefsKeys {
         store.putInt("b5_sequence_boot", bootCount)
     }
 
+    /** The one-time release of permissions the old auto-grant policy fixed on other apps has run. */
+    fun policyGrantsReleased(store: KvStore): Boolean = store.getBoolean("policy_grants_released", false)
+    fun setPolicyGrantsReleased(store: KvStore, value: Boolean) = store.putBoolean("policy_grants_released", value)
+
+    /** The owner still has to review app permissions handed out under the old auto-grant policy. */
+    fun permissionReviewPending(store: KvStore): Boolean = store.getBoolean("permission_review_pending", false)
+    fun setPermissionReviewPending(store: KvStore, value: Boolean) = store.putBoolean("permission_review_pending", value)
+
     /** Why the power-menu guard last failed to engage, or null after a success. */
     fun powerMenuGuardError(store: KvStore): String? = store.getString("power_menu_guard_error", null)
     fun setPowerMenuGuardError(store: KvStore, value: String?) = store.putString("power_menu_guard_error", value)
@@ -575,6 +583,14 @@ object ProtectPrefs {
     fun b5SequenceBoot(context: Context): Int = ProtectPrefsKeys.b5SequenceBoot(store(context))
     fun setB5Sequence(context: Context, sequence: Int, bootCount: Int) =
         ProtectPrefsKeys.setB5Sequence(store(context), sequence, bootCount)
+
+    fun policyGrantsReleased(context: Context): Boolean = ProtectPrefsKeys.policyGrantsReleased(store(context))
+    fun setPolicyGrantsReleased(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setPolicyGrantsReleased(store(context), value)
+
+    fun permissionReviewPending(context: Context): Boolean = ProtectPrefsKeys.permissionReviewPending(store(context))
+    fun setPermissionReviewPending(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setPermissionReviewPending(store(context), value)
 
     fun powerMenuGuardError(context: Context): String? = ProtectPrefsKeys.powerMenuGuardError(store(context))
     fun setPowerMenuGuardError(context: Context, value: String?) =
