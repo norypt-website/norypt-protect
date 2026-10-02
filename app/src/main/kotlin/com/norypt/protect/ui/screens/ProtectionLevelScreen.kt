@@ -242,9 +242,9 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             enabled = isOwner,
             requiresDeviceOwner = true,
             warningTitle = "Enable Anti-tamper?",
-            warningText = "Once enabled, factory-reset is blocked, this app cannot be uninstalled, " +
-                "and the only way to remove it is via ADB or another Device Owner app. " +
-                "The toggle requires your App PIN both to enable and to disable. Continue?",
+            warningText = "Once enabled, the factory reset in Settings is blocked and this app cannot be " +
+                "uninstalled. Only this switch, with your App PIN, lifts it; without the PIN, the only " +
+                "way back is a reset from recovery mode, which erases the phone. Continue?",
             apply = { on ->
                 val ok = if (on) AntiTamper.apply(ctx) else AntiTamper.release(ctx)
                 if (ok) ProtectPrefs.setAntiTamperEnabled(ctx, on)

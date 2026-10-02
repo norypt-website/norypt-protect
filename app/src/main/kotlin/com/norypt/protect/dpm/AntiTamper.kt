@@ -10,9 +10,10 @@ import com.norypt.protect.admin.ProtectAdminReceiver
  * Anti-tamper hardening: blocks factory reset, prevents uninstall.
  * Both operations require Device Owner privilege.
  *
- * WARNING: Once applied, the only way to remove these restrictions is via
- * ADB or another Device Owner app. The UI must require App PIN to apply
- * and to release, and show a prominent warning before first enable.
+ * WARNING: Once applied, the factory-reset block is lifted only from this app, with the App
+ * PIN; otherwise only a reset from recovery mode removes it. The uninstall block lasts as long as
+ * the app is Device Owner. The UI must require the App PIN to apply and to release, and show a
+ * prominent warning before first enable.
  *
  * VERIFIED 2026-08-04 on a Pixel 10a (Android 16, SDK 36): DISALLOW_FACTORY_RESET does
  * NOT block this app's own wipe. With the restriction applied and confirmed enforced via

@@ -73,7 +73,7 @@ Two features are commonly flagged as stalkerware patterns. Both exist for the de
 
 | Feature | What it actually does | Why it is not covert monitoring |
 |---|---|---|
-| Hide from launcher | Disables the application's own `activity-alias`, removing its icon from the app drawer. | Standard `PackageManager.setComponentEnabledSetting` on the app's own component. It hides the *configuration UI* from someone handling the unlocked phone. It collects nothing. The owner re-enables it from the app or from Settings → Apps, where the app is always listed. |
+| Hide from launcher | Disables the application's own `activity-alias`, removing its icon from the app drawer. | Standard `PackageManager.setComponentEnabledSetting` on the app's own component. It hides the *configuration UI* from someone handling the unlocked phone. It collects nothing. The owner reaches the app again through Settings → Apps → Norypt Protect → the gear icon, or by tapping its ongoing notification, and can show the icon again from there. |
 | Decoy-app tripwire (`A10`) | Polls `UsageStatsManager` for a single package name the owner chooses, and triggers a wipe if that package is opened. | It matches one owner-nominated package name. It reads no content from that app or any other, and reports nothing anywhere. |
 | Tamper timeline | Records, on the owner's own device and only after the owner turns it on, events the operating system already reports to any app: boots, unlocks, failed unlocks, USB connections, SIM changes, biometric and screen-lock changes. | Off by default. Shown only in the app's own Timeline tab, stored encrypted on the device, cleared with the App PIN, never transmitted. It reads no messages, calls, location, keystrokes, or other apps' data. It exists so an owner can tell whether their own phone was handled while out of their hands. |
 | Lockdown mode | Makes the owner's device show a blank screen until the owner enters their App PIN, using Android's standard Device Owner lock-task API. | Enabled by the owner, from the app, with a warning and the App PIN, on a device they administer. It is the same kiosk mechanism Android offers every device-management product, and the owner always has an exit (hold, PIN, Exit). Using it to lock another person out of a device they use is prohibited under [Intended use and restrictions](#intended-use-and-restrictions). |
@@ -96,12 +96,15 @@ Lockdown mode uses Android's lock-task API, which keeps the lock screen's emerge
 
 The destructive path is deliberately hard to reach by accident.
 
-- **Dry-run is ON for every fresh install.** Every trigger — manual hold-to-wipe, scheduled, and external broadcast — emits a local test broadcast (`com.norypt.protect.action.WIPED_DRYRUN`) and erases nothing, until the owner explicitly turns dry-run off in *Wipe Options*. A misconfigured trigger on an unattended fresh install cannot reset the phone.
+- **Dry-run is ON for every fresh install.** Every trigger — manual hold-to-wipe, scheduled, and external broadcast — emits a local test broadcast (`com.norypt.protect.action.WIPED_DRYRUN`) and erases nothing, until the owner turns dry-run off in the Wipe tab. The switch needs the App PIN in both directions, and Home says when dry-run is on. A misconfigured trigger on an unattended fresh install cannot reset the phone.
 - **A real wipe requires Device Owner.** On Android 14 and later, `wipeData()` no longer factory-resets user 0. Only a promoted Device Owner can call `wipeDevice()`, and promotion requires a deliberate ADB command on a device with no accounts (see [Tier 2](#tier-2--device-owner)).
-- **The App PIN gates configuration.** After the system unlock, the app requires its own PIN before revealing configured triggers or wipe options.
-- **Countdown and cancel window.** The low-battery trigger (`C4`) and the unlock-deadline trigger (`C6`) show a 60-second full-screen countdown that any successful keyguard authentication cancels.
+- **The App PIN gates configuration.** After the system unlock, the app requires its own PIN before revealing configured triggers or wipe options, and asks again once the screen has gone off or the app has been left for 30 seconds. Every PIN prompt shares one lockout: eight wrong entries block PIN entry for five minutes. Trivial PINs (one repeated digit, a straight sequence, a repeated short block) are refused at setup.
+- **Countdown and cancel window.** The low-battery trigger (`C4`), the unlock-deadline trigger (`C6`) and the unlocked-too-long trigger (`A8`) show a full-screen countdown (60 seconds by default, 15 to 600) that the screen-lock credential cancels. Back does not end it, and a countdown that is closed resumes where it was instead of starting over. Locking the phone ends `A8`'s countdown; unlocking or charging ends `C4`'s.
+- **Settings stay in safe ranges.** Number settings are saved when editing ends, not on every keystroke, and are clamped: at least 3 failed attempts for `B1`, 2 for `A11`, 15 minutes for `A8`, 15 seconds for any countdown.
 - **Lockdown mode always has an owner exit.** Holding a finger on the blank screen for three seconds and entering the App PIN opens a panel with an Exit button. It is the same PIN that gates every other setting, and it is the only way out short of a factory reset, which the warning says before the mode is enabled.
-- **External triggers are signature-gated.** Receivers that accept an outside intent (`A5`, `A7`) require the signature-level permission `com.norypt.protect.permission.TRIGGER`. A third-party application cannot fire a wipe unless it is signed with the same key.
+- **External triggers are bound to a key.** `A7` requires the signature-level permission `com.norypt.protect.permission.TRIGGER`, so only an app signed with the Norypt key can send it. `A5` (PanicKit) fires only for the one app the owner paired with the App PIN, identified by its signing certificate; an app later installed under the same name cannot inherit the pairing.
+- **Armed means able to fire.** A trigger that is armed but cannot fire (no code, no pairing, a missing permission) says why on the Triggers tab, and Home counts only triggers that can fire.
+- **Triggers start after the first unlock.** After a restart, nothing of the app runs until the owner unlocks once; until then the data is encrypted at rest and only the system's own protections apply. On GrapheneOS, keep `C6` shorter than the auto-reboot time.
 
 **There is no PIN recovery.** The App PIN is derived with PBKDF2-HMAC-SHA256 (120,000 rounds) and bound to the Android Keystore. A recovery path would also be an attacker's path, so none exists. A forgotten PIN means factory-resetting the phone.
 
@@ -123,7 +126,10 @@ The in-app **Trust Report** (Protect tab → *Trust report*) lets any user confi
 Supporting hardening:
 
 - `EncryptedSharedPreferences` for all configuration — AES-256-SIV for keys, AES-256-GCM for values.
-- R8 strips `Log.*` calls from release builds. Nothing is written to disk.
+- R8 strips `Log.*` calls from release builds. Diagnostic counters exist only in debug builds; a release build writes nothing but its encrypted configuration and, if the owner turns it on, the encrypted timeline. A build gate fails if a counter key reaches the release dex.
+- Nothing of the app is included in cloud backups or device-to-device transfers.
+- Lock-screen notifications that would reveal the app's state (armed, wipe failed, failed unlocks) are hidden on the lock screen.
+- Device Owner never auto-grants other apps' permissions. Versions up to 1.1.1 set the device-wide auto-grant policy; 1.2.0 resets it on its first start and asks the owner to review permissions granted meanwhile.
 - No third-party analytics, crash reporting, or advertising SDKs. The dependency graph is short and pinned in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), with checksums in [`gradle/verification-metadata.xml`](gradle/verification-metadata.xml).
 
 ---
@@ -159,7 +165,7 @@ Hardened ROMs remove the Restricted-settings toggle. The app detects this and di
 adb shell dpm set-active-admin --user 0 com.norypt.protect/com.norypt.protect.admin.ProtectAdminReceiver
 ```
 
-Tier 1 provides instant screen lock (in-app, launcher shortcut, and Quick Settings tile), launcher shortcuts, the app-internet permission monitor, and the notification listener stub. Wipe controls are visible but cannot factory-reset on Android 14+ without Tier 2.
+Tier 1 provides instant screen lock (in-app, launcher shortcut, and Quick Settings tile), launcher shortcuts and the app-internet permission monitor. On Android 14 and later a Device Admin cannot factory-reset, so wipe controls are hidden and the tile is unavailable until Tier 2.
 
 ### Tier 2 — Device Owner
 
@@ -203,7 +209,7 @@ It sees only what Android reports to an application. It cannot see bootloader-le
 
 ### Triggers
 
-Fifteen triggers, each armed and disarmed individually, all subject to the dry-run default.
+Thirteen triggers plus the tile and the launcher shortcuts, each armed and disarmed individually, all subject to the dry-run default.
 
 | ID | Trigger | Tier |
 |---|---|---|
@@ -212,20 +218,20 @@ Fifteen triggers, each armed and disarmed individually, all subject to the dry-r
 | `A5` | External panic broadcast, PanicKit-compatible | 2 |
 | `A6` | Secret SMS code | 2 |
 | `A7` | External broadcast trigger | 2 |
-| `A8` | Device stayed unlocked beyond a threshold | 2 |
+| `A8` | Device stayed unlocked beyond a threshold — countdown with cancel window | 2 |
 | `A9` | USB data connected while locked | 2 |
 | `A10` | Decoy-app tripwire | 2 |
 | `A11` | Duress threshold — wipe at a lower wrong-PIN count than the system limit | 2 |
-| `A12` | Work-profile-only wipe | 2 |
 | `B1` | Maximum failed unlock attempts | 2 |
 | `B4` | Failed-authentication notification | 1 |
-| `B5` | App-internet permission monitor, approximately 10-second polling | 1 |
-| `B6` | Notification listener (stub, no hooks yet) | 1 |
+| `B5` | App-internet permission monitor, checked when apps are installed or updated | 1 |
 | `C3` | Power button pressed five times | 2 |
 | `C4` | Low-battery dead-man switch with 60-second countdown and cancel window | 2 |
-| `C6` | Not unlocked for N hours (default 48) — countdown with cancel window, for a phone seized, lost or left behind | 2 |
+| `C6` | Not unlocked for N hours (default 12) — countdown with cancel window, for a phone seized, lost or left behind | 2 |
 
-`A5` and `A7` accept intents only from applications signed with the same key, enforced by a signature-level permission.
+`A7` accepts intents only from applications signed with the same key. `A5` accepts only the PanicKit app the owner paired with the App PIN, checked against its signing certificate.
+
+The notification-listener stub (`B6`) and the work-profile wipe (`A12`) were removed in 1.2.0: the first asked for access to every notification and used none, and nothing read the second's switch.
 
 ---
 
