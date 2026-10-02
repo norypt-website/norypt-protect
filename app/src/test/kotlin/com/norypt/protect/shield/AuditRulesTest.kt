@@ -65,4 +65,10 @@ class AuditRulesTest {
         assertEquals(listOf("b", "a"), AuditRules.entries(list, showSystem = false, selfPackage = self).map { it.packageName })
         assertEquals(listOf("b", "a", "sys"), AuditRules.entries(list, showSystem = true, selfPackage = self).map { it.packageName })
     }
+
+    @Test
+    fun `notification access is read as package names, and an empty setting means none`() {
+        assertEquals(setOf("org.a", "org.b"), AppAudit.listenerPackages("org.a/.Listener:org.b/org.b.Service"))
+        assertTrue(AppAudit.listenerPackages("").isEmpty())
+    }
 }

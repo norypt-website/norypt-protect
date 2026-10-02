@@ -34,9 +34,14 @@ fun AppAuditSubScreen(onBack: () -> Unit, padding: PaddingValues) {
     val ctx = LocalContext.current
     var facts by remember { mutableStateOf<List<AppFacts>?>(null) }
     var showSystem by remember { mutableStateOf(false) }
-    val listenersReadable = remember { AppAudit.notificationListeners(ctx).isNotEmpty() }
+    var failed by remember { mutableStateOf(false) }
+    val listenersReadable = remember { AppAudit.notificationListeners(ctx) != null }
     // Hundreds of package queries: off the main thread.
-    LaunchedEffect(Unit) { facts = withContext(Dispatchers.IO) { AppAudit.collect(ctx) } }
+    LaunchedEffect(Unit) {
+        val result = withContext(Dispatchers.IO) { runCatching { AppAudit.collect(ctx) } }
+        facts = result.getOrNull()
+        failed = result.isFailure
+    }
     SubScreenScaffold(title = "App audit", onBack = onBack, padding = padding) {
         NoteCard(
             text = "Apps with the kinds of access spyware uses. This finds risky access, not mercenary spyware " +
@@ -59,7 +64,9 @@ fun AppAuditSubScreen(onBack: () -> Unit, padding: PaddingValues) {
             )
         }
         val current = facts
-        if (current == null) {
+        if (failed) {
+            Text("Could not read the installed apps. Try again later.", color = NoryptColors.Red, fontSize = 13.sp)
+        } else if (current == null) {
             Text("Reading installed apps…", color = NoryptColors.Muted, fontSize = 13.sp)
         } else {
             val entries = AuditRules.entries(current, showSystem, ctx.packageName)

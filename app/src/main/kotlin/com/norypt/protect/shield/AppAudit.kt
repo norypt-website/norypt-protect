@@ -21,7 +21,7 @@ object AppAudit {
         val vpn = runCatching { dpm?.getAlwaysOnVpnPackage(ComponentName(ctx, ProtectAdminReceiver::class.java)) }.getOrNull()
         val a11y = AccessShield.enabledAll(ctx, ShieldKind.ACCESSIBILITY)
         val keyboards = AccessShield.enabledAll(ctx, ShieldKind.KEYBOARD)
-        val listeners = notificationListeners(ctx)
+        val listeners = notificationListeners(ctx).orEmpty()
         val launcher = pm.queryIntentActivities(
             Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
             PackageManager.ResolveInfoFlags.of(0),
@@ -45,13 +45,14 @@ object AppAudit {
         }
     }
 
-    /** Packages with notification access, or empty when the platform will not say. */
-    fun notificationListeners(ctx: Context): Set<String> = runCatching {
-        Settings.Secure.getString(ctx.contentResolver, ENABLED_LISTENERS)
-            ?.split(':')
-            ?.mapNotNull { ComponentName.unflattenFromString(it)?.packageName }
-            ?.toSet()
-    }.getOrNull().orEmpty()
+    /** Packages with notification access; null only when the platform will not say. */
+    fun notificationListeners(ctx: Context): Set<String>? = runCatching {
+        listenerPackages(Settings.Secure.getString(ctx.contentResolver, ENABLED_LISTENERS).orEmpty())
+    }.getOrNull()
+
+    /** The setting is a colon-separated list of flattened components, `package/class`. */
+    internal fun listenerPackages(raw: String): Set<String> =
+        raw.split(':').map { it.substringBefore('/') }.filter { it.isNotBlank() }.toSet()
 
     private fun held(pm: PackageManager, pkg: String, permission: String): Boolean =
         permission in AuditRules.SENSITIVE && pm.checkPermission(permission, pkg) == PackageManager.PERMISSION_GRANTED
