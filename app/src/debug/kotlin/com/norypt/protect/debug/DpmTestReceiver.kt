@@ -57,7 +57,7 @@ class DpmTestReceiver : BroadcastReceiver() {
             "powermenu_off" -> { PowerMenuGuard.disable(ctx); log("powermenu.disable done") }
             "sos_off" -> log("sos.disableIfPossible -> ${EmergencySos.disableIfPossible(ctx)}")
             "sos_on" -> log("sos.enableIfPossible -> ${EmergencySos.enableIfPossible(ctx)}")
-            else -> if (!handleTestAction(ctx, intent)) handleFeatureAction(ctx, intent)
+            else -> if (!V13TestHooks.handle(ctx, intent) && !handleTestAction(ctx, intent)) handleFeatureAction(ctx, intent)
         }
 
         // App-reported state
