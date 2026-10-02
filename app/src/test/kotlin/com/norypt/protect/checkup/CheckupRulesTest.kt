@@ -25,6 +25,7 @@ class CheckupRulesTest {
         dns: Int? = DevicePolicyManager.PRIVATE_DNS_MODE_PROVIDER_HOSTNAME,
         keyguard: Int = 0,
         privateNotifications: Boolean? = false,
+        shown: Boolean? = true,
         twoG: Boolean? = true,
         graphene: Boolean = false,
         confirmed: Set<CheckId> = emptySet(),
@@ -32,7 +33,8 @@ class CheckupRulesTest {
         model = "Pixel 9a", deviceName = deviceName, bluetoothName = bluetoothName, bluetoothAllowed = bluetoothAllowed,
         adbEnabled = adb, passwordComplexity = complexity, securityPatch = patch, today = today, alwaysOnVpn = vpn,
         vpnReadable = vpnReadable, vpnLockdown = lockdown, privateDnsMode = dns, keyguardDisabledFeatures = keyguard,
-        privateNotificationsAllowed = privateNotifications, twoGBlocked = twoG, grapheneOs = graphene, confirmed = confirmed,
+        privateNotificationsAllowed = privateNotifications, lockScreenNotificationsShown = shown, twoGBlocked = twoG,
+        grapheneOs = graphene, confirmed = confirmed,
     )
 
     private fun status(r: Readings, id: CheckId) = CheckupRules.evaluate(r).single { it.id == id }.status
@@ -131,5 +133,17 @@ class CheckupRulesTest {
         val result = CheckupRules.evaluate(readings(vpn = null, vpnReadable = false)).single { it.id == CheckId.VPN }
         assertEquals(CheckStatus.INFO, result.status)
         assertTrue(result.detail.startsWith("Could not be read"))
+    }
+
+    @Test
+    fun `no notifications on the lock screen at all hides their content too`() {
+        assertEquals(CheckStatus.OK, status(readings(privateNotifications = true, shown = false), CheckId.LOCKSCREEN_NOTIFICATIONS))
+    }
+
+    @Test
+    fun `2G offers no fix where Android cannot block it`() {
+        assertFalse(CheckupRules.offersFix(CheckId.CELLULAR_2G, readings(twoG = null)))
+        assertTrue(CheckupRules.offersFix(CheckId.CELLULAR_2G, readings(twoG = false)))
+        assertTrue(CheckupRules.offersFix(CheckId.DEVICE_NAME, readings(twoG = null)))
     }
 }
