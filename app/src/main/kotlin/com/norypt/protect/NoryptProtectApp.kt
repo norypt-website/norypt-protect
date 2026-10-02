@@ -3,6 +3,7 @@ package com.norypt.protect
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.norypt.protect.dpm.LockdownMode
 import com.norypt.protect.dpm.PermissionPolicyGuard
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.panic.PanicHandler
@@ -47,6 +48,8 @@ class NoryptProtectApp : Application() {
         // Undoes the device-wide permission auto-grant older versions set on promotion. Runs on
         // every process start, so the update itself (MY_PACKAGE_REPLACED) repairs existing phones.
         PermissionPolicyGuard.enforce(this)
+        // A lockdown that was switched off but not fully released would leave a blank HOME.
+        runCatching { LockdownMode.releaseLeftovers(this) }
         ProtectForegroundService.registerTick { UnlockedTimerMonitor.tick(it) }
         ProtectForegroundService.registerTick { FakeMessengerMonitor.tick(it) }
         // C4 is driven by DeadmanScheduler's alarm, not this tick: the handler does not

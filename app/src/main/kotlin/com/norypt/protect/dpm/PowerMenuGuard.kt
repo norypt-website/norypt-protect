@@ -238,6 +238,11 @@ object PowerMenuGuard {
             val intent = Intent(ctx, PowerMenuBlockerActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NO_ANIMATION)
             ctx.startActivity(intent)
+        }.onSuccess {
+            ProtectPrefs.setPowerMenuGuardError(ctx, null)
+        }.onFailure { e ->
+            // Shown under the switch: an ON switch must not hide a guard that never engaged.
+            ProtectPrefs.setPowerMenuGuardError(ctx, e.javaClass.simpleName)
         }
     }
 
