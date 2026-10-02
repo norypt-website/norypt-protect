@@ -1,4 +1,4 @@
-# Norypt Protect 1.1.1 — Provisioning Pack
+# Norypt Protect 1.2.0 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.1.1.apk` | The signed app |
-| `norypt-protect-1.1.1.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.2.0.apk` | The signed app |
+| `norypt-protect-1.2.0.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  6b4c7171b057454c213f677eda3527aa78ead09d257b2f99152bfa5e24f61fe6
+SHA-256  25cdb6e29983b8a90686c96191308bdfd607004234a1ef702c70a787bb1ecadb
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -62,6 +62,21 @@ stops — because this app can erase the phone it is installed on.
    tab. Tell them to test first, arm second.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.2
+
+A security-hardening release. Phones updated from 1.1.x show a **Review app permissions**
+notification once: earlier versions let other apps receive permissions without asking. Open
+Settings › Security & privacy › Permission manager with the customer and remove what an app
+should not have.
+
+- Countdowns can no longer wipe while the owner is cancelling, and Back no longer ends them.
+- **A8** (unlocked too long) now shows a cancellable countdown instead of wiping at once.
+- The app asks for the PIN again after 30 seconds away, and every PIN prompt shares one lockout.
+- Dry-run is a visible switch in the Wipe tab and needs the App PIN either way.
+- A trigger that is switched on but cannot fire says why. **B6** and **A12** were removed.
+- **C6** defaults to 12 hours. Existing settings are kept.
+- PanicKit apps paired with A5 must be paired again.
 
 ## New in 1.1
 
