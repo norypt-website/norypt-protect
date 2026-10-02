@@ -76,13 +76,13 @@ internal object ProtectPrefsKeys {
         store.putBoolean(KEY_TRIGGER_ENABLED_PREFIX + id, enabled)
 
     fun maxFailedAttempts(store: KvStore): Int =
-        store.getInt(KEY_MAX_FAILED_ATTEMPTS, 10)
+        SettingBounds.failedAttempts(store.getInt(KEY_MAX_FAILED_ATTEMPTS, 10))
 
     fun setMaxFailedAttempts(store: KvStore, value: Int) =
         store.putInt(KEY_MAX_FAILED_ATTEMPTS, value)
 
     fun maxUnlockedMinutes(store: KvStore): Int =
-        store.getInt(KEY_MAX_UNLOCKED_MINUTES, 360)
+        SettingBounds.unlockedMinutes(store.getInt(KEY_MAX_UNLOCKED_MINUTES, 360))
 
     fun setMaxUnlockedMinutes(store: KvStore, value: Int) =
         store.putInt(KEY_MAX_UNLOCKED_MINUTES, value)
@@ -127,20 +127,16 @@ internal object ProtectPrefsKeys {
         store.getInt(KEY_FAILED_ATTEMPTS, 0)
 
     /**
-     * Failed unlocks further apart than this belong to different events and start a new
-     * run. Without a window the counter is monotonic for the life of the install, so three
-     * unrelated mistypes spread over months reach a duress threshold of 3 and wipe a device
-     * that was never under coercion.
+     * Records a failed unlock at [nowMs] and returns the length of the current run. A run
+     * ends only with a successful unlock ([resetFailedAttempts], from onPasswordSucceeded and
+     * USER_PRESENT), so the owner's own mistypes never add up: they unlock in between.
+     *
+     * There used to be a 15-minute window after which a run restarted. GrapheneOS's secure
+     * element makes guesses wait 15 minutes and more after the seventh, so the count never
+     * passed seven there and a limit of 8 or more could not fire.
      */
-    const val FAILED_ATTEMPT_WINDOW_MS = 15 * 60_000L
-
-    /** Records a failed unlock at [nowMs] and returns the length of the current run. */
     fun recordFailedAttempt(store: KvStore, nowMs: Long): Int {
-        val last = store.getLong(KEY_FAILED_ATTEMPT_LAST_MS, 0L)
-        // nowMs < last means the clock stepped backwards; treat it as a fresh run rather
-        // than extending one on timestamps we can no longer compare.
-        val continuesRun = last > 0L && nowMs >= last && nowMs - last <= FAILED_ATTEMPT_WINDOW_MS
-        val next = if (continuesRun) failedAttempts(store) + 1 else 1
+        val next = failedAttempts(store) + 1
         store.putInt(KEY_FAILED_ATTEMPTS, next)
         store.putLong(KEY_FAILED_ATTEMPT_LAST_MS, nowMs)
         return next
@@ -204,7 +200,7 @@ internal object ProtectPrefsKeys {
 
     /** A11: duress panic threshold (0 = off). Wipe fires when failedAttempts reaches this value. */
     fun duressThreshold(store: KvStore): Int =
-        store.getInt(KEY_DURESS_THRESHOLD, 0)
+        SettingBounds.duressThreshold(store.getInt(KEY_DURESS_THRESHOLD, 0))
 
     fun setDuressThreshold(store: KvStore, value: Int) =
         store.putInt(KEY_DURESS_THRESHOLD, value)
@@ -242,13 +238,13 @@ internal object ProtectPrefsKeys {
     // --- C4 Dead-man switch ---
 
     fun deadmanBatteryPct(store: KvStore): Int =
-        store.getInt(KEY_DEADMAN_BATTERY_PCT, 5)
+        SettingBounds.batteryPct(store.getInt(KEY_DEADMAN_BATTERY_PCT, 5))
 
     fun setDeadmanBatteryPct(store: KvStore, value: Int) =
         store.putInt(KEY_DEADMAN_BATTERY_PCT, value)
 
     fun deadmanGraceSeconds(store: KvStore): Int =
-        store.getInt(KEY_DEADMAN_GRACE_SECONDS, 60)
+        SettingBounds.graceSeconds(store.getInt(KEY_DEADMAN_GRACE_SECONDS, 60))
 
     fun setDeadmanGraceSeconds(store: KvStore, value: Int) =
         store.putInt(KEY_DEADMAN_GRACE_SECONDS, value)
@@ -272,7 +268,7 @@ internal object ProtectPrefsKeys {
         store.putBoolean(KEY_DEADMAN_REQUIRE_WIFI, value)
 
     fun deadmanDisarmMinutesAfterUnlock(store: KvStore): Int =
-        store.getInt(KEY_DEADMAN_DISARM_MINUTES_AFTER_UNLOCK, 0)
+        SettingBounds.disarmMinutes(store.getInt(KEY_DEADMAN_DISARM_MINUTES_AFTER_UNLOCK, 0))
 
     fun setDeadmanDisarmMinutesAfterUnlock(store: KvStore, value: Int) =
         store.putInt(KEY_DEADMAN_DISARM_MINUTES_AFTER_UNLOCK, value)
@@ -346,10 +342,18 @@ internal object ProtectPrefsKeys {
     const val KEY_UNLOCK_DEADLINE_ARMED_AT_MS = "unlock_deadline_armed_at_ms"
     const val KEY_UNLOCK_DEADLINE_SEEN_UNLOCKED_MS = "unlock_deadline_seen_unlocked_ms"
 
-    fun unlockDeadlineHours(store: KvStore): Int = store.getInt(KEY_UNLOCK_DEADLINE_HOURS, 48)
+    /**
+     * Default 12 h: on GrapheneOS a locked phone auto-reboots after 18 h by default, and after
+     * a reboot no app code runs until the owner unlocks, so a longer deadline never arrives.
+     */
+    fun unlockDeadlineHours(store: KvStore): Int =
+        SettingBounds.deadlineHours(store.getInt(KEY_UNLOCK_DEADLINE_HOURS, DEFAULT_UNLOCK_DEADLINE_HOURS))
+
+    const val DEFAULT_UNLOCK_DEADLINE_HOURS = 12
     fun setUnlockDeadlineHours(store: KvStore, value: Int) = store.putInt(KEY_UNLOCK_DEADLINE_HOURS, value)
 
-    fun unlockDeadlineGraceSeconds(store: KvStore): Int = store.getInt(KEY_UNLOCK_DEADLINE_GRACE_SECONDS, 60)
+    fun unlockDeadlineGraceSeconds(store: KvStore): Int =
+        SettingBounds.graceSeconds(store.getInt(KEY_UNLOCK_DEADLINE_GRACE_SECONDS, 60))
     fun setUnlockDeadlineGraceSeconds(store: KvStore, value: Int) =
         store.putInt(KEY_UNLOCK_DEADLINE_GRACE_SECONDS, value)
 

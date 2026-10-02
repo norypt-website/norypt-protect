@@ -89,25 +89,21 @@ class ProtectPrefsTest {
     }
 
     @Test
-    fun `failed attempt after the window starts a new run`() {
+    fun `slow guessing keeps counting until a successful unlock`() {
+        // GrapheneOS makes guesses wait 15 minutes and more after the seventh; a run that
+        // restarted after a gap would never reach a limit of 8 or more there.
         val t0 = 1_000_000L
-        val window = ProtectPrefsKeys.FAILED_ATTEMPT_WINDOW_MS
-
+        val hour = 3_600_000L
         assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0))
-        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 + window))
-
-        // One millisecond past the window: unrelated event, so the run restarts at 1
-        // rather than reaching a duress threshold months after the first mistype.
-        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0 + window + window + 1))
+        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 + hour))
+        assertEquals(3, ProtectPrefsKeys.recordFailedAttempt(store, t0 + 24 * hour))
     }
 
     @Test
-    fun `backwards clock step restarts the run instead of extending it`() {
+    fun `a clock change cannot reset the run`() {
         val t0 = 1_000_000L
         assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0))
-        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 + 1_000))
-
-        assertEquals(1, ProtectPrefsKeys.recordFailedAttempt(store, t0 - 60_000))
+        assertEquals(2, ProtectPrefsKeys.recordFailedAttempt(store, t0 - 60_000))
     }
 
     @Test

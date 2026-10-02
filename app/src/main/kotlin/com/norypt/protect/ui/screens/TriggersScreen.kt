@@ -51,6 +51,12 @@ import com.norypt.protect.ui.components.TagPill
 import com.norypt.protect.ui.components.noryptFieldColors
 import com.norypt.protect.ui.components.noryptSwitchColors
 import com.norypt.protect.ui.theme.NoryptColors
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.focus.onFocusChanged
+import com.norypt.protect.prefs.SettingBounds
+import com.norypt.protect.util.GrapheneDetect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -251,14 +257,12 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 )
             }
             "A8" -> {
-                var minutes by remember { mutableStateOf(ProtectPrefs.maxUnlockedMinutes(ctx).toString()) }
                 ConfigNumberField(
                     label = "Max unlocked minutes",
-                    value = minutes,
-                    onChange = {
-                        minutes = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setMaxUnlockedMinutes.curry(ctx))
-                    },
+                    current = ProtectPrefs.maxUnlockedMinutes(ctx),
+                    range = SettingBounds.UNLOCKED_MINUTES,
+                    bound = SettingBounds::unlockedMinutes,
+                    onCommit = { ProtectPrefs.setMaxUnlockedMinutes(ctx, it) },
                 )
             }
             "A10" -> {
@@ -281,14 +285,12 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 )
             }
             "B1" -> {
-                var attempts by remember { mutableStateOf(ProtectPrefs.maxFailedAttempts(ctx).toString()) }
                 ConfigNumberField(
                     label = "Max failed unlock attempts (default 10)",
-                    value = attempts,
-                    onChange = {
-                        attempts = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setMaxFailedAttempts.curry(ctx))
-                    },
+                    current = ProtectPrefs.maxFailedAttempts(ctx),
+                    range = SettingBounds.FAILED_ATTEMPTS,
+                    bound = SettingBounds::failedAttempts,
+                    onCommit = { ProtectPrefs.setMaxFailedAttempts(ctx, it) },
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -298,14 +300,12 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 )
             }
             "A11" -> {
-                var duress by remember { mutableStateOf(ProtectPrefs.duressThreshold(ctx).toString()) }
                 ConfigNumberField(
                     label = "Duress fast-wipe threshold (0 = off)",
-                    value = duress,
-                    onChange = {
-                        duress = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setDuressThreshold.curry(ctx))
-                    },
+                    current = ProtectPrefs.duressThreshold(ctx),
+                    range = 0..SettingBounds.DURESS_ATTEMPTS.last,
+                    bound = SettingBounds::duressThreshold,
+                    onCommit = { ProtectPrefs.setDuressThreshold(ctx, it) },
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -317,38 +317,32 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
             "C4" -> {
                 DeadmanReliabilityPanel(ctx)
                 Spacer(Modifier.height(12.dp))
-                var pct by remember { mutableStateOf(ProtectPrefs.deadmanBatteryPct(ctx).toString()) }
-                var grace by remember { mutableStateOf(ProtectPrefs.deadmanGraceSeconds(ctx).toString()) }
-                var disarm by remember { mutableStateOf(ProtectPrefs.deadmanDisarmMinutesAfterUnlock(ctx).toString()) }
                 var requireBt by remember { mutableStateOf(ProtectPrefs.deadmanRequireBt(ctx)) }
                 var requireGsm by remember { mutableStateOf(ProtectPrefs.deadmanRequireGsm(ctx)) }
                 var requireWifi by remember { mutableStateOf(ProtectPrefs.deadmanRequireWifi(ctx)) }
 
                 ConfigNumberField(
                     label = "Battery threshold % (default 5)",
-                    value = pct,
-                    onChange = {
-                        pct = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setDeadmanBatteryPct.curry(ctx))
-                    },
+                    current = ProtectPrefs.deadmanBatteryPct(ctx),
+                    range = SettingBounds.BATTERY_PCT,
+                    bound = SettingBounds::batteryPct,
+                    onCommit = { ProtectPrefs.setDeadmanBatteryPct(ctx, it) },
                 )
                 Spacer(Modifier.height(8.dp))
                 ConfigNumberField(
                     label = "Countdown seconds before wipe (default 60)",
-                    value = grace,
-                    onChange = {
-                        grace = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setDeadmanGraceSeconds.curry(ctx))
-                    },
+                    current = ProtectPrefs.deadmanGraceSeconds(ctx),
+                    range = SettingBounds.GRACE_SECONDS,
+                    bound = SettingBounds::graceSeconds,
+                    onCommit = { ProtectPrefs.setDeadmanGraceSeconds(ctx, it) },
                 )
                 Spacer(Modifier.height(8.dp))
                 ConfigNumberField(
                     label = "Disarm minutes after unlock (default 0)",
-                    value = disarm,
-                    onChange = {
-                        disarm = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setDeadmanDisarmMinutesAfterUnlock.curry(ctx))
-                    },
+                    current = ProtectPrefs.deadmanDisarmMinutesAfterUnlock(ctx),
+                    range = SettingBounds.DISARM_MINUTES,
+                    bound = SettingBounds::disarmMinutes,
+                    onCommit = { ProtectPrefs.setDeadmanDisarmMinutesAfterUnlock(ctx, it) },
                 )
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -373,24 +367,30 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
             "C6" -> {
                 DeadmanReliabilityPanel(ctx)
                 Spacer(Modifier.height(12.dp))
-                var hours by remember { mutableStateOf(ProtectPrefs.unlockDeadlineHours(ctx).toString()) }
-                var grace by remember { mutableStateOf(ProtectPrefs.unlockDeadlineGraceSeconds(ctx).toString()) }
                 ConfigNumberField(
-                    label = "Hours without an unlock before the countdown (default 48)",
-                    value = hours,
-                    onChange = {
-                        hours = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setUnlockDeadlineHours.curry(ctx))
-                    },
+                    label = "Hours without an unlock before the countdown (default 12)",
+                    current = ProtectPrefs.unlockDeadlineHours(ctx),
+                    range = SettingBounds.DEADLINE_HOURS,
+                    bound = SettingBounds::deadlineHours,
+                    onCommit = { ProtectPrefs.setUnlockDeadlineHours(ctx, it) },
                 )
+                if (GrapheneDetect.isGrapheneOS()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "GrapheneOS restarts a locked phone after its auto-reboot time (18 h by default). " +
+                            "After a restart nothing runs until you unlock, so keep this shorter than your " +
+                            "auto-reboot time or the countdown never comes.",
+                        color = NoryptColors.Amber,
+                        fontSize = 11.sp,
+                    )
+                }
                 Spacer(Modifier.height(8.dp))
                 ConfigNumberField(
                     label = "Countdown seconds before wipe (default 60)",
-                    value = grace,
-                    onChange = {
-                        grace = it
-                        it.toIntOrNull()?.let(ProtectPrefs::setUnlockDeadlineGraceSeconds.curry(ctx))
-                    },
+                    current = ProtectPrefs.unlockDeadlineGraceSeconds(ctx),
+                    range = SettingBounds.GRACE_SECONDS,
+                    bound = SettingBounds::graceSeconds,
+                    onCommit = { ProtectPrefs.setUnlockDeadlineGraceSeconds(ctx, it) },
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -569,23 +569,50 @@ private fun ConfigTextField(label: String, value: String, onChange: (String) -> 
     )
 }
 
+/**
+ * A number setting that is saved only when editing ends (Done, or leaving the field), and
+ * always within [range]. Saving on every keystroke stored each intermediate value: changing
+ * 360 to 120 briefly stored 1, and a trigger tick landing then could wipe the phone.
+ */
 @Composable
-private fun ConfigNumberField(label: String, value: String, onChange: (String) -> Unit) {
+private fun ConfigNumberField(
+    label: String,
+    current: Int,
+    range: IntRange,
+    bound: (Int) -> Int,
+    onCommit: (Int) -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    var saved by remember { mutableIntStateOf(current) }
+    var text by remember { mutableStateOf(current.toString()) }
+    fun commit() {
+        val value = SettingBounds.parse(text, saved, bound)
+        text = value.toString()
+        if (value != saved) {
+            saved = value
+            onCommit(value)
+        }
+    }
     OutlinedTextField(
-        value = value,
-        onValueChange = { if (it.all(Char::isDigit)) onChange(it) },
+        value = text,
+        onValueChange = { if (it.length <= MAX_NUMBER_DIGITS && it.all { c -> c in '0'..'9' }) text = it },
         label = { Text(label) },
+        supportingText = { Text("${range.first} to ${range.last}", color = NoryptColors.MutedDeep, fontSize = 11.sp) },
         singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = {
+            commit()
+            focusManager.clearFocus()
+        }),
+        modifier = Modifier
+            .fillMaxWidth()
+            .onFocusChanged { if (!it.isFocused) commit() },
         shape = RoundedCornerShape(10.dp),
         colors = noryptFieldColors(),
     )
 }
 
-// Tiny curry helper so trigger configs can write back to ProtectPrefs concisely.
-private fun ((android.content.Context, Int) -> Unit).curry(ctx: android.content.Context): (Int) -> Unit =
-    { v -> this(ctx, v) }
+private const val MAX_NUMBER_DIGITS = 5
 
 @Composable
 private fun InfoBlock(title: String, body: String) {
