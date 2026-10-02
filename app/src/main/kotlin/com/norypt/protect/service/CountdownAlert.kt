@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import com.norypt.protect.R
 import com.norypt.protect.prefs.ProtectPrefs
 
@@ -48,6 +49,14 @@ object CountdownAlert {
             .build()
         val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(mode.notificationId, notif)
+
+        // A full-screen intent only shows as a heads-up while the phone is unlocked and in
+        // use (A8's whole situation), or when the permission was revoked. A Device Owner is
+        // exempt from the background activity-start limits, so it starts the countdown itself.
+        val fullScreenAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || nm.canUseFullScreenIntent()
+        if (mode == CountdownMode.UNLOCKED_TOO_LONG || !fullScreenAllowed) {
+            runCatching { ctx.startActivity(activityIntent) }
+        }
     }
 
     /**

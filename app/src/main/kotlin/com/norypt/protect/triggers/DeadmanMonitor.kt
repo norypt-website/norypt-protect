@@ -117,7 +117,7 @@ object DeadmanMonitor {
             return
         }
 
-        if (countdownActive || UnlockDeadlineMonitor.countdownActive) {
+        if (countdownActive || UnlockDeadlineMonitor.countdownActive || UnlockedTimerMonitor.countdownActive) {
             debugBump(ctx, "c4_skip_countdown_active")
             return
         }

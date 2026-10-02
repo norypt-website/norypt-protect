@@ -78,7 +78,7 @@ object UnlockDeadlineMonitor {
             return
         }
 
-        if (countdownActive || DeadmanMonitor.countdownActive) {
+        if (countdownActive || DeadmanMonitor.countdownActive || UnlockedTimerMonitor.countdownActive) {
             DebugTelemetry.bump(ctx, "c6_skip_countdown_active")
             return
         }

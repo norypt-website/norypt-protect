@@ -12,6 +12,9 @@ enum class CountdownMode(val extraValue: String, val notificationId: Int, val re
 
     /** C6 — the device has not been unlocked for the configured number of hours. */
     UNLOCK_DEADLINE("unlock_deadline", NotificationIds.COUNTDOWN_UNLOCK_DEADLINE, "unlock.deadline"),
+
+    /** A8 — the device has stayed unlocked longer than the configured maximum. */
+    UNLOCKED_TOO_LONG("unlocked_too_long", NotificationIds.COUNTDOWN_UNLOCKED_TOO_LONG, "unlocked.timer"),
     ;
 
     companion object {
