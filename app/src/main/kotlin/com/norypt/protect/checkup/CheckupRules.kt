@@ -37,6 +37,8 @@ data class Readings(
     val securityPatch: LocalDate?,
     val today: LocalDate,
     val alwaysOnVpn: String?,
+    /** Whether [alwaysOnVpn] could be read at all: only a Device Owner can. */
+    val vpnReadable: Boolean,
     val vpnLockdown: Boolean,
     val privateDnsMode: Int?,
     /** Norypt's own keyguard restrictions. */
@@ -133,6 +135,7 @@ object CheckupRules {
     }
 
     private fun vpn(r: Readings): CheckResult = when {
+        !r.vpnReadable -> info(CheckId.VPN, "Could not be read without Device Owner.")
         r.alwaysOnVpn == null -> info(CheckId.VPN, "No always-on VPN. Each network you join sees where you connect.")
         r.vpnLockdown -> ok(CheckId.VPN, "Always on, and nothing gets out without it.")
         else -> attention(

@@ -47,6 +47,7 @@ object CheckupReadings {
             securityPatch = runCatching { LocalDate.parse(Build.VERSION.SECURITY_PATCH) }.getOrNull(),
             today = LocalDate.now(),
             alwaysOnVpn = if (owner) runCatching { dpm?.getAlwaysOnVpnPackage(admin(ctx)) }.getOrNull() else null,
+            vpnReadable = owner,
             vpnLockdown = owner && runCatching { dpm?.isAlwaysOnVpnLockdownEnabled(admin(ctx)) == true }.getOrDefault(false),
             privateDnsMode = if (owner) runCatching { dpm?.getGlobalPrivateDnsMode(admin(ctx)) }.getOrNull() else null,
             keyguardDisabledFeatures = runCatching { dpm?.getKeyguardDisabledFeatures(admin(ctx)) ?: 0 }.getOrDefault(0),

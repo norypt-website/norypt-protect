@@ -3,6 +3,7 @@ package com.norypt.protect.checkup
 import android.app.admin.DevicePolicyManager
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 
@@ -19,6 +20,7 @@ class CheckupRulesTest {
         complexity: Int? = DevicePolicyManager.PASSWORD_COMPLEXITY_HIGH,
         patch: LocalDate? = today.minusDays(10),
         vpn: String? = null,
+        vpnReadable: Boolean = true,
         lockdown: Boolean = false,
         dns: Int? = DevicePolicyManager.PRIVATE_DNS_MODE_PROVIDER_HOSTNAME,
         keyguard: Int = 0,
@@ -29,7 +31,7 @@ class CheckupRulesTest {
     ) = Readings(
         model = "Pixel 9a", deviceName = deviceName, bluetoothName = bluetoothName, bluetoothAllowed = bluetoothAllowed,
         adbEnabled = adb, passwordComplexity = complexity, securityPatch = patch, today = today, alwaysOnVpn = vpn,
-        vpnLockdown = lockdown, privateDnsMode = dns, keyguardDisabledFeatures = keyguard,
+        vpnReadable = vpnReadable, vpnLockdown = lockdown, privateDnsMode = dns, keyguardDisabledFeatures = keyguard,
         privateNotificationsAllowed = privateNotifications, twoGBlocked = twoG, grapheneOs = graphene, confirmed = confirmed,
     )
 
@@ -122,5 +124,12 @@ class CheckupRulesTest {
         // All clear on stock Android takes Smart Lock blocked; everything else is fine or only informational.
         val allClear = readings(keyguard = DevicePolicyManager.KEYGUARD_DISABLE_TRUST_AGENTS)
         assertEquals(0, CheckupRules.needsAttention(CheckupRules.evaluate(allClear)))
+    }
+
+    @Test
+    fun `a vpn that cannot be read below Device Owner is never reported as missing`() {
+        val result = CheckupRules.evaluate(readings(vpn = null, vpnReadable = false)).single { it.id == CheckId.VPN }
+        assertEquals(CheckStatus.INFO, result.status)
+        assertTrue(result.detail.startsWith("Could not be read"))
     }
 }
