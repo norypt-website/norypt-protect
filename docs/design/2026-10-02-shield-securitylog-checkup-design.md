@@ -1,12 +1,12 @@
 # Design: spyware shield, Android security log in the Timeline, privacy checkup
 
-Date: 2026-10-02. Status: proposed, awaiting owner review. Target release: 1.2.0.
+Date: 2026-10-02. Status: proposed, awaiting owner review. Target release: 1.3.0 (1.2.0 shipped the hardening fixes alone).
 
 This note records the design for three additions and the decisions taken where the request left room. A fourth addition, the sensitive space (a separate encrypted user for sensitive apps), gets its own design note after a feasibility test on Android 17.
 
 **Ground rules for all three.** The app stays offline: no INTERNET permission, nothing leaves the phone. Every feature is off until the owner turns it on, and everything it records stays local and owner-visible. Nothing re-implements a GrapheneOS feature; where GrapheneOS already protects something, the app checks or links to it. Stock Android 13+ keeps working. The app keeps its published trust properties (no location, contacts, microphone or camera permission).
 
-**Already fixed on the same branch.** Device Owner promotion used to set the device-wide permission policy to auto-grant, so every app's runtime permission requests were granted silently. That is removed, existing phones are repaired on the next start, and a build gate stops it from returning (commit bda23b2).
+**Already fixed in 1.2.0.** Device Owner promotion used to set the device-wide permission policy to auto-grant, so every app's runtime permission requests were granted silently. That is removed, existing phones are repaired on the next start, and a build gate stops it from returning (commit bda23b2).
 
 ## 1. Spyware shield
 
