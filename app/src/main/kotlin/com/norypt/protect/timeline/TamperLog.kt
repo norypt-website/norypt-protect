@@ -43,6 +43,11 @@ object TamperLog {
         } else {
             record(ctx, TamperKind.TIMELINE, "Recording stopped.")
             ProtectPrefs.setTimelineEnabled(ctx, false)
+            // Nothing the timeline kept for itself outlives it: the carrier snapshot and the
+            // biometric sentinel key would otherwise stay behind after it is switched off.
+            ProtectPrefs.setTimelineSimSnapshot(ctx, null)
+            ProtectPrefs.setTimelineSentinelArmed(ctx, false)
+            BiometricSentinel.disarm()
         }
     }
 
