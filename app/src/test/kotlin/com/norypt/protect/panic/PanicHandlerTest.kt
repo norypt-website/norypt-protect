@@ -122,7 +122,7 @@ class PanicHandlerTest {
     }
 
     @Test
-    fun `every WipeError variant keeps the wipe outstanding`() {
+    fun `every transient WipeError keeps the wipe outstanding`() {
         val errors = listOf(
             WipeError.SecurityDenied("denied"),
             WipeError.IllegalState("bad state"),
@@ -139,6 +139,13 @@ class PanicHandlerTest {
             )
             assertTrue("${error::class.simpleName} must alert the user", outcome.alertUser)
         }
+    }
+
+    @Test
+    fun `a wipe this phone can never perform is reported once, not retried for an hour`() {
+        val outcome = PanicHandler.outcomeOf("home.pin", WipeError.NotPermitted)
+        assertNull(outcome.pendingReason)
+        assertTrue(outcome.alertUser)
     }
 
     @Test

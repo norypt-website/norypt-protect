@@ -24,6 +24,7 @@ object PanicHandler {
     fun panic(
         context: Context,
         reason: String,
+        logEvent: Boolean = true,
         wipeFn: (Context, String, WipeOptions, Boolean) -> WipeError? =
             { c, r, o, d -> WipeEngine.wipe(c, r, o, d) },
     ): WipeError? {
@@ -35,12 +36,22 @@ object PanicHandler {
         )
         val dryRun = ProtectPrefs.dryRun(context)
         // Only ever readable after a dry run or a denied wipe: a real wipe takes the log with it.
-        TamperLog.record(
-            context,
-            TamperKind.WIPE_TRIGGERED,
-            "Trigger \"$reason\"" + if (dryRun) " (dry-run: nothing erased)." else ".",
-        )
-        val error = wipeFn(context, reason, opts, dryRun)
+        // TamperLog never throws, so the opt-in log cannot stand between a trigger and its wipe.
+        // Retries are not logged again: one queued wipe is one entry, not one per 30 s tick.
+        if (logEvent) {
+            TamperLog.record(
+                context,
+                TamperKind.WIPE_TRIGGERED,
+                "Trigger \"$reason\"" + if (dryRun) " (dry-run: nothing erased)." else ".",
+            )
+        }
+        // Anything thrown is a wipe that did not happen and must stay queued, never a crash
+        // that silently drops it.
+        val error = try {
+            wipeFn(context, reason, opts, dryRun)
+        } catch (t: Throwable) {
+            WipeError.Unknown("${t.javaClass.simpleName}: ${t.message}")
+        }
 
         // A real wipe never returns — the process dies mid-call. Reaching here with a
         // non-null error means the device still holds all its data while the user believes
@@ -71,9 +82,12 @@ object PanicHandler {
      * [WipeError.ReturnedWithoutWiping], where the platform call returned instead of tearing
      * the process down — leaves the device holding its data and must stay pending.
      */
-    internal fun outcomeOf(reason: String, error: WipeError?): PanicOutcome =
-        if (error == null) PanicOutcome(null, alertUser = false)
-        else PanicOutcome(reason, alertUser = true)
+    internal fun outcomeOf(reason: String, error: WipeError?): PanicOutcome = when (error) {
+        null -> PanicOutcome(null, alertUser = false)
+        // Retrying cannot change the admin level, so it is reported once instead.
+        WipeError.NotPermitted -> PanicOutcome(null, alertUser = true)
+        else -> PanicOutcome(reason, alertUser = true)
+    }
 
     /**
      * Re-attempts a wipe that previously failed. Driven from the foreground-service tick,
@@ -92,7 +106,7 @@ object PanicHandler {
             return
         }
         DebugTelemetry.bump(context, "wipe_retry_attempts")
-        panic(context, reason)
+        panic(context, reason, logEvent = false)
     }
 
     /**
