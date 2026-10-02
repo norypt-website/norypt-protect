@@ -27,6 +27,8 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <!-- Normal permission: lets the privacy checkup read how strong the screen lock is. -->
+    <uses-permission android:name="android.permission.REQUEST_PASSWORD_COMPLEXITY"/>
 
     <!-- Required by B5 (package-internet watcher) on Android 11+. Without this,
          getInstalledPackages() hides 3rd-party apps and PACKAGE_ADDED broadcasts

@@ -478,6 +478,12 @@ internal object ProtectPrefsKeys {
     /** Boot count whose pre-reboot logs were already read; -1 = none yet. */
     fun securityLogPreRebootBoot(store: KvStore): Int = store.getInt(KEY_SECURITY_LOG_PRE_REBOOT_BOOT, -1)
     fun setSecurityLogPreRebootBoot(store: KvStore, value: Int) = store.putInt(KEY_SECURITY_LOG_PRE_REBOOT_BOOT, value)
+
+    // --- Privacy checkup ---
+    const val KEY_CHECKUP_CONFIRMED = "checkup_confirmed"
+
+    fun checkupConfirmed(store: KvStore): Set<String> = decodeSet(store.getString(KEY_CHECKUP_CONFIRMED, null))
+    fun setCheckupConfirmed(store: KvStore, value: Set<String>) = store.putString(KEY_CHECKUP_CONFIRMED, encodeSet(value))
 }
 
 /**
@@ -845,4 +851,10 @@ object ProtectPrefs {
     fun securityLogPreRebootBoot(context: Context): Int = ProtectPrefsKeys.securityLogPreRebootBoot(store(context))
     fun setSecurityLogPreRebootBoot(context: Context, value: Int) =
         ProtectPrefsKeys.setSecurityLogPreRebootBoot(store(context), value)
+
+    // --- Privacy checkup ---
+
+    fun checkupConfirmed(context: Context): Set<String> = ProtectPrefsKeys.checkupConfirmed(store(context))
+    fun setCheckupConfirmed(context: Context, value: Set<String>) =
+        ProtectPrefsKeys.setCheckupConfirmed(store(context), value)
 }
