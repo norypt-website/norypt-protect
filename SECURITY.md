@@ -100,7 +100,7 @@ If that command returns a Norypt Protect component, the application is **Device 
 
 **If it is only a Device Admin:** deactivate it in Settings → Security → Device admin apps, then uninstall it normally in Settings → Apps.
 
-**If it is Device Owner:** it cannot be uninstalled from Settings, by design. A factory reset removes it. **A factory reset erases the phone**, so back up anything you need first, ideally to a computer or an account you control exclusively.
+**If it is Device Owner:** it cannot be uninstalled from Settings, by design. A factory reset removes it. If its Anti-tamper setting is on, the reset in Settings is blocked too; reset from recovery mode instead (power off, then hold Power and Volume Down). **A factory reset erases the phone**, so back up anything you need first, ideally to a computer or an account you control exclusively.
 
 ### 4. Before you reset, consider preserving evidence
 
