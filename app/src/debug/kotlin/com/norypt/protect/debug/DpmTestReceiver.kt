@@ -20,6 +20,8 @@ import com.norypt.protect.triggers.UnlockDeadlineMonitor
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.dpm.SafeBootLockdown
 import com.norypt.protect.triggers.DeadmanMonitor
+import com.norypt.protect.triggers.TriggerRegistry
+import com.norypt.protect.triggers.UnlockedTimerMonitor
 import com.norypt.protect.dpm.UsbLockdown
 import com.norypt.protect.util.DebugTelemetry
 
@@ -115,6 +117,38 @@ class DpmTestReceiver : BroadcastReceiver() {
                 UnlockDeadlineMonitor.countdownActive = false
                 UnlockDeadlineMonitor.tick(ctx)
                 log("c6.tick -> countdownActive=${UnlockDeadlineMonitor.countdownActive}")
+            }
+            // Arms or disarms one trigger by id, through the same path as the Triggers tab.
+            "arm", "disarm" -> {
+                val id = intent.getStringExtra("id")
+                val trigger = TriggerRegistry.all.firstOrNull { it.id == id }
+                if (intent.getStringExtra("action") == "arm") trigger?.arm(ctx) else trigger?.disarm(ctx)
+                log("${intent.getStringExtra("action")} $id -> enabled=${id?.let { ProtectPrefs.isTriggerEnabled(ctx, it) }} " +
+                    "problem=${trigger?.problem(ctx)}")
+            }
+            // Pretend the last unlock was `minutes` ago on the monotonic clock, then run one A8 check.
+            "a8_backdate" -> {
+                val minutes = intent.getIntExtra("minutes", 30)
+                ProtectPrefs.setLastUnlockElapsed(
+                    ctx,
+                    android.os.SystemClock.elapsedRealtime() - minutes * 60_000L,
+                    com.norypt.protect.timeline.TamperBootAudit.bootCount(ctx) ?: 0,
+                )
+                log("a8.backdate -> $minutes min ago")
+            }
+            "a8_tick" -> {
+                UnlockedTimerMonitor.countdownActive = false
+                UnlockedTimerMonitor.tick(ctx)
+                log("a8.tick -> countdownActive=${UnlockedTimerMonitor.countdownActive}")
+            }
+            "policy_dump" -> {
+                val dpm = ctx.getSystemService(DevicePolicyManager::class.java)
+                val admin = ComponentName(ctx, ProtectAdminReceiver::class.java)
+                log(
+                "permissionPolicy=${dpm.getPermissionPolicy(admin)} dryRun=${ProtectPrefs.dryRun(ctx)} " +
+                    "sms=${dpm.getPermissionGrantState(admin, ctx.packageName, android.Manifest.permission.RECEIVE_SMS)} " +
+                    "bt=${dpm.getPermissionGrantState(admin, ctx.packageName, android.Manifest.permission.BLUETOOTH_CONNECT)}",
+                )
             }
             // Hands the test device back: releases every policy, then gives up Device Owner so the
             // debug build can be uninstalled. onDisabled fires a panic; keep dry-run on first.

@@ -7,7 +7,7 @@
               android:shortcutLongLabel="@string/shortcut_lock_long">
         <intent android:action="android.intent.action.VIEW"
                 android:targetPackage="com.norypt.protect.debug"
-                android:targetClass="com.norypt.protect.MainActivity">
+                android:targetClass="com.norypt.protect.ShortcutActivity">
             <extra android:name="action" android:value="lock"/>
         </intent>
     </shortcut>
@@ -18,7 +18,7 @@
               android:shortcutLongLabel="@string/shortcut_wipe_long">
         <intent android:action="android.intent.action.VIEW"
                 android:targetPackage="com.norypt.protect.debug"
-                android:targetClass="com.norypt.protect.MainActivity">
+                android:targetClass="com.norypt.protect.ShortcutActivity">
             <extra android:name="action" android:value="wipe"/>
         </intent>
     </shortcut>
