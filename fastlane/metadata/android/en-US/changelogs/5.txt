@@ -1,0 +1,6 @@
+v1.2.0 — security hardening
+• Fix: as Device Owner, other apps no longer get permissions silently. This version turns that off; please review app permissions.
+• Countdowns cannot wipe while you cancel, Back cannot end them, and A8 now counts down.
+• Every PIN prompt shares one lockout; the app locks again after 30 s away.
+• Triggers say when they cannot fire. B6 and A12 removed.
+• Alerts hidden on the lock screen; nothing goes into backups or transfers.
