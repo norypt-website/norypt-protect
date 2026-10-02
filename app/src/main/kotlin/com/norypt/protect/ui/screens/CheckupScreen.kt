@@ -1,5 +1,10 @@
 package com.norypt.protect.ui.screens
 
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,8 +45,17 @@ fun CheckupSubScreen(onBack: () -> Unit, onOpenAudit: () -> Unit, padding: Paddi
     val ctx = LocalContext.current
     var readings by remember { mutableStateOf(CheckupReadings.read(ctx)) }
     var message by remember { mutableStateOf<String?>(null) }
-    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         readings = CheckupReadings.read(ctx)
+        // Asked twice and refused, Android stops showing the prompt: App info is the only way left.
+        val activity = ctx as? Activity
+        if (!granted && activity?.shouldShowRequestPermissionRationale(Manifest.permission.BLUETOOTH_CONNECT) == false) {
+            message = "Nearby devices is not allowed. Allow it under App info › Permissions."
+            runCatching {
+                val info = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))
+                ctx.startActivity(info.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }
     }
     // Re-read on return from a Settings page: a status always comes from the platform.
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -57,7 +71,7 @@ fun CheckupSubScreen(onBack: () -> Unit, onOpenAudit: () -> Unit, padding: Paddi
         CheckupRules.evaluate(readings).forEach { result ->
             CheckItem(
                 result = result,
-                fixLabel = CheckupReadings.fixLabel(result.id, readings),
+                fixLabel = if (CheckupRules.offersFix(result.id, readings)) CheckupReadings.fixLabel(result.id, readings) else null,
                 canUndo = CheckupReadings.canUndo(readings, result.id),
                 onFix = {
                     val permission = CheckupReadings.permissionFor(result.id, readings)
@@ -87,7 +101,7 @@ fun CheckupSubScreen(onBack: () -> Unit, onOpenAudit: () -> Unit, padding: Paddi
 @Composable
 private fun CheckItem(
     result: CheckResult,
-    fixLabel: String,
+    fixLabel: String?,
     canUndo: Boolean,
     onFix: () -> Unit,
     onUndo: () -> Unit,
@@ -103,7 +117,7 @@ private fun CheckItem(
                 SecondaryButton(label = "Open Settings", onClick = onFix)
                 SecondaryButton(label = "I've set this", onClick = onConfirm, color = NoryptColors.Muted)
             }
-            result.status != CheckStatus.OK -> SecondaryButton(label = fixLabel, onClick = onFix)
+            result.status != CheckStatus.OK && fixLabel != null -> SecondaryButton(label = fixLabel, onClick = onFix)
         }
     }
 }

@@ -45,6 +45,8 @@ data class Readings(
     val keyguardDisabledFeatures: Int,
     /** The owner's "show sensitive content on the lock screen" setting. */
     val privateNotificationsAllowed: Boolean?,
+    /** Whether the lock screen shows notifications at all. */
+    val lockScreenNotificationsShown: Boolean?,
     /** Whether 2G is blocked by policy; null below Android 14. */
     val twoGBlocked: Boolean?,
     val grapheneOs: Boolean,
@@ -83,6 +85,9 @@ object CheckupRules {
         add(twoG(r))
         if (r.grapheneOs) addAll(grapheneConfirms(r.confirmed))
     }
+
+    /** Whether the item's button can do anything; below Android 14 nothing can block 2G. */
+    fun offersFix(id: CheckId, r: Readings): Boolean = !(id == CheckId.CELLULAR_2G && r.twoGBlocked == null)
 
     fun needsAttention(results: List<CheckResult>): Int =
         results.count { it.status == CheckStatus.ATTENTION || it.status == CheckStatus.CONFIRM }
@@ -161,6 +166,7 @@ object CheckupRules {
         val byNorypt = r.keyguardDisabledFeatures and DevicePolicyManager.KEYGUARD_DISABLE_UNREDACTED_NOTIFICATIONS != 0
         return when {
             byNorypt -> ok(id, "Content hidden by Norypt.")
+            r.lockScreenNotificationsShown == false -> ok(id, "No notifications on the lock screen.")
             r.privateNotificationsAllowed == false -> ok(id, "Content hidden by your setting.")
             r.privateNotificationsAllowed == true -> attention(id, "Message content shows to whoever holds the locked phone.")
             else -> info(id, "Could not be read. Norypt can hide the content.")
@@ -180,9 +186,9 @@ object CheckupRules {
         null -> info(CheckId.CELLULAR_2G, "Blocking 2G needs Android 14 or later.")
         true -> ok(CheckId.CELLULAR_2G, "Blocked.")
         false -> if (r.grapheneOs) {
-            info(CheckId.CELLULAR_2G, "Allowed. GrapheneOS's LTE-only mode also keeps the phone off 2G.")
+            info(CheckId.CELLULAR_2G, "Not blocked by Norypt. GrapheneOS's LTE-only mode also keeps the phone off 2G.")
         } else {
-            attention(CheckId.CELLULAR_2G, "Allowed. Fake base stations force phones down to 2G to intercept them.")
+            attention(CheckId.CELLULAR_2G, "Not blocked by Norypt. Fake base stations force phones down to 2G to intercept them.")
         }
     }
 

@@ -27,6 +27,7 @@ object CheckupReadings {
 
     /** Not a public constant, but readable by apps; when it cannot be read the item says so. */
     private const val PRIVATE_NOTIFICATIONS = "lock_screen_allow_private_notifications"
+    private const val SHOW_NOTIFICATIONS = "lock_screen_show_notifications"
     private const val NEEDS_OWNER = "Requires Device Owner."
     private const val REFUSED = "Android refused the change."
 
@@ -52,6 +53,7 @@ object CheckupReadings {
             privateDnsMode = if (owner) runCatching { dpm?.getGlobalPrivateDnsMode(admin(ctx)) }.getOrNull() else null,
             keyguardDisabledFeatures = runCatching { dpm?.getKeyguardDisabledFeatures(admin(ctx)) ?: 0 }.getOrDefault(0),
             privateNotificationsAllowed = runCatching { Settings.Secure.getInt(resolver, PRIVATE_NOTIFICATIONS) != 0 }.getOrNull(),
+            lockScreenNotificationsShown = runCatching { Settings.Secure.getInt(resolver, SHOW_NOTIFICATIONS) != 0 }.getOrNull(),
             twoGBlocked = twoGBlocked(ctx),
             grapheneOs = PlatformInfo.isGrapheneOS(ctx),
             confirmed = ProtectPrefs.checkupConfirmed(ctx).mapNotNull { n -> CheckId.entries.firstOrNull { it.name == n } }.toSet(),
