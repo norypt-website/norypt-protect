@@ -484,6 +484,15 @@ internal object ProtectPrefsKeys {
 
     fun checkupConfirmed(store: KvStore): Set<String> = decodeSet(store.getString(KEY_CHECKUP_CONFIRMED, null))
     fun setCheckupConfirmed(store: KvStore, value: Set<String>) = store.putString(KEY_CHECKUP_CONFIRMED, encodeSet(value))
+
+    // --- Location off while locked ---
+    const val KEY_LOCATION_WHILE_LOCKED = "location_while_locked_on"
+    const val KEY_LOCATION_OFF_BY_US = "location_turned_off_by_us"
+
+    fun locationWhileLockedOn(store: KvStore): Boolean = store.getBoolean(KEY_LOCATION_WHILE_LOCKED, false)
+    fun setLocationWhileLockedOn(store: KvStore, value: Boolean) = store.putBoolean(KEY_LOCATION_WHILE_LOCKED, value)
+    fun locationTurnedOffByUs(store: KvStore): Boolean = store.getBoolean(KEY_LOCATION_OFF_BY_US, false)
+    fun setLocationTurnedOffByUs(store: KvStore, value: Boolean) = store.putBoolean(KEY_LOCATION_OFF_BY_US, value)
 }
 
 /**
@@ -857,4 +866,13 @@ object ProtectPrefs {
     fun checkupConfirmed(context: Context): Set<String> = ProtectPrefsKeys.checkupConfirmed(store(context))
     fun setCheckupConfirmed(context: Context, value: Set<String>) =
         ProtectPrefsKeys.setCheckupConfirmed(store(context), value)
+
+    // --- Location off while locked ---
+
+    fun locationWhileLockedOn(context: Context): Boolean = ProtectPrefsKeys.locationWhileLockedOn(store(context))
+    fun setLocationWhileLockedOn(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setLocationWhileLockedOn(store(context), value)
+    fun locationTurnedOffByUs(context: Context): Boolean = ProtectPrefsKeys.locationTurnedOffByUs(store(context))
+    fun setLocationTurnedOffByUs(context: Context, value: Boolean) =
+        ProtectPrefsKeys.setLocationTurnedOffByUs(store(context), value)
 }
