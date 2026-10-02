@@ -59,6 +59,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
     var showAbout by remember { mutableStateOf(false) }
     var showTrust by remember { mutableStateOf(false) }
     var showShield by remember { mutableStateOf(false) }
+    var showCheckup by remember { mutableStateOf(false) }
     var showAudit by remember { mutableStateOf(false) }
 
     if (showAbout) {
@@ -78,6 +79,11 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
 
     if (showShield) {
         ShieldSubScreen(onBack = { showShield = false }, onOpenAudit = { showAudit = true }, padding = padding)
+        return
+    }
+
+    if (showCheckup) {
+        CheckupSubScreen(onBack = { showCheckup = false }, onOpenAudit = { showAudit = true }, padding = padding)
         return
     }
 
@@ -418,6 +424,7 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
             label = "Spyware shield — keyboards, accessibility, app audit",
             onClick = { showShield = true },
         )
+        SecondaryButton(label = "Privacy checkup", onClick = { showCheckup = true })
 
         // ── Trust report button ─────────────────────────────────────────────
         SecondaryButton(
