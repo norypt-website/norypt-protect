@@ -109,3 +109,4 @@ Unit tests for every pure part; detekt, lint and the security gates green. On th
 - `TamperMonitor` is unchanged: its failed-unlock polling runs only on the Device Admin tier, where the security log is unavailable.
 - Reading or changing the Bluetooth name needs the Nearby devices permission, which the checkup asks for with the system prompt.
 - The location switch does not promise that emergency calls carry location while location is off; it says that navigation, location sharing and Find My Device stop working while the screen is off.
+- Turning the security log on asks Android for a batch at once: with another, unaffiliated user or profile on the phone, Android accepts the switch but pauses the log, so the switch stays off and says why. A user added or removed later is noticed through the Device Owner callbacks, and the app keeps writing its own failed-unlock entries whenever the log is not delivered.
