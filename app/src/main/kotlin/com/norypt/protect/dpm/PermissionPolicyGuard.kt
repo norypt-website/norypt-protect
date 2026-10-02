@@ -60,7 +60,7 @@ object PermissionPolicyGuard {
                 .setContentTitle("Review app permissions")
                 .setContentText(text)
                 .setStyle(Notification.BigTextStyle().bigText(text))
-                .setVisibility(Notification.VISIBILITY_PRIVATE)
+                .setVisibility(Notification.VISIBILITY_SECRET)
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()

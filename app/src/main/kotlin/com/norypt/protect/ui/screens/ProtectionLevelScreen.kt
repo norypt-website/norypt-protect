@@ -316,7 +316,9 @@ fun ProtectionLevelScreen(padding: PaddingValues) {
         ToggleCard(
             title = "Hide launcher icon",
             subtitle = if (isOwner)
-                "Remove app from the drawer. Icon may take 1–2 minutes to disappear on some launchers."
+                "Remove the app from the drawer; some launchers take a minute or two. To open it " +
+                    "again: Settings › Apps › Norypt Protect › the gear icon, or tap the ongoing " +
+                    "notification. The quick-settings tile and that notification still show the name."
             else
                 "Requires Device Owner.",
             checked = launcherHidden,

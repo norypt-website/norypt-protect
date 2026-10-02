@@ -72,10 +72,28 @@
             android:launchMode="singleTask"
             android:theme="@style/Theme.NoryptProtect"/>
 
+        <!-- Exported for the launcher. The APPLICATION_PREFERENCES filter is the way back in when
+             the launcher icon is hidden: Settings > Apps > Norypt Protect > the gear icon.
+             Everything behind it sits behind the App PIN gate; extras are ignored. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.NoryptProtect"/>
+            android:theme="@style/Theme.NoryptProtect">
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+
+        <!-- Launcher shortcuts. Not exported: the launcher starts a shortcut as this app,
+             and no other app can reach it. -->
+        <activity
+            android:name=".ShortcutActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
         <!-- Lockdown mode's blank HOME. Disabled here and enabled only while lockdown is on
              (LockdownMode toggles the component), so the app never shows up as a launcher

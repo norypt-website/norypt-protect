@@ -134,6 +134,8 @@ object PanicHandler {
             val notif = Notification.Builder(context, "alerts")
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("Norypt Protect: WIPE FAILED")
+                // Never on the lock screen: it names the trigger and says the data is intact.
+                .setVisibility(Notification.VISIBILITY_SECRET)
                 .setContentText("Trigger \"$reason\" fired but the device was NOT wiped.")
                 .setStyle(
                     Notification.BigTextStyle().bigText(
