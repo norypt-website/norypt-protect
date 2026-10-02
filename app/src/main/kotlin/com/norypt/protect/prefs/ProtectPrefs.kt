@@ -198,6 +198,10 @@ internal object ProtectPrefsKeys {
     fun setLastUnlockMs(store: KvStore, value: Long) =
         store.putLong(KEY_LAST_UNLOCK_MS, value)
 
+    /** A10: wall-clock time up to which usage events have been checked. */
+    fun fakeMessengerCursorMs(store: KvStore): Long = store.getLong("fake_messenger_cursor_ms", 0L)
+    fun setFakeMessengerCursorMs(store: KvStore, value: Long) = store.putLong("fake_messenger_cursor_ms", value)
+
     /** The last unlock on the monotonic clock, with the boot it belongs to; A8 measures from it. */
     fun lastUnlockElapsedMs(store: KvStore): Long = store.getLong("last_unlock_elapsed_ms", 0L)
     fun lastUnlockBoot(store: KvStore): Int = store.getInt("last_unlock_boot", -1)
@@ -554,6 +558,10 @@ object ProtectPrefs {
 
     fun setLastUnlockMs(context: Context, value: Long) =
         ProtectPrefsKeys.setLastUnlockMs(store(context), value)
+
+    fun fakeMessengerCursorMs(context: Context): Long = ProtectPrefsKeys.fakeMessengerCursorMs(store(context))
+    fun setFakeMessengerCursorMs(context: Context, value: Long) =
+        ProtectPrefsKeys.setFakeMessengerCursorMs(store(context), value)
 
     fun lastUnlockElapsedMs(context: Context): Long = ProtectPrefsKeys.lastUnlockElapsedMs(store(context))
     fun lastUnlockBoot(context: Context): Int = ProtectPrefsKeys.lastUnlockBoot(store(context))

@@ -34,6 +34,7 @@ import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.triggers.TriggerRegistry
 import com.norypt.protect.ui.components.LongPressHoldButton
 import com.norypt.protect.ui.components.NoryptCard
+import com.norypt.protect.ui.components.NoteCard
 import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.components.PrimaryButton
 import com.norypt.protect.ui.components.SecondaryButton
@@ -49,6 +50,7 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     val ctx = LocalContext.current
     var tier by remember { mutableStateOf(Provisioning.current(ctx)) }
     var armedCount by remember { mutableIntStateOf(countArmed(ctx)) }
+    var brokenCount by remember { mutableIntStateOf(countBroken(ctx)) }
     var dryRun by remember { mutableStateOf(ProtectPrefs.dryRun(ctx)) }
     var timelineOn by remember { mutableStateOf(TamperLog.isEnabled(ctx)) }
     var showPinForWipe by remember { mutableStateOf(false) }
@@ -60,6 +62,7 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
             if (event == Lifecycle.Event.ON_RESUME) {
                 tier = Provisioning.current(ctx)
                 armedCount = countArmed(ctx)
+                brokenCount = countBroken(ctx)
                 dryRun = ProtectPrefs.dryRun(ctx)
                 timelineOn = TamperLog.isEnabled(ctx)
             }
@@ -105,6 +108,13 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
             EnableAdminScreen(onRequestEnableAdmin = onRequestEnableAdmin)
         } else {
             SummaryRow(armedCount = armedCount, total = TriggerRegistry.all.size, dryRun = dryRun, timelineOn = timelineOn)
+            if (brokenCount > 0) {
+                NoteCard(
+                    text = "$brokenCount armed trigger${if (brokenCount == 1) "" else "s"} cannot fire. " +
+                        "Open Triggers to see why.",
+                    color = NoryptColors.Red,
+                )
+            }
             SectionLabel("Quick actions")
             PrimaryButton(label = "Lock now", onClick = { lockNow(ctx) })
             // Only where a wipe can actually happen: on Android 14+ a plain Device Admin is
@@ -221,8 +231,12 @@ private fun StatTile(modifier: Modifier, label: String, value: String, caption: 
     }
 }
 
+/** Triggers that are armed and able to fire; one with a [com.norypt.protect.triggers.Trigger.problem] does not count. */
 private fun countArmed(ctx: Context): Int =
-    TriggerRegistry.all.count { ProtectPrefs.isTriggerEnabled(ctx, it.id) }
+    TriggerRegistry.all.count { ProtectPrefs.isTriggerEnabled(ctx, it.id) && it.problem(ctx) == null }
+
+private fun countBroken(ctx: Context): Int =
+    TriggerRegistry.all.count { ProtectPrefs.isTriggerEnabled(ctx, it.id) && it.problem(ctx) != null }
 
 private fun lockNow(ctx: Context) {
     val dpm = ctx.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager

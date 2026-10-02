@@ -156,4 +156,6 @@ object ExternalPanicTrigger : Trigger {
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, id, true)
 
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, id, false)
+
+    override fun problem(context: Context): String? = ExternalPanicActivity.pairingProblem(context)
 }
