@@ -68,22 +68,24 @@ object DebugTelemetry {
     }
 
     /**
-     * Plaintext files that no build writes any more. Up to 1.1.1 the USB trigger kept its own
+     * A plaintext file that no build writes any more: up to 1.1.1 the USB trigger kept its own
      * ungated counters here, recording in release whether it was armed and whether it fired.
+     *
+     * A compile-time constant on purpose. Any initialised field (a listOf, say) gives this
+     * object a static initialiser R8 must preserve, and then it cannot drop the gated calls
+     * above, so every counter key string reaches the release dex.
      */
-    private val LEGACY_FILES = listOf("norypt_a9_debug")
+    private const val LEGACY_USB_FILE = "norypt_a9_debug"
 
     /**
      * Delete the file outright in release builds. Versions up to 1.0.0 wrote these counters
-     * unconditionally, so an upgrading device still carries that history on disk. Legacy
-     * files are deleted in every build.
+     * unconditionally, so an upgrading device still carries that history on disk. The legacy
+     * USB file is deleted in every build.
      */
     fun purgeInReleaseBuilds(context: Context) {
-        LEGACY_FILES.forEach { file ->
-            runCatching {
-                context.getSharedPreferences(file, Context.MODE_PRIVATE).edit().clear().commit()
-                context.deleteSharedPreferences(file)
-            }
+        runCatching {
+            context.getSharedPreferences(LEGACY_USB_FILE, Context.MODE_PRIVATE).edit().clear().commit()
+            context.deleteSharedPreferences(LEGACY_USB_FILE)
         }
         if (BuildConfig.DEBUG) return
         runCatching {
