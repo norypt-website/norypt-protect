@@ -1,5 +1,6 @@
 package com.norypt.protect.checkup
 
+import android.Manifest
 import android.app.KeyguardManager
 import android.app.admin.DevicePolicyManager
 import android.content.BroadcastReceiver
@@ -7,7 +8,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.provider.Settings
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.prefs.ProtectPrefs
 
@@ -20,10 +23,21 @@ object LocationWhileLocked {
 
     enum class Action { TURN_OFF, TURN_ON, NOTHING }
 
+    /** How location services are switched, in order of preference. */
+    enum class Method { SECURE_SETTING, DEVICE_POLICY }
+
     internal fun onScreenOff(featureOn: Boolean, locationOn: Boolean): Action =
         if (featureOn && locationOn) Action.TURN_OFF else Action.NOTHING
 
     internal fun onUnlocked(weTurnedItOff: Boolean): Action = if (weTurnedItOff) Action.TURN_ON else Action.NOTHING
+
+    /**
+     * The Device Owner call posts "Apps can access your location, contact your IT admin" each time it
+     * turns location on, which here would be every unlock; writing the setting directly does not, so it
+     * goes first when provisioning granted WRITE_SECURE_SETTINGS.
+     */
+    internal fun methods(canWriteSecureSettings: Boolean): List<Method> =
+        if (canWriteSecureSettings) listOf(Method.SECURE_SETTING, Method.DEVICE_POLICY) else listOf(Method.DEVICE_POLICY)
 
     private var receiver: BroadcastReceiver? = null
 
@@ -77,7 +91,25 @@ object LocationWhileLocked {
         }
     }
 
-    private fun setLocation(ctx: Context, on: Boolean): Boolean = runCatching {
+    private fun setLocation(ctx: Context, on: Boolean): Boolean {
+        val canWrite = ctx.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
+        return methods(canWrite).any { method ->
+            when (method) {
+                // Read back: a platform that ignores the write falls through to the policy call.
+                Method.SECURE_SETTING -> writeSetting(ctx, on) && locationOn(ctx) == on
+                Method.DEVICE_POLICY -> policy(ctx, on)
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION") // LOCATION_MODE is still the setting the platform's own location switch writes
+    private fun writeSetting(ctx: Context, on: Boolean): Boolean = runCatching {
+        // Android 9 and later treat every mode but off as on (high accuracy is the value its own switch writes).
+        val mode = if (on) Settings.Secure.LOCATION_MODE_HIGH_ACCURACY else Settings.Secure.LOCATION_MODE_OFF
+        Settings.Secure.putInt(ctx.contentResolver, Settings.Secure.LOCATION_MODE, mode)
+    }.getOrDefault(false)
+
+    private fun policy(ctx: Context, on: Boolean): Boolean = runCatching {
         val dpm = dpm(ctx) ?: return false
         dpm.setLocationEnabled(ComponentName(ctx, ProtectAdminReceiver::class.java), on)
     }.isSuccess
