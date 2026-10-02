@@ -10,6 +10,7 @@ import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
+import com.norypt.protect.triggers.UnlockedTimer
 
 /**
  * Re-arms [ProtectForegroundService] after events that stop it.
@@ -41,7 +42,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 // was registered for. Stamping it here keeps A8, the C4 disarm window and C6
                 // measuring from a real unlock. Before this, A8 could fire on its first tick
                 // after a reboot against a stale pre-reboot timestamp.
-                ProtectPrefs.setLastUnlockMs(context, System.currentTimeMillis())
+                UnlockedTimer.stamp(context)
                 TamperBootAudit.check(context, fromBootBroadcast = true)
             }
             Intent.ACTION_MY_PACKAGE_REPLACED ->

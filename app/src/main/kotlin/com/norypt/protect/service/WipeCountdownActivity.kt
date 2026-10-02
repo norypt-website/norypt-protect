@@ -31,6 +31,8 @@ import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.UnlockDeadlineMonitor
+import com.norypt.protect.triggers.UnlockedTimer
+import com.norypt.protect.triggers.UnlockedTimerMonitor
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
 import com.norypt.protect.util.CountdownResume
@@ -78,6 +80,8 @@ class WipeCountdownActivity : ComponentActivity() {
                     SystemClock.elapsedRealtime() + DeadmanMonitor.SNOOZE_AFTER_CANCEL_MS,
                     TamperBootAudit.bootCount(this) ?: 0,
                 )
+                // The credential is a fresh unlock: A8 measures again from now.
+                CountdownMode.UNLOCKED_TOO_LONG -> UnlockedTimer.stamp(this)
             }
             finishWithOutcome()
         } else {
@@ -158,6 +162,7 @@ class WipeCountdownActivity : ComponentActivity() {
     private fun graceSeconds(): Int = when (mode) {
         CountdownMode.DEADMAN -> ProtectPrefs.deadmanGraceSeconds(this)
         CountdownMode.UNLOCK_DEADLINE -> ProtectPrefs.unlockDeadlineGraceSeconds(this)
+        CountdownMode.UNLOCKED_TOO_LONG -> ProtectPrefs.unlockedTimerGraceSeconds(this)
     }
 
 
@@ -184,6 +189,7 @@ class WipeCountdownActivity : ComponentActivity() {
         when (mode) {
             CountdownMode.DEADMAN -> DeadmanMonitor.countdownActive = false
             CountdownMode.UNLOCK_DEADLINE -> UnlockDeadlineMonitor.countdownActive = false
+            CountdownMode.UNLOCKED_TOO_LONG -> UnlockedTimerMonitor.countdownActive = false
         }
         super.onDestroy()
     }
@@ -217,6 +223,8 @@ class WipeCountdownActivity : ComponentActivity() {
     private fun areConditionsCleared(): Boolean = when (mode) {
         CountdownMode.DEADMAN -> deadmanConditionsCleared()
         CountdownMode.UNLOCK_DEADLINE -> unlockDeadlineCleared()
+        // A8 is about an unlocked phone; once it is locked, its purpose is served.
+        CountdownMode.UNLOCKED_TOO_LONG -> getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
     }
 
     /** C6 clears the moment the device is opened, by whichever route. */

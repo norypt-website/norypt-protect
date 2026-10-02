@@ -1,5 +1,6 @@
 package com.norypt.protect.service
 
+import android.app.KeyguardManager
 import android.app.Notification
 import android.app.Service
 import android.content.Context
@@ -17,6 +18,7 @@ import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.DeadmanScheduler
 import com.norypt.protect.triggers.PowerGestureMonitor
+import com.norypt.protect.triggers.UnlockedTimer
 import com.norypt.protect.triggers.UsbLockedMonitor
 import com.norypt.protect.triggers.UserPresentMonitor
 import com.norypt.protect.util.DebugTelemetry
@@ -51,6 +53,10 @@ class ProtectForegroundService : Service() {
             .setOngoing(true)
             .build()
         startForeground(NotificationIds.SERVICE, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // The unlock receiver only lives while this service does. If the service was down,
+        // the stored unlock may be hours old while the owner has been using the phone; A8
+        // would read that as unlocked for hours. Unlocked right now is a fresh baseline.
+        if (getSystemService(KeyguardManager::class.java)?.isDeviceLocked == false) UnlockedTimer.stamp(this)
         PowerGestureMonitor.start(this)
         UsbLockedMonitor.start(this)
         PowerMenuGuard.start(this)

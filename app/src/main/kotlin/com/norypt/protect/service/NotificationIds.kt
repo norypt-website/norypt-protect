@@ -11,6 +11,7 @@ object NotificationIds {
     const val COUNTDOWN_DEADMAN = 5001
     const val WIPE_FAILED = 5002
     const val COUNTDOWN_UNLOCK_DEADLINE = 5003
+    const val COUNTDOWN_UNLOCKED_TOO_LONG = 5006
     const val PERMISSION_REVIEW = 5004
 
     /** One notification for failed unlocks, updated in place rather than one per attempt. */

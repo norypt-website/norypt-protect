@@ -198,6 +198,18 @@ internal object ProtectPrefsKeys {
     fun setLastUnlockMs(store: KvStore, value: Long) =
         store.putLong(KEY_LAST_UNLOCK_MS, value)
 
+    /** The last unlock on the monotonic clock, with the boot it belongs to; A8 measures from it. */
+    fun lastUnlockElapsedMs(store: KvStore): Long = store.getLong("last_unlock_elapsed_ms", 0L)
+    fun lastUnlockBoot(store: KvStore): Int = store.getInt("last_unlock_boot", -1)
+    fun setLastUnlockElapsed(store: KvStore, elapsedMs: Long, bootCount: Int) {
+        store.putLong("last_unlock_elapsed_ms", elapsedMs)
+        store.putInt("last_unlock_boot", bootCount)
+    }
+
+    fun unlockedTimerGraceSeconds(store: KvStore): Int =
+        SettingBounds.graceSeconds(store.getInt("unlocked_timer_grace_seconds", 60))
+    fun setUnlockedTimerGraceSeconds(store: KvStore, value: Int) = store.putInt("unlocked_timer_grace_seconds", value)
+
     /** A11: duress panic threshold (0 = off). Wipe fires when failedAttempts reaches this value. */
     fun duressThreshold(store: KvStore): Int =
         SettingBounds.duressThreshold(store.getInt(KEY_DURESS_THRESHOLD, 0))
@@ -542,6 +554,15 @@ object ProtectPrefs {
 
     fun setLastUnlockMs(context: Context, value: Long) =
         ProtectPrefsKeys.setLastUnlockMs(store(context), value)
+
+    fun lastUnlockElapsedMs(context: Context): Long = ProtectPrefsKeys.lastUnlockElapsedMs(store(context))
+    fun lastUnlockBoot(context: Context): Int = ProtectPrefsKeys.lastUnlockBoot(store(context))
+    fun setLastUnlockElapsed(context: Context, elapsedMs: Long, bootCount: Int) =
+        ProtectPrefsKeys.setLastUnlockElapsed(store(context), elapsedMs, bootCount)
+
+    fun unlockedTimerGraceSeconds(context: Context): Int = ProtectPrefsKeys.unlockedTimerGraceSeconds(store(context))
+    fun setUnlockedTimerGraceSeconds(context: Context, value: Int) =
+        ProtectPrefsKeys.setUnlockedTimerGraceSeconds(store(context), value)
 
     fun duressThreshold(context: Context): Int =
         ProtectPrefsKeys.duressThreshold(store(context))

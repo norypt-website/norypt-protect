@@ -264,6 +264,14 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     bound = SettingBounds::unlockedMinutes,
                     onCommit = { ProtectPrefs.setMaxUnlockedMinutes(ctx, it) },
                 )
+                Spacer(Modifier.height(8.dp))
+                ConfigNumberField(
+                    label = "Countdown seconds before wipe (default 60)",
+                    current = ProtectPrefs.unlockedTimerGraceSeconds(ctx),
+                    range = SettingBounds.GRACE_SECONDS,
+                    bound = SettingBounds::graceSeconds,
+                    onCommit = { ProtectPrefs.setUnlockedTimerGraceSeconds(ctx, it) },
+                )
             }
             "A10" -> {
                 var pkg by remember { mutableStateOf(ProtectPrefs.fakeMessengerPackage(ctx).orEmpty()) }
