@@ -34,8 +34,6 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.norypt.protect.MainActivity
 import com.norypt.protect.dpm.LockdownMode
-import com.norypt.protect.security.AppPin
-import com.norypt.protect.security.PinLockout
 import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
@@ -178,35 +176,10 @@ private fun LockdownScreen(
     }
 }
 
-/** App PIN entry with the launch gate's lockout applied. */
+/** App PIN entry; [PinEntryDialog] applies the shared lockout. */
 @Composable
 private fun LockdownPinPrompt(onSuccess: () -> Unit, onDismiss: () -> Unit) {
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    var lockedMs by remember { mutableLongStateOf(PinLockout.remainingLockoutMs(ctx)) }
-    if (lockedMs > 0L) {
-        val seconds = ((lockedMs + 999L) / 1000L).toInt()
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text("Too many attempts", color = NoryptColors.Text) },
-            text = { Text("Try again in ${seconds / 60}m ${seconds % 60}s.", color = NoryptColors.Muted) },
-            confirmButton = { TextButton(onClick = onDismiss) { Text("OK", color = NoryptColors.Accent) } },
-            containerColor = NoryptColors.Surface1,
-        )
-        return
-    }
-    PinEntryDialog(
-        title = "App PIN",
-        onConfirm = { pin ->
-            if (AppPin.verify(ctx, pin)) {
-                PinLockout.recordSuccess(ctx)
-                onSuccess()
-            } else {
-                PinLockout.recordFailure(ctx)
-                lockedMs = PinLockout.remainingLockoutMs(ctx)
-            }
-        },
-        onDismiss = onDismiss,
-    )
+    PinEntryDialog(title = "App PIN", onVerified = onSuccess, onDismiss = onDismiss)
 }
 
 @Composable

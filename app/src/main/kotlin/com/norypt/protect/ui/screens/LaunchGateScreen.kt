@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import com.norypt.protect.R
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.security.AppPin
+import com.norypt.protect.security.PinCheck
 import com.norypt.protect.security.PinLockout
 import com.norypt.protect.ui.components.NoteCard
 import com.norypt.protect.ui.components.PrimaryButton
@@ -111,8 +112,10 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
             OutlinedTextField(
                 value = pin,
                 onValueChange = {
-                    pin = it.filter(Char::isDigit).take(12)
-                    error = null
+                    if (AppPin.isPinInput(it)) {
+                        pin = it
+                        error = null
+                    }
                 },
                 label = { Text("App PIN") },
                 singleLine = true,
@@ -131,16 +134,18 @@ fun LaunchGateScreen(onUnlocked: () -> Unit) {
                 label = "Unlock",
                 enabled = pin.length >= 6 && !lockedOut,
                 onClick = {
-                    if (AppPin.verify(ctx, pin)) {
-                        PinLockout.recordSuccess(ctx)
-                        onUnlocked()
-                    } else {
-                        attempts = PinLockout.recordFailure(ctx)
-                        lockedRemainingMs = PinLockout.remainingLockoutMs(ctx)
-                        error = if (lockedRemainingMs > 0L) null
-                                else "Incorrect PIN ($attempts/${PinLockout.MAX_ATTEMPTS})"
-                        pin = ""
+                    when (val result = AppPin.check(ctx, pin)) {
+                        PinCheck.Ok -> onUnlocked()
+                        is PinCheck.Wrong -> {
+                            attempts = result.attempts
+                            error = "Incorrect PIN ($attempts/${PinLockout.MAX_ATTEMPTS})"
+                        }
+                        is PinCheck.LockedOut -> {
+                            lockedRemainingMs = result.remainingMs
+                            error = null
+                        }
                     }
+                    pin = ""
                 },
             )
             if (showBiometric) {

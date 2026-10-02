@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.R
 import com.norypt.protect.ui.components.NoteCard
+import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.components.PrimaryButton
 import com.norypt.protect.ui.components.noryptFieldColors
 import com.norypt.protect.ui.theme.NoryptColors
@@ -29,7 +30,8 @@ fun PinSetupScreen(onPinSet: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf("") }
     val matches = pin == confirm
-    val canContinue = pin.length >= 6 && matches
+    val weakness = if (pin.length >= AppPin.MIN_LENGTH) AppPin.weakness(pin) else null
+    val canContinue = pin.length >= AppPin.MIN_LENGTH && matches && weakness == null
 
     Column(
         Modifier
@@ -68,19 +70,23 @@ fun PinSetupScreen(onPinSet: (String) -> Unit) {
 
         OutlinedTextField(
             value = pin,
-            onValueChange = { if (it.length <= 12 && it.all(Char::isDigit)) pin = it },
+            onValueChange = { if (AppPin.isPinInput(it)) pin = it },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             label = { Text("PIN (minimum 6 digits)") },
+            isError = weakness != null,
+            supportingText = {
+                if (weakness != null) Text(weakness, color = NoryptColors.Red, fontSize = 12.sp)
+            },
             modifier = Modifier.fillMaxWidth(),
             colors = noryptFieldColors(),
         )
         Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = confirm,
-            onValueChange = { if (it.length <= 12 && it.all(Char::isDigit)) confirm = it },
+            onValueChange = { if (AppPin.isPinInput(it)) confirm = it },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
             visualTransformation = PasswordVisualTransformation(),

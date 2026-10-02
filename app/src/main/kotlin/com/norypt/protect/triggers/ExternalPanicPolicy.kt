@@ -34,6 +34,9 @@ object ExternalPanicPolicy {
      *   sender did not use `startActivityForResult`, which means the platform will not tell
      *   us who they are.
      * @param pairedPackage the single trigger app the user has approved, if any.
+     * @param signerMatches whether the caller is signed with the key recorded at pairing.
+     *   A package name alone is not an identity: if the paired app is uninstalled, any app
+     *   later installed under the same name would inherit the pairing.
      */
     fun decide(
         action: String?,
@@ -41,6 +44,7 @@ object ExternalPanicPolicy {
         pairedPackage: String?,
         triggerEnabled: Boolean,
         selfPackage: String,
+        signerMatches: Boolean,
     ): Decision = when (action) {
         ACTION_TRIGGER -> when {
             !triggerEnabled -> refuse("A5 disarmed")
@@ -49,6 +53,8 @@ object ExternalPanicPolicy {
             callingPackage.isNullOrEmpty() -> refuse("caller not identifiable")
             pairedPackage.isNullOrEmpty() -> refuse("no trigger app paired")
             callingPackage != pairedPackage -> refuse("caller is not the paired trigger app")
+            // Also covers pairings made before the key was recorded: they must be renewed.
+            !signerMatches -> refuse("caller is not signed like the paired trigger app")
             else -> Decision.Fire
         }
 
@@ -65,6 +71,7 @@ object ExternalPanicPolicy {
         ACTION_DISCONNECT -> when {
             callingPackage.isNullOrEmpty() -> refuse("caller not identifiable")
             callingPackage != pairedPackage -> refuse("caller is not the paired trigger app")
+            !signerMatches -> refuse("caller is not signed like the paired trigger app")
             else -> Decision.Unpair
         }
 
