@@ -17,17 +17,21 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.norypt.protect.admin.Provisioning
+import com.norypt.protect.admin.Tier
 import com.norypt.protect.checkup.CheckResult
 import com.norypt.protect.checkup.CheckStatus
 import com.norypt.protect.checkup.CheckupReadings
 import com.norypt.protect.checkup.CheckupRules
 import com.norypt.protect.checkup.FixResult
+import com.norypt.protect.checkup.LocationWhileLocked
 import com.norypt.protect.ui.components.NoryptCard
 import com.norypt.protect.ui.components.NoteCard
 import com.norypt.protect.ui.components.SecondaryButton
 import com.norypt.protect.ui.components.SectionLabel
 import com.norypt.protect.ui.components.SubScreenScaffold
 import com.norypt.protect.ui.components.TagPill
+import com.norypt.protect.ui.components.ToggleCard
 import com.norypt.protect.ui.theme.NoryptColors
 
 /** Privacy checkup: each item with its status, and a fix or a Settings link where one exists. */
@@ -74,7 +78,7 @@ fun CheckupSubScreen(onBack: () -> Unit, onOpenAudit: () -> Unit, padding: Paddi
                 },
             )
         }
-        // Task 9: LocationWhileLockedCard()
+        LocationWhileLockedCard()
         SectionLabel("Apps")
         SecondaryButton(label = "Open App audit", onClick = onOpenAudit)
     }
@@ -109,4 +113,29 @@ private fun CheckStatus.color(): Color = when (this) {
     CheckStatus.ATTENTION -> NoryptColors.Red
     CheckStatus.INFO -> NoryptColors.MutedDeep
     CheckStatus.CONFIRM -> NoryptColors.Amber
+}
+
+@Composable
+private fun LocationWhileLockedCard() {
+    val ctx = LocalContext.current
+    var on by remember { mutableStateOf(LocationWhileLocked.isEnabled(ctx)) }
+    val isOwner = Provisioning.current(ctx) == Tier.DeviceOwner
+    SectionLabel("Location")
+    ToggleCard(
+        title = "Location off while locked",
+        subtitle = if (isOwner) {
+            "Location turns off when the screen goes off and back on when you unlock, if it was on. While the " +
+                "screen is off nothing can use location: navigation and location sharing pause, and Find My " +
+                "Device cannot locate the phone."
+        } else {
+            "Requires Device Owner."
+        },
+        checked = on,
+        enabled = isOwner,
+        requiresDeviceOwner = true,
+        onToggle = { wanted ->
+            LocationWhileLocked.setEnabled(ctx, wanted)
+            on = LocationWhileLocked.isEnabled(ctx)
+        },
+    )
 }

@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.Looper
 import com.norypt.protect.MainActivity
 import com.norypt.protect.R
+import com.norypt.protect.checkup.LocationWhileLocked
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.motion.MotionLockMonitor
 import com.norypt.protect.timeline.TamperBootAudit
@@ -78,6 +79,7 @@ class ProtectForegroundService : Service() {
             { UserPresentMonitor.start(this) },
             { TamperMonitor.start(this) },
             { MotionLockMonitor.start(this) },
+            { LocationWhileLocked.start(this) },
             { DeadmanScheduler.schedule(this) },
             // Covers a boot whose broadcast never reached a force-stopped app; a no-op otherwise.
             { TamperBootAudit.check(this, fromBootBroadcast = false) },
@@ -97,6 +99,7 @@ class ProtectForegroundService : Service() {
         UserPresentMonitor.stop(this)
         TamperMonitor.stop(this)
         MotionLockMonitor.stop(this)
+        LocationWhileLocked.stop(this)
         super.onDestroy()
     }
 
