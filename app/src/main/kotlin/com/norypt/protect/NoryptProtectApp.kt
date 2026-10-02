@@ -10,6 +10,7 @@ import com.norypt.protect.dpm.PermissionPolicyGuard
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.service.ProtectForegroundService
+import com.norypt.protect.shield.AccessShield
 import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
 import com.norypt.protect.triggers.PackageInternetWatcher
@@ -67,5 +68,7 @@ class NoryptProtectApp : Application() {
         // Power-menu guard self-heal: a lock task held into an unlocked session, or a keyguard
         // that came up without the guard noticing, is corrected within one tick.
         ProtectForegroundService.registerTick { PowerMenuGuard.reconcile(it) }
+        // Spyware shield self-heal: a permitted list that differs from the owner's is put back within one tick.
+        ProtectForegroundService.registerTick { AccessShield.reconcile(it) }
     }
 }

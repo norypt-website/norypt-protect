@@ -450,6 +450,21 @@ internal object ProtectPrefsKeys {
 
     fun lockdownEnabled(store: KvStore): Boolean = store.getBoolean(KEY_LOCKDOWN_ENABLED, false)
     fun setLockdownEnabled(store: KvStore, value: Boolean) = store.putBoolean(KEY_LOCKDOWN_ENABLED, value)
+
+    // --- Shared: a set of names stored as one comma-joined value (package names contain no commas) ---
+    private fun decodeSet(raw: String?): Set<String> = raw?.split(',')?.filter { it.isNotBlank() }?.toSet().orEmpty()
+    private fun encodeSet(value: Set<String>): String = value.sorted().joinToString(",")
+
+    // --- Spyware shield ---
+    const val KEY_SHIELD_ON_PREFIX = "shield_on_"
+    const val KEY_SHIELD_ALLOW_PREFIX = "shield_allow_"
+
+    fun shieldOn(store: KvStore, kind: String): Boolean = store.getBoolean(KEY_SHIELD_ON_PREFIX + kind, false)
+    fun setShieldOn(store: KvStore, kind: String, value: Boolean) = store.putBoolean(KEY_SHIELD_ON_PREFIX + kind, value)
+    fun shieldAllowlist(store: KvStore, kind: String): Set<String> =
+        decodeSet(store.getString(KEY_SHIELD_ALLOW_PREFIX + kind, null))
+    fun setShieldAllowlist(store: KvStore, kind: String, value: Set<String>) =
+        store.putString(KEY_SHIELD_ALLOW_PREFIX + kind, encodeSet(value))
 }
 
 /**
@@ -795,4 +810,14 @@ object ProtectPrefs {
 
     fun lockdownEnabled(context: Context): Boolean = ProtectPrefsKeys.lockdownEnabled(store(context))
     fun setLockdownEnabled(context: Context, value: Boolean) = ProtectPrefsKeys.setLockdownEnabled(store(context), value)
+
+    // --- Spyware shield ---
+
+    fun shieldOn(context: Context, kind: String): Boolean = ProtectPrefsKeys.shieldOn(store(context), kind)
+    fun setShieldOn(context: Context, kind: String, value: Boolean) =
+        ProtectPrefsKeys.setShieldOn(store(context), kind, value)
+    fun shieldAllowlist(context: Context, kind: String): Set<String> =
+        ProtectPrefsKeys.shieldAllowlist(store(context), kind)
+    fun setShieldAllowlist(context: Context, kind: String, value: Set<String>) =
+        ProtectPrefsKeys.setShieldAllowlist(store(context), kind, value)
 }
