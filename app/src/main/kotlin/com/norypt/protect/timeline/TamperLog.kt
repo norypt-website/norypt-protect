@@ -71,6 +71,19 @@ object TamperLog {
         }
     }
 
+    /**
+     * Like [record], dated [epochMs] instead of now: entries imported from Android's security log
+     * carry the time the system logged them. Their monotonic time is unknown (0), and they do not
+     * count as a sign of life for the boot audit.
+     */
+    fun recordAt(ctx: Context, kind: TamperKind, detail: String, severity: Severity, epochMs: Long) {
+        runCatching {
+            if (!isEnabled(ctx)) return
+            val event = TamperEvent(epochMs = epochMs, elapsedMs = 0L, kind = kind, severity = severity, detail = detail)
+            synchronized(this) { store(ctx).append(event) }
+        }
+    }
+
     /** Newest first. */
     fun all(ctx: Context): List<TamperEvent> = synchronized(this) { store(ctx).all() }
 
