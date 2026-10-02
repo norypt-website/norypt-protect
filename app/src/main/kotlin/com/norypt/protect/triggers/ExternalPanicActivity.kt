@@ -13,10 +13,10 @@ import androidx.compose.runtime.setValue
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
-import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.theme.NoryptProtectTheme
 import com.norypt.protect.util.DebugTelemetry
+import com.norypt.protect.util.SignerDigest
 
 /**
  * A5 — PanicKit responder.
@@ -49,6 +49,8 @@ class ExternalPanicActivity : ComponentActivity() {
             pairedPackage = ProtectPrefs.panicTriggerPackage(this),
             triggerEnabled = ProtectPrefs.isTriggerEnabled(this, ExternalPanicTrigger.id),
             selfPackage = packageName,
+            signerMatches = caller != null &&
+                SignerDigest.matches(packageManager, caller, ProtectPrefs.panicTriggerCert(this)),
         )
         DebugTelemetry.log("A5 ${intent?.action} caller=$caller -> $decision")
         DebugTelemetry.bump(this, "a5_intents_total")
@@ -63,6 +65,7 @@ class ExternalPanicActivity : ComponentActivity() {
 
             is ExternalPanicPolicy.Decision.Unpair -> {
                 ProtectPrefs.setPanicTriggerPackage(this, null)
+                ProtectPrefs.setPanicTriggerCert(this, null)
                 setResult(Activity.RESULT_OK)
                 finish()
             }
@@ -83,30 +86,49 @@ class ExternalPanicActivity : ComponentActivity() {
         /** Whether a trigger app is paired, for the Triggers UI to surface. */
         fun pairedTriggerPackage(context: Context): String? =
             ProtectPrefs.panicTriggerPackage(context)
+
+        /**
+         * Why A5 cannot fire although armed, or null when it can: no app paired, the paired
+         * app is gone or re-signed, or the pairing predates signing-key binding.
+         */
+        fun pairingProblem(context: Context): String? {
+            val pkg = ProtectPrefs.panicTriggerPackage(context)
+                ?: return "No panic app is paired yet. Connect one from the panic app."
+            return if (SignerDigest.matches(context.packageManager, pkg, ProtectPrefs.panicTriggerCert(context))) {
+                null
+            } else {
+                "The paired app ($pkg) is missing or signed differently. Pair it again."
+            }
+        }
     }
 
-    private fun confirmPairing(packageName: String) {
+    private fun confirmPairing(callerPackage: String) {
         val label = runCatching {
             packageManager.getApplicationLabel(
-                packageManager.getApplicationInfo(packageName, 0),
+                packageManager.getApplicationInfo(callerPackage, 0),
             ).toString()
-        }.getOrDefault(packageName)
+        }.getOrDefault(callerPackage)
+        // Recorded now, before the owner decides: what gets paired is the app that asked.
+        val cert = SignerDigest.of(packageManager, callerPackage)
+        if (cert == null) {
+            setResult(Activity.RESULT_CANCELED)
+            finish()
+            return
+        }
 
         setContent {
             NoryptProtectTheme {
                 var show by remember { mutableStateOf(true) }
                 if (show) {
+                    // The label is chosen by the caller, so the package name is shown as well.
                     PinEntryDialog(
-                        title = "Allow \"$label\" to wipe this device?",
-                        onConfirm = { pin ->
+                        title = "Allow \"$label\" ($callerPackage) to wipe this device?",
+                        onVerified = {
                             show = false
-                            if (AppPin.verify(this, pin)) {
-                                ProtectPrefs.setPanicTriggerPackage(this, packageName)
-                                DebugTelemetry.bump(this, "a5_paired")
-                                setResult(Activity.RESULT_OK)
-                            } else {
-                                setResult(Activity.RESULT_CANCELED)
-                            }
+                            ProtectPrefs.setPanicTriggerPackage(this, callerPackage)
+                            ProtectPrefs.setPanicTriggerCert(this, cert)
+                            DebugTelemetry.bump(this, "a5_paired")
+                            setResult(Activity.RESULT_OK)
                             finish()
                         },
                         onDismiss = {

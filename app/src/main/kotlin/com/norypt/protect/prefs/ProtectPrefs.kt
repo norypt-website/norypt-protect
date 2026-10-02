@@ -38,6 +38,7 @@ internal object ProtectPrefsKeys {
     const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
     const val KEY_PENDING_WIPE_AT_MS = "pending_wipe_at_ms"
     const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
+    const val KEY_PANIC_TRIGGER_CERT = "panic_trigger_cert"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
     const val KEY_DURESS_THRESHOLD = "duress_threshold"
     const val KEY_ANTI_TAMPER_ENABLED = "anti_tamper_enabled"
@@ -156,6 +157,13 @@ internal object ProtectPrefsKeys {
 
     fun setPanicTriggerPackage(store: KvStore, value: String?) =
         store.putString(KEY_PANIC_TRIGGER_PACKAGE, value)
+
+    /** SHA-256 of the paired trigger app's signing certificate, hex. */
+    fun panicTriggerCert(store: KvStore): String? =
+        store.getString(KEY_PANIC_TRIGGER_CERT, null)
+
+    fun setPanicTriggerCert(store: KvStore, value: String?) =
+        store.putString(KEY_PANIC_TRIGGER_CERT, value)
 
     /** Reason of a wipe that was attempted and did not happen; null when none is pending. */
     fun pendingWipeReason(store: KvStore): String? =
@@ -485,6 +493,12 @@ object ProtectPrefs {
 
     fun setPanicTriggerPackage(context: Context, value: String?) =
         ProtectPrefsKeys.setPanicTriggerPackage(store(context), value)
+
+    fun panicTriggerCert(context: Context): String? =
+        ProtectPrefsKeys.panicTriggerCert(store(context))
+
+    fun setPanicTriggerCert(context: Context, value: String?) =
+        ProtectPrefsKeys.setPanicTriggerCert(store(context), value)
 
     fun pendingWipeReason(context: Context): String? =
         ProtectPrefsKeys.pendingWipeReason(store(context))

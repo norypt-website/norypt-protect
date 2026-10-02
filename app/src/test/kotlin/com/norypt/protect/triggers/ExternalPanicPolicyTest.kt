@@ -19,7 +19,8 @@ class ExternalPanicPolicyTest {
         caller: String?,
         pairedPkg: String? = paired,
         enabled: Boolean = true,
-    ) = decide(ACTION_TRIGGER, caller, pairedPkg, enabled, self)
+        signerMatches: Boolean = true,
+    ) = decide(ACTION_TRIGGER, caller, pairedPkg, enabled, self, signerMatches)
 
     // --- The only path that may wipe the device ---
 
@@ -57,15 +58,15 @@ class ExternalPanicPolicyTest {
 
     @Test
     fun `an unsupported action cannot fire`() {
-        assertTrue(decide("android.intent.action.VIEW", paired, paired, true, self) is Decision.Refuse)
-        assertTrue(decide(null, paired, paired, true, self) is Decision.Refuse)
+        assertTrue(decide("android.intent.action.VIEW", paired, paired, true, self, signerMatches = true) is Decision.Refuse)
+        assertTrue(decide(null, paired, paired, true, self, signerMatches = true) is Decision.Refuse)
     }
 
     // --- Pairing ---
 
     @Test
     fun `connect from an identifiable app offers pairing rather than pairing silently`() {
-        val d = decide(ACTION_CONNECT, stranger, null, true, self)
+        val d = decide(ACTION_CONNECT, stranger, null, true, self, signerMatches = true)
 
         // Offer, not Fire and not an automatic pairing: consent is the user's to give.
         assertEquals(Decision.OfferPairing(stranger), d)
@@ -73,31 +74,31 @@ class ExternalPanicPolicyTest {
 
     @Test
     fun `connect from an unidentifiable caller is refused`() {
-        assertTrue(decide(ACTION_CONNECT, null, null, true, self) is Decision.Refuse)
+        assertTrue(decide(ACTION_CONNECT, null, null, true, self, signerMatches = true) is Decision.Refuse)
     }
 
     @Test
     fun `the app cannot pair with itself`() {
-        assertTrue(decide(ACTION_CONNECT, self, null, true, self) is Decision.Refuse)
+        assertTrue(decide(ACTION_CONNECT, self, null, true, self, signerMatches = true) is Decision.Refuse)
     }
 
     @Test
     fun `connect does not depend on the trigger being armed`() {
         // Pairing while disarmed is fine; firing while disarmed is not.
-        assertEquals(Decision.OfferPairing(stranger), decide(ACTION_CONNECT, stranger, null, false, self))
+        assertEquals(Decision.OfferPairing(stranger), decide(ACTION_CONNECT, stranger, null, false, self, signerMatches = true))
     }
 
     // --- Unpairing ---
 
     @Test
     fun `the paired app may unpair itself`() {
-        assertEquals(Decision.Unpair, decide(ACTION_DISCONNECT, paired, paired, true, self))
+        assertEquals(Decision.Unpair, decide(ACTION_DISCONNECT, paired, paired, true, self, signerMatches = true))
     }
 
     @Test
     fun `a stranger cannot unpair the user's trigger app`() {
-        assertTrue(decide(ACTION_DISCONNECT, stranger, paired, true, self) is Decision.Refuse)
-        assertTrue(decide(ACTION_DISCONNECT, null, paired, true, self) is Decision.Refuse)
+        assertTrue(decide(ACTION_DISCONNECT, stranger, paired, true, self, signerMatches = true) is Decision.Refuse)
+        assertTrue(decide(ACTION_DISCONNECT, null, paired, true, self, signerMatches = true) is Decision.Refuse)
     }
 
     // --- A pairing does not generalise ---
@@ -107,5 +108,17 @@ class ExternalPanicPolicyTest {
         assertTrue(trigger("info.guardianproject.ripple.evil") is Decision.Refuse)
         assertTrue(trigger("info.guardianproject.rippl") is Decision.Refuse)
         assertTrue(trigger(paired.uppercase()) is Decision.Refuse)
+    }
+
+    // --- The pairing is bound to the paired app's signing key ---
+
+    @Test
+    fun `an app reinstalled under the paired name with another key cannot fire`() {
+        assertTrue(trigger(paired, signerMatches = false) is Decision.Refuse)
+    }
+
+    @Test
+    fun `an app reinstalled under the paired name with another key cannot unpair`() {
+        assertTrue(decide(ACTION_DISCONNECT, paired, paired, true, self, signerMatches = false) is Decision.Refuse)
     }
 }

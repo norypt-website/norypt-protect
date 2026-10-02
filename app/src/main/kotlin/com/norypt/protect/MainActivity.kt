@@ -130,11 +130,9 @@ class MainActivity : ComponentActivity() {
                             if (showDialog) {
                                 PinEntryDialog(
                                     title = "Confirm Wipe",
-                                    onConfirm = { pin ->
+                                    onVerified = {
                                         showDialog = false
-                                        if (AppPin.verify(this, pin)) {
-                                            PanicHandler.panic(this, "shortcut.wipe")
-                                        }
+                                        PanicHandler.panic(this, "shortcut.wipe")
                                         finish()
                                     },
                                     onDismiss = {

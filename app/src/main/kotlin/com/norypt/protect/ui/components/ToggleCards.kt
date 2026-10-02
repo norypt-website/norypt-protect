@@ -13,12 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.norypt.protect.security.AppPin
 import com.norypt.protect.ui.theme.NoryptColors
 
 /** Switch colours shared by every toggle in the app. */
@@ -125,7 +123,6 @@ fun PinGuardedToggleCard(
     warningTitle: String? = null,
     warningText: String? = null,
 ) {
-    val ctx = LocalContext.current
     var pendingValue by remember { mutableStateOf<Boolean?>(null) }
     var showWarning by remember { mutableStateOf(false) }
     var showPin by remember { mutableStateOf(false) }
@@ -171,13 +168,11 @@ fun PinGuardedToggleCard(
     if (showPin) {
         PinEntryDialog(
             title = if (pendingValue == true) "Enter App PIN to enable" else "Enter App PIN to disable",
-            onConfirm = { pin ->
-                if (AppPin.verify(ctx, pin)) {
-                    showPin = false
-                    pendingValue?.let { apply(it) }
-                    pendingValue = null
-                    onChanged()
-                }
+            onVerified = {
+                showPin = false
+                pendingValue?.let { apply(it) }
+                pendingValue = null
+                onChanged()
             },
             onDismiss = {
                 showPin = false

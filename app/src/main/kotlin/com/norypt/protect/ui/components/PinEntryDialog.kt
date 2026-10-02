@@ -6,11 +6,15 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.norypt.protect.security.AppPin
+import com.norypt.protect.security.PinCheck
+import com.norypt.protect.security.PinLockout
 import com.norypt.protect.ui.theme.NoryptColors
 
 /** Text-field colours shared by every PIN and number entry in the app. */
@@ -30,14 +34,20 @@ fun noryptFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     errorContainerColor = NoryptColors.Surface1,
 )
 
+/**
+ * The app's one PIN prompt. It checks the PIN itself through [AppPin.check], so the lockout
+ * applies wherever a PIN is asked for, and callers only learn that the owner was verified.
+ */
 @Composable
 fun PinEntryDialog(
     title: String,
-    onConfirm: (String) -> Unit,
+    onVerified: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val ctx = LocalContext.current
     var pin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
+    var lockedMs by remember { mutableLongStateOf(PinLockout.remainingLockoutMs(ctx)) }
+    var message by remember { mutableStateOf(if (lockedMs > 0L) lockoutText(lockedMs) else null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -47,13 +57,14 @@ fun PinEntryDialog(
                 OutlinedTextField(
                     value = pin,
                     onValueChange = {
-                        if (it.length <= 12 && it.all(Char::isDigit)) {
+                        if (AppPin.isPinInput(it)) {
                             pin = it
-                            error = false
+                            if (lockedMs == 0L) message = null
                         }
                     },
                     label = { Text("App PIN") },
-                    isError = error,
+                    isError = message != null,
+                    enabled = lockedMs == 0L,
                     singleLine = true,
                     shape = RoundedCornerShape(10.dp),
                     visualTransformation = PasswordVisualTransformation(),
@@ -62,18 +73,26 @@ fun PinEntryDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Text(
-                    if (error) "Incorrect PIN" else "6 to 12 digits",
-                    color = if (error) NoryptColors.Red else NoryptColors.MutedDeep,
+                    message ?: "${AppPin.MIN_LENGTH} to ${AppPin.MAX_LENGTH} digits",
+                    color = if (message != null) NoryptColors.Red else NoryptColors.MutedDeep,
                     fontSize = 12.sp,
                 )
             }
         },
         confirmButton = {
             TextButton(
-                enabled = pin.length >= 6,
+                enabled = pin.length >= AppPin.MIN_LENGTH && lockedMs == 0L,
                 onClick = {
-                    onConfirm(pin)
-                    error = true // caller can override by dismissing
+                    when (val result = AppPin.check(ctx, pin)) {
+                        PinCheck.Ok -> onVerified()
+                        is PinCheck.Wrong ->
+                            message = "Incorrect PIN (${result.attempts}/${PinLockout.MAX_ATTEMPTS})"
+                        is PinCheck.LockedOut -> {
+                            lockedMs = result.remainingMs
+                            message = lockoutText(result.remainingMs)
+                        }
+                    }
+                    pin = ""
                 },
             ) { Text("Confirm", color = NoryptColors.Accent, fontWeight = FontWeight.SemiBold) }
         },
@@ -83,4 +102,10 @@ fun PinEntryDialog(
         containerColor = NoryptColors.Surface2,
         shape = RoundedCornerShape(16.dp),
     )
+}
+
+/** "Too many attempts" text shared by every PIN entry. */
+fun lockoutText(remainingMs: Long): String {
+    val seconds = ((remainingMs + 999L) / 1000L).toInt()
+    return "Too many attempts. Try again in ${seconds / 60}m ${seconds % 60}s."
 }

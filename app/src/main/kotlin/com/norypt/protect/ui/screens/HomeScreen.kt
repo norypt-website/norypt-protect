@@ -30,7 +30,6 @@ import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
-import com.norypt.protect.security.AppPin
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.triggers.TriggerRegistry
 import com.norypt.protect.ui.components.LongPressHoldButton
@@ -120,11 +119,9 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
     if (showPinForWipe) {
         PinEntryDialog(
             title = "Enter App PIN to wipe",
-            onConfirm = { pin ->
-                if (AppPin.verify(ctx, pin)) {
-                    showPinForWipe = false
-                    PanicHandler.panic(ctx, reason = "home.pin")
-                }
+            onVerified = {
+                showPinForWipe = false
+                PanicHandler.panic(ctx, reason = "home.pin")
             },
             onDismiss = { showPinForWipe = false },
         )

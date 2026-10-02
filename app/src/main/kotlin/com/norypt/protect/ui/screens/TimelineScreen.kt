@@ -20,7 +20,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.platform.PlatformInfo
-import com.norypt.protect.security.AppPin
 import com.norypt.protect.timeline.Severity
 import com.norypt.protect.timeline.TamperEvent
 import com.norypt.protect.timeline.TamperLog
@@ -107,12 +106,10 @@ fun TimelineScreen(padding: PaddingValues) {
     if (showClearPin) {
         PinEntryDialog(
             title = "Enter App PIN to clear the timeline",
-            onConfirm = { pin ->
-                if (AppPin.verify(ctx, pin)) {
-                    showClearPin = false
-                    TamperLog.clear(ctx)
-                    events = TamperLog.all(ctx)
-                }
+            onVerified = {
+                showClearPin = false
+                TamperLog.clear(ctx)
+                events = TamperLog.all(ctx)
             },
             onDismiss = { showClearPin = false },
         )
