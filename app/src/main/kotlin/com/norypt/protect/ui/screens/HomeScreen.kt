@@ -49,6 +49,16 @@ import com.norypt.protect.wipe.WipeEngine
 
 @Composable
 fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
+    var showAudit by remember { mutableStateOf(false) }
+    if (showAudit) {
+        AppAuditSubScreen(onBack = { showAudit = false }, padding = padding)
+    } else {
+        HomeContent(padding = padding, onRequestEnableAdmin = onRequestEnableAdmin, onOpenAudit = { showAudit = true })
+    }
+}
+
+@Composable
+private fun HomeContent(padding: PaddingValues, onRequestEnableAdmin: () -> Unit, onOpenAudit: () -> Unit) {
     val ctx = LocalContext.current
     var tier by remember { mutableStateOf(Provisioning.current(ctx)) }
     var armedCount by remember { mutableIntStateOf(countArmed(ctx)) }
@@ -113,10 +123,13 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
         } else {
             SummaryRow(armedCount = armedCount, total = TriggerRegistry.all.size, dryRun = dryRun, timelineOn = timelineOn)
             if (reviewPending) {
-                PermissionReviewCard(onDone = {
-                    ProtectPrefs.setPermissionReviewPending(ctx, false)
-                    reviewPending = false
-                })
+                PermissionReviewCard(
+                    onOpenAudit = onOpenAudit,
+                    onDone = {
+                        ProtectPrefs.setPermissionReviewPending(ctx, false)
+                        reviewPending = false
+                    },
+                )
             }
             if (brokenCount > 0) {
                 NoteCard(
@@ -163,7 +176,7 @@ fun HomeScreen(padding: PaddingValues, onRequestEnableAdmin: () -> Unit) {
  * out that there is something to undo.
  */
 @Composable
-private fun PermissionReviewCard(onDone: () -> Unit) {
+private fun PermissionReviewCard(onOpenAudit: () -> Unit, onDone: () -> Unit) {
     val ctx = LocalContext.current
     NoteCard(
         title = "Review app permissions",
@@ -180,6 +193,7 @@ private fun PermissionReviewCard(onDone: () -> Unit) {
             }
         },
     )
+    SecondaryButton(label = "Open App audit", onClick = onOpenAudit)
     SecondaryButton(label = "Done, I have reviewed them", onClick = onDone, color = NoryptColors.Muted)
 }
 
