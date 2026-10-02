@@ -31,12 +31,10 @@ import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.service.ProtectForegroundService
-import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.security.AppPin
 import com.norypt.protect.security.SelfVerification
 import com.norypt.protect.ui.components.MainScaffold
 import com.norypt.protect.ui.components.NavTab
-import com.norypt.protect.ui.components.PinEntryDialog
 import com.norypt.protect.ui.screens.HomeScreen
 import com.norypt.protect.ui.screens.PinSetupScreen
 import com.norypt.protect.ui.screens.ProtectionLevelScreen
@@ -46,6 +44,14 @@ import com.norypt.protect.ui.screens.WipeOptionsScreen
 import com.norypt.protect.ui.theme.NoryptColors
 import com.norypt.protect.ui.theme.NoryptProtectTheme
 import com.norypt.protect.util.DebugTelemetry
+import android.os.PowerManager
+import android.os.SystemClock
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.norypt.protect.security.GateRelock
 
 class MainActivity : ComponentActivity() {
 
@@ -96,18 +102,8 @@ class MainActivity : ComponentActivity() {
             ProtectForegroundService.start(this)
         }
 
-        val shortcutAction = intent.getStringExtra("action")
-
-        // Handled before setContent: lockNow() and finish() are side effects, and Compose
-        // may run a composition body more than once, which would fire them repeatedly.
-        if (shortcutAction == "lock") {
-            if (Provisioning.current(this) >= Tier.DeviceAdmin) {
-                getSystemService(DevicePolicyManager::class.java).lockNow()
-            }
-            finish()
-            return
-        }
-
+        // Launcher shortcuts are handled by ShortcutActivity, which other apps cannot start.
+        // This activity is exported for the launcher and ignores any extras it is given.
         setContent {
             NoryptProtectTheme {
                 Surface(
@@ -115,6 +111,7 @@ class MainActivity : ComponentActivity() {
                     color = NoryptColors.Bg,
                 ) {
                     var launchUnlocked by remember { mutableStateOf(false) }
+                    RelockWhenLeft(onRelock = { launchUnlocked = false })
                     // Keystore + Tink setup, so read once rather than on every recomposition.
                     val pinIsSet = remember { AppPin.isSet(this) }
                     if (!pinIsSet) {
@@ -122,34 +119,13 @@ class MainActivity : ComponentActivity() {
                             AppPin.set(this, pin)
                             recreate()
                         })
-                    } else when (shortcutAction) {
-                        // The wipe shortcut bypasses the launch gate intentionally: it has its
-                        // own PIN confirmation, so requiring the PIN twice would be redundant.
-                        "wipe" -> {
-                            var showDialog by remember { mutableStateOf(true) }
-                            if (showDialog) {
-                                PinEntryDialog(
-                                    title = "Confirm Wipe",
-                                    onVerified = {
-                                        showDialog = false
-                                        PanicHandler.panic(this, "shortcut.wipe")
-                                        finish()
-                                    },
-                                    onDismiss = {
-                                        showDialog = false
-                                        finish()
-                                    }
-                                )
-                            }
-                        }
-                        else -> {
-                            if (!launchUnlocked) {
-                                com.norypt.protect.ui.screens.LaunchGateScreen(
-                                    onUnlocked = { launchUnlocked = true },
-                                )
-                            } else {
-                                AppShell(onRequestEnableAdmin = { launchDeviceAdminSettings() })
-                            }
+                    } else {
+                        if (!launchUnlocked) {
+                            com.norypt.protect.ui.screens.LaunchGateScreen(
+                                onUnlocked = { launchUnlocked = true },
+                            )
+                        } else {
+                            AppShell(onRequestEnableAdmin = { launchDeviceAdminSettings() })
                         }
                     }
                 }
@@ -166,6 +142,37 @@ class MainActivity : ComponentActivity() {
                 "Norypt Protect needs device admin to lock and wipe the device in a security emergency. No data leaves the device.",
             )
         startActivity(intent)
+    }
+}
+
+/**
+ * Closes the App PIN gate again when the app was left: at once if the screen went off,
+ * otherwise after [GateRelock.BACKGROUND_GRACE_MS] away.
+ */
+@androidx.compose.runtime.Composable
+private fun RelockWhenLeft(onRelock: () -> Unit) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        var stoppedAt = 0L
+        var screenWentOff = false
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_STOP -> {
+                    stoppedAt = SystemClock.elapsedRealtime()
+                    screenWentOff = context.getSystemService(PowerManager::class.java)?.isInteractive == false
+                }
+                Lifecycle.Event.ON_START -> if (
+                    stoppedAt != 0L &&
+                    GateRelock.shouldRelock(stoppedAt, SystemClock.elapsedRealtime(), screenWentOff)
+                ) {
+                    onRelock()
+                }
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 }
 

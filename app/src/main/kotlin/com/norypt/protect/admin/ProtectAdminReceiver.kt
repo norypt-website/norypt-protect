@@ -119,6 +119,8 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Failed unlock attempt")
             .setContentText("Norypt Protect detected a failed unlock.")
+            // Seen by the owner after unlocking, not by the person making the attempts.
+            .setVisibility(android.app.Notification.VISIBILITY_SECRET)
             .setAutoCancel(true)
             .build()
         nm.notify(NotificationIds.FAILED_UNLOCK, notif)

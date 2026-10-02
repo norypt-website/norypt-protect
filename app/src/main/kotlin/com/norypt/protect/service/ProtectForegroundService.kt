@@ -2,6 +2,7 @@ package com.norypt.protect.service
 
 import android.app.KeyguardManager
 import android.app.Notification
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -9,6 +10,7 @@ import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import com.norypt.protect.MainActivity
 import com.norypt.protect.R
 import com.norypt.protect.dpm.PowerMenuGuard
 import com.norypt.protect.motion.MotionLockMonitor
@@ -47,9 +49,19 @@ class ProtectForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // Secret on the lock screen: whoever holds a locked phone must not learn that it is
+        // armed. Tapping it opens the app (PIN-gated), also the way in when the icon is hidden.
+        val open = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_IMMUTABLE,
+        )
         val notification = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("Norypt Protect is armed")
+            .setVisibility(Notification.VISIBILITY_SECRET)
+            .setContentIntent(open)
             .setOngoing(true)
             .build()
         startForeground(NotificationIds.SERVICE, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)

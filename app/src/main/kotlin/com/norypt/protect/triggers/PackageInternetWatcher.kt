@@ -77,6 +77,7 @@ object PackageInternetWatcher {
         val notification = Notification.Builder(ctx, "alerts")
             .setSmallIcon(android.R.drawable.ic_dialog_alert)
             .setContentTitle("New internet-access app detected")
+            .setVisibility(Notification.VISIBILITY_SECRET)
             .setContentText("$pkg now has internet access")
             .setAutoCancel(true)
             .build()
