@@ -79,7 +79,7 @@ private fun ShieldSection(kind: ShieldKind, isOwner: Boolean, version: Int, onCh
         )
     }
     approved.sorted().forEach { pkg ->
-        ApprovedRow(appLabel(ctx, pkg), pkg) {
+        ApprovedRow(appLabel(ctx, pkg), pkg, active = on) {
             val removed = AccessShield.removeApproval(ctx, kind, pkg)
             message = if (removed) null else "${appLabel(ctx, pkg)} is still switched on. Turn it off in Settings first."
             onChanged()
@@ -114,9 +114,10 @@ private fun toggle(ctx: Context, kind: ShieldKind, wanted: Boolean, askApproval:
 }
 
 @Composable
-private fun ApprovedRow(label: String, pkg: String, onRemove: () -> Unit) {
+private fun ApprovedRow(label: String, pkg: String, active: Boolean, onRemove: () -> Unit) {
     NoryptCard {
-        Text("Approved: $label", color = NoryptColors.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        val title = if (active) "Approved: $label" else "Approved for when the switch is on: $label"
+        Text(title, color = NoryptColors.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Text(pkg, color = NoryptColors.MutedDeep, fontSize = 11.sp)
         SecondaryButton(label = "Remove approval", onClick = onRemove, color = NoryptColors.Muted)
     }

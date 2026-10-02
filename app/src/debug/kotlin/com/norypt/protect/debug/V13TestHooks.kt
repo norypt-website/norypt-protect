@@ -71,7 +71,7 @@ object V13TestHooks {
             val entries = runCatching { AuditRules.entries(AppAudit.collect(ctx), showSystem, ctx.packageName) }
             entries.onFailure { log("AUDIT failed: $it") }
             entries.getOrNull()?.let { list ->
-                val readable = AppAudit.notificationListeners(ctx).isNotEmpty()
+                val readable = AppAudit.notificationListeners(ctx) != null
                 log("AUDIT ${list.size} entries (system=$showSystem, listenersReadable=$readable)")
                 list.forEach { log("AUDIT ${it.label} [${it.packageName}] system=${it.system}: ${it.reasons.joinToString(" | ")}") }
             }
@@ -100,6 +100,8 @@ object V13TestHooks {
             "checkup_undo" -> id?.let { log("checkup.undo $it -> ${CheckupReadings.undo(ctx, it)}") }
             "checkup_confirm" -> id?.let { CheckupReadings.confirm(ctx, it); log("checkup.confirm $it done") }
             "location_lock" -> log("location.setEnabled -> ${LocationWhileLocked.setEnabled(ctx, intent.getBooleanExtra("on", false))}")
+            // Raises the Home "Review app permissions" card that 1.2.1 shows after the auto-grant repair.
+            "checkup_review_pending" -> { ProtectPrefs.setPermissionReviewPending(ctx, true); log("review card raised") }
             "checkup_dump", "location_dump" -> Unit
             else -> return false
         }
