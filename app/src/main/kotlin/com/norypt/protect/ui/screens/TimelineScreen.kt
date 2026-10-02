@@ -20,6 +20,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.platform.PlatformInfo
+import com.norypt.protect.timeline.SecurityLogFeature
 import com.norypt.protect.timeline.Severity
 import com.norypt.protect.timeline.TamperEvent
 import com.norypt.protect.timeline.TamperLog
@@ -147,6 +148,7 @@ private fun LazyListScope.headerItems(
             onToggle = onToggle,
         )
     }
+    item { SecurityLogToggle(timelineOn = enabled, isOwner = tier == Tier.DeviceOwner) }
     item { ScopeCard(isGraphene) }
     when (tier) {
         Tier.None -> item {
@@ -164,6 +166,33 @@ private fun LazyListScope.headerItems(
         }
         Tier.DeviceOwner -> Unit
     }
+}
+
+/** Android's own security log, under the Timeline switch; Device Owner only. */
+@Composable
+private fun SecurityLogToggle(timelineOn: Boolean, isOwner: Boolean) {
+    val ctx = LocalContext.current
+    // Keyed on the Timeline switch: turning the Timeline off turns the security log off too.
+    var on by remember(timelineOn) { mutableStateOf(SecurityLogFeature.isOn(ctx)) }
+    val unavailable = remember(on) { SecurityLogFeature.unavailable(ctx) }
+    ToggleCard(
+        title = "Include Android's security log",
+        subtitle = when {
+            !isOwner -> "Requires Device Owner."
+            !timelineOn -> "Turn on Record timeline first."
+            unavailable -> "Unavailable while another, unaffiliated user exists on this phone."
+            else -> "Adds what only the system sees: failed unlocks before the first unlock after a restart, the " +
+                "boot state at every start, USB debugging, certificate authorities and failed wipes. Entries " +
+                "arrive in batches, up to a couple of hours late."
+        },
+        checked = on,
+        enabled = timelineOn && isOwner,
+        accent = NoryptColors.Green,
+        onToggle = { wanted ->
+            if (wanted) SecurityLogFeature.enable(ctx) else SecurityLogFeature.disable(ctx)
+            on = SecurityLogFeature.isOn(ctx)
+        },
+    )
 }
 
 private fun LazyListScope.eventItems(shown: List<TamperEvent>, enabled: Boolean) {

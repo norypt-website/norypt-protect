@@ -48,6 +48,8 @@ object TamperLog {
             ProtectPrefs.setTimelineSimSnapshot(ctx, null)
             ProtectPrefs.setTimelineSentinelArmed(ctx, false)
             BiometricSentinel.disarm()
+            // Android's security log exists here only for the Timeline.
+            SecurityLogFeature.disable(ctx)
         }
     }
 
