@@ -313,13 +313,40 @@ Not exercised on a device: PanicKit signer binding and USB-while-locked.
 
 **Repair of the old auto-grant policy — Pixel 9a, GrapheneOS, updated from 1.1.0 (2026-10-02).** 1.2.0 reset the policy to "ask" (`Permission policy: {0=0}`) but left 41 grants on other apps fixed by policy, so Settings could not revoke them, and its own permission cleanup killed its first start. With 1.2.1 the update started the service without the app being opened and without any process being killed, the locked grants on other apps went from 41 to 0, and the review notice was posted.
 
+### Version 1.3 — Pixel 10a, GrapheneOS (Android 17, API 37), Device Owner
+
+Verified on 2026-10-03 with the debug build and dry-run on, after a factory reset, read back from `dumpsys`, the policy engine, the screens (UI automation) and the device's own timeline.
+
+| Check | Result | Evidence |
+|---|---|---|
+| Keyboard shield with an unapproved outside keyboard on | Pass | Android refused the policy; the switch stayed off and nothing was stored |
+| Approval, and the block in Settings | Pass | The approval dialog listed the keyboard; the policy engine then showed `permittedInputMethods` set by Norypt; Settings › Keyboard apps showed "Controlled by admin" and refused it with "Blocked by work policy" |
+| Removing an approval that is in use | Pass | Refused with "Simple Keyboard is still switched on. Turn it off in Settings first."; accepted once the keyboard was off (list `[]`) |
+| Shields off | Pass | Both permitted lists back to `null` (no restriction) |
+| App audit | Pass | User apps: only the sideloaded keyboard, "Keyboard: sees everything you type" and "Not installed from an app store"; Norypt never listed; 40 entries with system apps; App info opens the system page |
+| Security log: failed unlock | Pass | One wrong PIN appeared once, as "Failed unlock by PIN, pattern or password", with no duplicate entry from the app |
+| Security log: USB debugging, restart, off and on | Pass | Commands grouped with the first one shown; after a restart, "Verified boot: yellow, dm-verity: enforcing"; no duplicates after the restart or after turning the log off and on; each change of the switch leaves a Timeline entry |
+| Security log with a second user | Pass | A guest user paused Android's log: the switch said "Unavailable while another, unaffiliated user exists", turning it on left it off, and the app recorded failed unlocks itself; with the guest removed the log worked again |
+| Timeline switched off | Pass | The security log went off with it and its switch read "Turn on Record timeline first." |
+| Location off while locked | Pass | Location mode 3 → 0 while locked → 3 after unlock, with no "Apps can access your location" notice; left off before locking, it stayed off |
+| Checkup readings | Pass | Every item matched the device: names, USB debugging, screen lock, patch date, VPN, Private DNS, lock-screen content (hidden by GrapheneOS's default), 2G and the four GrapheneOS items |
+| Checkup fixes and undo | Pass | Device name set with `WRITE_SECURE_SETTINGS`; without it About phone opened and the item stayed Attention; keyguard flags 8 and 16 applied, combined to 24 and undone separately; 2G restriction added and removed; Bluetooth name read and set once Nearby devices was allowed |
+| Nearby devices refused twice | Pass | The second refusal opened App info, with "Nearby devices is not allowed. Allow it under App info › Permissions." |
+| Navigation and counts | Pass | The audit opens from the checkup, the shield and the review card, and Back returns to the opener; the Home card count follows the checkup (5 → 4 after a confirmation) |
+| Crashes | Pass | None in the crash buffer during the session |
+
+Not exercised on a device: Android 13 (where 2G offers no fix; covered by unit tests), an outside accessibility service, and a pre-reboot log import on a device that keeps those logs (the Pixel 10a returned nothing newer than what had already been imported).
+
 ### Android 14+ platform findings
 
-Three platform changes shaped the current design. They apply to stock Android and GrapheneOS alike and are documented here because they are not obvious from the Android reference.
+These platform behaviours shaped the current design. They apply to stock Android and GrapheneOS alike and are documented here because they are not obvious from the Android reference.
 
 1. **`DevicePolicyManager.wipeData(flags)` no longer factory-resets user 0.** It removes only the calling user and throws `IllegalStateException: User 0 is a system user and cannot be removed`. The replacement is `wipeDevice(flags)` (API 34+), used on Android 14+ with `wipeData` retained as the Android 13 fallback.
 2. **`ACTION_SHUTDOWN` is no longer delivered to user applications.** A shutdown-triggered wipe is not implementable on modern Android, so that trigger was removed rather than shipped as a control that silently does nothing.
 3. **`PACKAGE_ADDED` manifest receivers are filtered for third-party applications** even with `QUERY_ALL_PACKAGES` granted. The `B5` reactive path was removed; polling catches new installs within roughly one tick.
+4. **A Device Owner does not stop the owner from adding users, and any user not affiliated with it pauses the security log.** `setSecurityLoggingEnabled(true)` still succeeds and `isSecurityLoggingEnabled` still returns true, but no batch arrives and retrieval throws `SecurityException`. Norypt asks for a batch when the switch is turned on and whenever a user is added or removed, and records failed unlocks itself while the log is not delivered.
+5. **`DevicePolicyManager.setLocationEnabled(true)` posts "Apps can access your location — Contact your IT admin to learn more" every time it turns location on.** Writing the location setting with `WRITE_SECURE_SETTINGS` does not, so "location off while locked" does that when provisioning granted the permission.
+6. **`adb shell ime enable` can switch on a keyboard the Device Owner did not permit.** Settings refuses it ("Blocked by work policy"); the shell is a privileged path the policy does not cover, and USB debugging should be off on a phone in use.
 
 ---
 
