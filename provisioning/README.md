@@ -1,4 +1,4 @@
-# Norypt Protect 1.2.1 — Provisioning Pack
+# Norypt Protect 1.3.0 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.2.1.apk` | The signed app |
-| `norypt-protect-1.2.1.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.3.0.apk` | The signed app |
+| `norypt-protect-1.3.0.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  87e0b20100a7fd3aaf348f706abf21c51c20e665214fa75ae2523489ef670d2c
+SHA-256  35fb7d9c092b33215a34e7f6b97e1c27a37f06757709afdea04b21cdcdbe1ee0
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -42,7 +42,8 @@ card, with the preconditions checked for you:
 4. Warns if any account is still on the phone (Android will refuse Device Owner)
 5. Installs the APK
 6. `dpm set-device-owner`
-7. Grants `WRITE_SECURE_SETTINGS`, which the Emergency-SOS control needs
+7. Grants `WRITE_SECURE_SETTINGS`, which the Emergency-SOS control, the checkup's device-name fix and
+   "location off while locked" need
 8. Verifies the result
 
 It will not guess which phone to provision. If several are connected it lists them and
@@ -62,6 +63,27 @@ stops — because this app can erase the phone it is installed on.
    tab. Tell them to test first, arm second.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.3
+
+Three additions, all off until the owner turns them on, all kept on the phone:
+
+- **Spyware shield** (Protect tab): only system and approved accessibility services and keyboards
+  can be switched on. If the customer already uses an outside keyboard or accessibility app, they
+  approve it in the dialog that appears. The **App audit** lists every app with powerful access
+  and why, with a link to its App info.
+- **Android's security log in the Timeline** (Timeline tab, under Record timeline): failed
+  unlocks, including those before the first unlock after a restart, the verified-boot state at
+  every start, USB debugging, certificate authorities and failed wipes. Entries arrive in
+  batches, up to a couple of hours late. While another, unaffiliated user or profile exists on
+  the phone, Android pauses that log; the switch says so and the app records failed unlocks itself.
+- **Privacy checkup** (Home card and Protect tab): device and Bluetooth names, USB debugging,
+  screen-lock strength, patch age, always-on VPN, Private DNS, lock-screen content, Smart Lock
+  and 2G, with a fix where the app can apply one; on GrapheneOS, four settings to confirm.
+  Optional: **location off while locked**.
+
+When the install is finished, turn **USB debugging** off again: the checkup flags it, because a
+computer the phone once allowed can control it.
 
 ## New in 1.2 (1.2.1)
 

@@ -1,4 +1,4 @@
-# Norypt Protect 1.2.1 — Installation Guide
+# Norypt Protect 1.3.0 — Installation Guide
 
 Norypt Protect turns an Android phone into a device that can lock or erase itself in an
 emergency. It runs entirely on the phone: **no internet permission, no server, no account,
@@ -40,19 +40,19 @@ in transit.
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash norypt-protect-1.2.1.apk -Algorithm SHA256
+Get-FileHash norypt-protect-1.3.0.apk -Algorithm SHA256
 ```
 
 **macOS / Linux:**
 
 ```bash
-shasum -a 256 norypt-protect-1.2.1.apk
+shasum -a 256 norypt-protect-1.3.0.apk
 ```
 
 The result must be exactly:
 
 ```
-87e0b20100a7fd3aaf348f706abf21c51c20e665214fa75ae2523489ef670d2c
+35fb7d9c092b33215a34e7f6b97e1c27a37f06757709afdea04b21cdcdbe1ee0
 ```
 
 **If it does not match, stop.** Do not install it. Ask for a fresh copy.
@@ -139,6 +139,8 @@ It is separate from your phone's lock screen PIN.
 | Block app installation | Refuses every app install on the phone, including over ADB. Also blocks updates to Norypt Protect itself: turn it off before updating. |
 | Lockdown mode | The phone shows only a black screen until the App PIN is entered. Hold a finger anywhere for 3 seconds, enter the PIN, tap Exit lockdown. Survives reboots. |
 | Anti-snatch | Locks the screen the instant the phone is yanked or dropped. Three sensitivity levels. |
+| Spyware shield | Only system keyboards and accessibility services, and the ones you approve, can be switched on. Opens the App audit: every app with powerful access and why. |
+| Privacy checkup | Checks names, USB debugging, screen lock, security patch, VPN, Private DNS, lock-screen content, Smart Lock and 2G, with fixes. Also on Home. Optional: location off while locked. |
 | Hide launcher icon | Removes the app icon from the home screen. To open the app again: Settings › Apps › Norypt Protect › the gear icon, or tap its ongoing notification. |
 
 **Triggers tab** — what causes a wipe. Each one has a switch and a description. Tap a
@@ -166,7 +168,10 @@ that is switched on but cannot fire (no code, a missing permission) says why in 
 leaving it somewhere, and afterwards the tab lists boots, unlocks, failed unlocks, USB
 connections, SIM changes and fingerprint or face changes, with times. It stays on the
 phone, is cleared with the App PIN, and cannot see attacks below the operating system;
-the tab says so.
+the tab says so. Below it, **Include Android's security log** adds what only the system sees:
+failed unlocks before the first unlock after a restart, the boot state at every start, USB
+debugging commands, certificate authorities and failed wipes. Entries arrive in batches, up to
+a couple of hours late.
 
 ---
 
@@ -187,6 +192,10 @@ Then, when you are ready:
 
 **From this moment the triggers really will erase the phone.** There is no confirmation
 prompt and no undo.
+
+Finally, turn **USB debugging** off again (Settings › System › Developer options): the Privacy
+checkup flags it, because a computer the phone once allowed can control it. Turn it back on
+only to update the app over USB.
 
 ---
 
@@ -245,5 +254,5 @@ Being explicit, so you can plan around it:
 
 ---
 
-*Norypt Protect — [norypt.com](https://norypt.com). Version 1.2.1, certificate fingerprint
+*Norypt Protect — [norypt.com](https://norypt.com). Version 1.3.0, certificate fingerprint
 `13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95`.*
