@@ -77,7 +77,7 @@ Any change that touches a trigger, the wipe path, the PIN gate, or signature ver
 2. Keep each pull request to one concern. A small, reviewable change is merged faster than a large one.
 3. Match the surrounding code. Kotlin official style, enforced by ktlint and detekt.
 4. Explain the change in the description: what it does, why, how you tested it, and which devices and Android versions you ran it on.
-5. Confirm you have added no new permission and no new third-party dependency. If either is genuinely necessary, say so explicitly and justify it — both receive close scrutiny, and dependency checksums must be regenerated in `gradle/verification-metadata.xml`.
+5. Confirm you have added no new permission and no new third-party dependency. If either is genuinely necessary, say so explicitly and justify it — both receive close scrutiny, and dependency checksums and signing keys must be regenerated: enable `key-servers` in `gradle/verification-metadata.xml`, run `./gradlew --write-verification-metadata pgp,sha256 --export-keys <the build tasks>`, disable `key-servers` again, delete the binary `verification-keyring.gpg`, and review every new trusted and ignored key.
 6. Ensure CI is green.
 
 Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `fix(triggers): ...`, `feat(ui): ...`, `docs: ...`.

@@ -138,7 +138,7 @@ Supporting hardening:
 - Nothing of the app is included in cloud backups or device-to-device transfers.
 - Lock-screen notifications that would reveal the app's state (armed, wipe failed, failed unlocks) are hidden on the lock screen.
 - Device Owner never auto-grants other apps' permissions. Versions up to 1.1.1 set the device-wide auto-grant policy, which also locked each grant so Settings could not revoke it. From 1.2.1 the first start resets the policy, unlocks those grants (apps keep their access; the owner can now take it away) and asks the owner to review them.
-- No third-party analytics, crash reporting, or advertising SDKs. The dependency graph is short and pinned in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), with checksums in [`gradle/verification-metadata.xml`](gradle/verification-metadata.xml).
+- No third-party analytics, crash reporting, or advertising SDKs. The dependency graph is short and pinned in [`gradle/libs.versions.toml`](gradle/libs.versions.toml), with checksums and the publishers' signing keys in [`gradle/verification-metadata.xml`](gradle/verification-metadata.xml) (keys in `gradle/verification-keyring.keys`; key servers are off, so verification needs no network). Artifacts that are unsigned, or whose key no key server could supply, are checked by checksum only.
 
 ---
 
