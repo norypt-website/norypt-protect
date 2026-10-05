@@ -37,6 +37,7 @@ internal object ProtectPrefsKeys {
     const val KEY_GATE_LOCKED_UNTIL_ELAPSED_MS = "gate_locked_until_elapsed_ms"
     const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
     const val KEY_PENDING_WIPE_AT_MS = "pending_wipe_at_ms"
+    const val KEY_PENDING_WIPE_DRY_RUN = "pending_wipe_dry_run"
     const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
     const val KEY_PANIC_TRIGGER_CERT = "panic_trigger_cert"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
@@ -173,6 +174,17 @@ internal object ProtectPrefsKeys {
 
     fun setPendingWipeAtMs(store: KvStore, value: Long) =
         store.putLong(KEY_PENDING_WIPE_AT_MS, value)
+
+    /**
+     * The dry-run setting the pending wipe was triggered with; its retries use it, whatever the
+     * switch says by then. False when absent: a wipe is only queued after an attempt failed, and
+     * a dry-run attempt does not fail.
+     */
+    fun pendingWipeDryRun(store: KvStore): Boolean =
+        store.getBoolean(KEY_PENDING_WIPE_DRY_RUN, false)
+
+    fun setPendingWipeDryRun(store: KvStore, value: Boolean) =
+        store.putBoolean(KEY_PENDING_WIPE_DRY_RUN, value)
 
     fun gateAttempts(store: KvStore): Int =
         store.getInt(KEY_GATE_ATTEMPTS, 0)

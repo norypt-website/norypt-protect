@@ -186,4 +186,76 @@ class PanicHandlerTest {
         val t0 = 1_000_000L
         assertFalse(PanicHandler.shouldRetry(t0, t0 - 60_000))
     }
+
+    // --- A queued wipe keeps the dry-run setting it was triggered with ---
+
+    private val t0 = 1_000_000L
+    private val denied = WipeError.SecurityDenied("denied")
+
+    @Test
+    fun `nothing queued, nothing to retry`() {
+        assertEquals(PanicHandler.Retry.None, PanicHandler.retryAction(store, t0))
+    }
+
+    @Test
+    fun `a real wipe queued stays real when dry-run is turned on during the retry window`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        ProtectPrefsKeys.setDryRun(store, true)
+        assertEquals(PanicHandler.Retry.Run("deadman", dryRun = false), PanicHandler.retryAction(store, t0 + 30_000))
+    }
+
+    @Test
+    fun `a dry-run queued stays a dry-run when dry-run is turned off during the retry window`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = true, nowMs = t0)
+        ProtectPrefsKeys.setDryRun(store, false)
+        assertEquals(PanicHandler.Retry.Run("deadman", dryRun = true), PanicHandler.retryAction(store, t0 + 30_000))
+    }
+
+    @Test
+    fun `an expired queued wipe is abandoned`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        assertEquals(PanicHandler.Retry.Abandon, PanicHandler.retryAction(store, t0 + PanicHandler.RETRY_WINDOW_MS + 1))
+    }
+
+    @Test
+    fun `a failed retry keeps the original queue time`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0 + 60_000)
+        assertEquals(t0, ProtectPrefsKeys.pendingWipeAtMs(store))
+    }
+
+    // The WIPE FAILED alert says "retrying automatically"; once nothing is queued it must go.
+    @Test
+    fun `a successful attempt clears the queue and asks for the failure alert to be removed`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = true, nowMs = t0)
+        val cleared = PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", null), dryRun = true, nowMs = t0 + 30_000)
+        assertTrue(cleared)
+        assertNull(ProtectPrefsKeys.pendingWipeReason(store))
+        assertEquals(0L, ProtectPrefsKeys.pendingWipeAtMs(store))
+        assertFalse(ProtectPrefsKeys.pendingWipeDryRun(store))
+        assertEquals(PanicHandler.Retry.None, PanicHandler.retryAction(store, t0 + 60_000))
+    }
+
+    @Test
+    fun `a failed attempt does not remove the failure alert`() {
+        assertFalse(PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0))
+    }
+
+    @Test
+    fun `clearing the queue removes the reason, the time and the dry-run snapshot`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = true, nowMs = t0)
+        PanicHandler.clearPending(store)
+        assertNull(ProtectPrefsKeys.pendingWipeReason(store))
+        assertEquals(0L, ProtectPrefsKeys.pendingWipeAtMs(store))
+        assertFalse(ProtectPrefsKeys.pendingWipeDryRun(store))
+    }
+
+    // A test broadcast from a later trigger is not the wipe that is still owed.
+    @Test
+    fun `a later dry-run trigger does not settle a queued real wipe`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        val cleared = PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("qs.tile", null), dryRun = true, nowMs = t0 + 10_000)
+        assertFalse(cleared)
+        assertEquals(PanicHandler.Retry.Run("deadman", dryRun = false), PanicHandler.retryAction(store, t0 + 30_000))
+    }
 }
