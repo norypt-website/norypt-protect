@@ -258,4 +258,52 @@ class PanicHandlerTest {
         assertFalse(cleared)
         assertEquals(PanicHandler.Retry.Run("deadman", dryRun = false), PanicHandler.retryAction(store, t0 + 30_000))
     }
+
+    // Real wins: a queued real wipe is never downgraded or replaced by a later failed attempt.
+    @Test
+    fun `a failed dry-run attempt keeps a queued real wipe real, with its reason and time`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        val cleared = PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("qs.tile", denied), dryRun = true, nowMs = t0 + 10_000)
+        assertFalse(cleared)
+        assertEquals("deadman", ProtectPrefsKeys.pendingWipeReason(store))
+        assertEquals(t0, ProtectPrefsKeys.pendingWipeAtMs(store))
+        assertFalse(ProtectPrefsKeys.pendingWipeDryRun(store))
+        assertEquals(PanicHandler.Retry.Run("deadman", dryRun = false), PanicHandler.retryAction(store, t0 + 30_000))
+    }
+
+    @Test
+    fun `a second failed real trigger keeps the first reason and time`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("usb", denied), dryRun = false, nowMs = t0 + 10_000)
+        assertEquals("deadman", ProtectPrefsKeys.pendingWipeReason(store))
+        assertEquals(t0, ProtectPrefsKeys.pendingWipeAtMs(store))
+        assertFalse(ProtectPrefsKeys.pendingWipeDryRun(store))
+    }
+
+    @Test
+    fun `a failed real trigger replaces a queued dry-run`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("qs.tile", denied), dryRun = true, nowMs = t0)
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0 + 10_000)
+        assertEquals(PanicHandler.Retry.Run("deadman", dryRun = false), PanicHandler.retryAction(store, t0 + 30_000))
+        assertEquals(t0 + 10_000, ProtectPrefsKeys.pendingWipeAtMs(store))
+    }
+
+    @Test
+    fun `a wipe Android refuses clears the queue`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        val cleared = PanicHandler.recordOutcome(
+            store, PanicHandler.outcomeOf("deadman", WipeError.NotPermitted), dryRun = false, nowMs = t0 + 30_000,
+        )
+        assertTrue(cleared)
+        assertEquals(PanicHandler.Retry.None, PanicHandler.retryAction(store, t0 + 60_000))
+    }
+
+    @Test
+    fun `the alert follows the queue`() {
+        assertEquals(PanicHandler.WipeAlert.REFUSED, PanicHandler.alertAfter(WipeError.NotPermitted, cleared = true))
+        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(WipeError.NotPermitted, cleared = false))
+        assertEquals(PanicHandler.WipeAlert.RETRYING, PanicHandler.alertAfter(denied, cleared = false))
+        assertEquals(PanicHandler.WipeAlert.CANCEL, PanicHandler.alertAfter(null, cleared = true))
+        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(null, cleared = false))
+    }
 }

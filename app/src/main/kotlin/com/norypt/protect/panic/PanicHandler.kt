@@ -62,37 +62,65 @@ object PanicHandler {
         // non-null error means the device still holds all its data while the user believes
         // it was destroyed. That is the worst outcome this app has, so it is made loud and
         // retried rather than recorded and forgotten.
-        val outcome = outcomeOf(reason, error)
-        val cleared = recordOutcome(ProtectPrefs.store(context), outcome, dryRun, System.currentTimeMillis())
-        if (outcome.alertUser && error != null) {
-            notifyWipeFailed(context, reason, error)
-        } else if (cleared) {
-            cancelWipeFailed(context)
+        val store = ProtectPrefs.store(context)
+        val cleared = recordOutcome(store, outcomeOf(reason, error), dryRun, System.currentTimeMillis())
+        when (alertAfter(error, cleared)) {
+            WipeAlert.NONE -> Unit
+            WipeAlert.CANCEL -> cancelWipeFailed(context)
+            // Names the wipe still queued, which may be an earlier one than this attempt (real wins).
+            WipeAlert.RETRYING -> if (error != null) {
+                notifyWipeFailed(context, ProtectPrefsKeys.pendingWipeReason(store) ?: reason, error)
+            }
+            WipeAlert.REFUSED -> {
+                cancelWipeFailed(context)
+                notifyWipeRefused(context, reason)
+            }
         }
         return error
     }
 
+    /** What happens to the WIPE FAILED alert after an attempt. */
+    internal enum class WipeAlert { NONE, CANCEL, RETRYING, REFUSED }
+
     /**
-     * Stores what [outcome] leaves queued. Returns true when nothing is queued any more (the
-     * attempt succeeded), so the caller removes a WIPE FAILED alert left by an earlier attempt.
-     * A dry-run that succeeds does not settle a real wipe still queued: that one is still owed.
+     * Any cleared queue takes the ongoing "Retrying automatically" alert down. A wipe Android
+     * refuses outright clears the queue and gets its own one-off alert that promises no retry.
+     * A refusal that cleared nothing (a dry-run next to a queued real wipe) leaves the alert alone.
+     */
+    internal fun alertAfter(error: WipeError?, cleared: Boolean): WipeAlert = when {
+        error == WipeError.NotPermitted -> if (cleared) WipeAlert.REFUSED else WipeAlert.NONE
+        error != null -> WipeAlert.RETRYING
+        cleared -> WipeAlert.CANCEL
+        else -> WipeAlert.NONE
+    }
+
+    /**
+     * Stores what [outcome] leaves queued. Returns true when the queue was cleared (the attempt
+     * succeeded, or Android refused a wipe it can never allow), so the caller removes a WIPE FAILED
+     * alert left by an earlier attempt. A dry-run that succeeds does not settle a real wipe still
+     * queued: that one is still owed.
+     *
+     * Real wins: once a real wipe is queued, a later failed attempt changes nothing, so a dry-run
+     * can never downgrade it and its reason and retry window stay those of the first trigger. A
+     * failed real attempt replaces a queued dry-run and starts its own window.
      */
     internal fun recordOutcome(store: KvStore, outcome: PanicOutcome, dryRun: Boolean, nowMs: Long): Boolean {
-        val realWipeQueued = ProtectPrefsKeys.pendingWipeReason(store) != null && !ProtectPrefsKeys.pendingWipeDryRun(store)
-        if (outcome.pendingReason == null && dryRun && realWipeQueued) return false
+        val queuedReason = ProtectPrefsKeys.pendingWipeReason(store)
+        val realWipeQueued = queuedReason != null && !ProtectPrefsKeys.pendingWipeDryRun(store)
         if (outcome.pendingReason == null) {
+            if (dryRun && realWipeQueued) return false
             clearPending(store)
-            return !outcome.alertUser
+            return true
         }
+        // Something is queued already and this attempt is no upgrade of a dry-run to a real wipe.
+        if (queuedReason != null && (realWipeQueued || dryRun)) return false
         ProtectPrefsKeys.setPendingWipeReason(store, outcome.pendingReason)
         // Snapshot of the dry-run setting: switching dry-run while the wipe is queued must
         // neither turn it into a real wipe nor quietly settle it with a test broadcast.
         ProtectPrefsKeys.setPendingWipeDryRun(store, dryRun)
-        // Stamped only when first queued, so the retry window measures from the
-        // original trigger rather than sliding forward with every failed attempt.
-        if (ProtectPrefsKeys.pendingWipeAtMs(store) == 0L) {
-            ProtectPrefsKeys.setPendingWipeAtMs(store, nowMs)
-        }
+        // Stamped when first queued, so the retry window measures from the original trigger
+        // rather than sliding forward with every failed attempt.
+        ProtectPrefsKeys.setPendingWipeAtMs(store, nowMs)
         return false
     }
 
@@ -193,6 +221,26 @@ object PanicHandler {
                 .setOngoing(true)
                 .build()
             // Fixed id so retries replace the alert instead of stacking one per attempt.
+            nm.notify(NotificationIds.WIPE_FAILED, notif)
+        }
+    }
+
+    /** One-off and dismissible: Android refused the wipe and nothing will try it again. */
+    private fun notifyWipeRefused(context: Context, reason: String) {
+        runCatching {
+            val nm = context.getSystemService(NotificationManager::class.java) ?: return
+            val notif = Notification.Builder(context, "alerts")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Norypt Protect: WIPE FAILED")
+                .setVisibility(Notification.VISIBILITY_SECRET)
+                .setContentText("Trigger \"$reason\" fired but Android refused the wipe.")
+                .setStyle(
+                    Notification.BigTextStyle().bigText(
+                        "Trigger \"$reason\" fired but Android refused the wipe: ${WipeError.NotPermitted.message}. " +
+                            "Your data is still on this device and nothing will retry the wipe.",
+                    ),
+                )
+                .build()
             nm.notify(NotificationIds.WIPE_FAILED, notif)
         }
     }
