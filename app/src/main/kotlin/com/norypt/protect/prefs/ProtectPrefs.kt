@@ -38,6 +38,7 @@ internal object ProtectPrefsKeys {
     const val KEY_PENDING_WIPE_REASON = "pending_wipe_reason"
     const val KEY_PENDING_WIPE_AT_MS = "pending_wipe_at_ms"
     const val KEY_PENDING_WIPE_DRY_RUN = "pending_wipe_dry_run"
+    const val KEY_PENDING_WIPE_CANCEL_GEN = "pending_wipe_cancel_gen"
     const val KEY_PANIC_TRIGGER_PACKAGE = "panic_trigger_package"
     const val KEY_PANIC_TRIGGER_CERT = "panic_trigger_cert"
     const val KEY_LAST_UNLOCK_MS = "last_unlock_ms"
@@ -185,6 +186,13 @@ internal object ProtectPrefsKeys {
 
     fun setPendingWipeDryRun(store: KvStore, value: Boolean) =
         store.putBoolean(KEY_PENDING_WIPE_DRY_RUN, value)
+
+    /** Bumped each time the owner cancels a queued wipe, so an attempt already running cannot re-queue it. */
+    fun pendingWipeCancelGen(store: KvStore): Long =
+        store.getLong(KEY_PENDING_WIPE_CANCEL_GEN, 0L)
+
+    fun setPendingWipeCancelGen(store: KvStore, value: Long) =
+        store.putLong(KEY_PENDING_WIPE_CANCEL_GEN, value)
 
     fun gateAttempts(store: KvStore): Int =
         store.getInt(KEY_GATE_ATTEMPTS, 0)

@@ -300,10 +300,56 @@ class PanicHandlerTest {
 
     @Test
     fun `the alert follows the queue`() {
-        assertEquals(PanicHandler.WipeAlert.REFUSED, PanicHandler.alertAfter(WipeError.NotPermitted, cleared = true))
-        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(WipeError.NotPermitted, cleared = false))
-        assertEquals(PanicHandler.WipeAlert.RETRYING, PanicHandler.alertAfter(denied, cleared = false))
-        assertEquals(PanicHandler.WipeAlert.CANCEL, PanicHandler.alertAfter(null, cleared = true))
-        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(null, cleared = false))
+        val refused = WipeError.NotPermitted
+        assertEquals(PanicHandler.WipeAlert.REFUSED, PanicHandler.alertAfter(refused, cleared = true, stillQueued = false))
+        assertEquals(PanicHandler.WipeAlert.REFUSED, PanicHandler.alertAfter(refused, cleared = false, stillQueued = false))
+        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(refused, cleared = false, stillQueued = true))
+        assertEquals(PanicHandler.WipeAlert.RETRYING, PanicHandler.alertAfter(denied, cleared = false, stillQueued = true))
+        assertEquals(PanicHandler.WipeAlert.CANCEL, PanicHandler.alertAfter(null, cleared = true, stillQueued = false))
+        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(null, cleared = false, stillQueued = false))
+    }
+
+    // The "nothing will retry" alert must outlive a later, unrelated success.
+    @Test
+    fun `a success with nothing queued clears nothing`() {
+        assertFalse(PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("qs.tile", null), dryRun = true, nowMs = t0))
+        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(null, cleared = false, stillQueued = false))
+    }
+
+    // An attempt already running when the owner cancels must not bring the wipe back, nor its alert.
+    @Test
+    fun `an attempt in flight across a cancel does not re-queue the wipe`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        val startGen = PanicHandler.cancelGeneration(store)
+        assertTrue(PanicHandler.cancelPending(store))
+        val cleared = PanicHandler.recordOutcome(
+            store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0 + 30_000, startGen = startGen,
+        )
+        assertFalse(cleared)
+        assertNull(ProtectPrefsKeys.pendingWipeReason(store))
+        assertEquals(PanicHandler.Retry.None, PanicHandler.retryAction(store, t0 + 60_000))
+        assertEquals(PanicHandler.WipeAlert.NONE, PanicHandler.alertAfter(denied, cleared = false, stillQueued = false))
+    }
+
+    @Test
+    fun `an attempt started after a cancel queues as usual`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        PanicHandler.cancelPending(store)
+        val startGen = PanicHandler.cancelGeneration(store)
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("usb", denied), dryRun = false, nowMs = t0 + 10_000, startGen = startGen)
+        assertEquals("usb", ProtectPrefsKeys.pendingWipeReason(store))
+    }
+
+    @Test
+    fun `cancelling with nothing queued reports nothing cancelled`() {
+        assertFalse(PanicHandler.cancelPending(store))
+    }
+
+    @Test
+    fun `an abandoned wipe hands back its reason and leaves the queue empty`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        assertEquals("deadman", PanicHandler.abandonPending(store))
+        assertNull(ProtectPrefsKeys.pendingWipeReason(store))
+        assertNull(PanicHandler.abandonPending(store))
     }
 }

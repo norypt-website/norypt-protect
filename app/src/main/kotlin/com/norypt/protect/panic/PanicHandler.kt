@@ -35,6 +35,8 @@ object PanicHandler {
     ): WipeError? {
         DebugTelemetry.bumpAll(context, "panic_total", "panic_$reason")
 
+        // Read before the attempt: a cancel by the owner while it runs must not be undone by it.
+        val startGen = cancelGeneration(ProtectPrefs.store(context))
         val opts = WipeOptions(
             wipeExternalStorage = ProtectPrefs.wipeExternalStorage(context),
             wipeEuicc = ProtectPrefs.wipeEuicc(context),
@@ -63,8 +65,9 @@ object PanicHandler {
         // it was destroyed. That is the worst outcome this app has, so it is made loud and
         // retried rather than recorded and forgotten.
         val store = ProtectPrefs.store(context)
-        val cleared = recordOutcome(store, outcomeOf(reason, error), dryRun, System.currentTimeMillis())
-        when (alertAfter(error, cleared)) {
+        val cleared = recordOutcome(store, outcomeOf(reason, error), dryRun, System.currentTimeMillis(), startGen)
+        val stillQueued = ProtectPrefsKeys.pendingWipeReason(store) != null
+        when (alertAfter(error, cleared, stillQueued)) {
             WipeAlert.NONE -> Unit
             WipeAlert.CANCEL -> cancelWipeFailed(context)
             // Names the wipe still queued, which may be an earlier one than this attempt (real wins).
@@ -83,35 +86,45 @@ object PanicHandler {
     internal enum class WipeAlert { NONE, CANCEL, RETRYING, REFUSED }
 
     /**
-     * Any cleared queue takes the ongoing "Retrying automatically" alert down. A wipe Android
-     * refuses outright clears the queue and gets its own one-off alert that promises no retry.
-     * A refusal that cleared nothing (a dry-run next to a queued real wipe) leaves the alert alone.
+     * A queue that was actually cleared takes the ongoing "Retrying automatically" alert down; an
+     * attempt that cleared nothing leaves whatever is shown, so a later unrelated success never
+     * removes the "nothing will retry" alert. A wipe Android refuses outright gets that one-off
+     * alert unless a real wipe is still queued (a dry-run next to it), whose alert stays. A failure
+     * that left nothing queued (the owner cancelled while it ran) raises nothing.
      */
-    internal fun alertAfter(error: WipeError?, cleared: Boolean): WipeAlert = when {
-        error == WipeError.NotPermitted -> if (cleared) WipeAlert.REFUSED else WipeAlert.NONE
-        error != null -> WipeAlert.RETRYING
+    internal fun alertAfter(error: WipeError?, cleared: Boolean, stillQueued: Boolean): WipeAlert = when {
+        error == WipeError.NotPermitted -> if (stillQueued) WipeAlert.NONE else WipeAlert.REFUSED
+        error != null -> if (stillQueued) WipeAlert.RETRYING else WipeAlert.NONE
         cleared -> WipeAlert.CANCEL
         else -> WipeAlert.NONE
     }
 
     /**
-     * Stores what [outcome] leaves queued. Returns true when the queue was cleared (the attempt
+     * Stores what [outcome] leaves queued. Returns true when a queued wipe was cleared (the attempt
      * succeeded, or Android refused a wipe it can never allow), so the caller removes a WIPE FAILED
-     * alert left by an earlier attempt. A dry-run that succeeds does not settle a real wipe still
-     * queued: that one is still owed.
+     * alert left by an earlier attempt. With nothing queued before, it returns false. A dry-run
+     * that succeeds does not settle a real wipe still queued: that one is still owed.
      *
      * Real wins: once a real wipe is queued, a later failed attempt changes nothing, so a dry-run
      * can never downgrade it and its reason and retry window stay those of the first trigger. A
      * failed real attempt replaces a queued dry-run and starts its own window.
      */
-    internal fun recordOutcome(store: KvStore, outcome: PanicOutcome, dryRun: Boolean, nowMs: Long): Boolean {
+    internal fun recordOutcome(
+        store: KvStore,
+        outcome: PanicOutcome,
+        dryRun: Boolean,
+        nowMs: Long,
+        startGen: Long? = null,
+    ): Boolean {
         val queuedReason = ProtectPrefsKeys.pendingWipeReason(store)
         val realWipeQueued = queuedReason != null && !ProtectPrefsKeys.pendingWipeDryRun(store)
         if (outcome.pendingReason == null) {
             if (dryRun && realWipeQueued) return false
             clearPending(store)
-            return true
+            return queuedReason != null
         }
+        // The owner cancelled the queue while this attempt ran ([startGen] is from before it).
+        if (startGen != null && startGen != cancelGeneration(store)) return false
         // Something is queued already and this attempt is no upgrade of a dry-run to a real wipe.
         if (queuedReason != null && (realWipeQueued || dryRun)) return false
         ProtectPrefsKeys.setPendingWipeReason(store, outcome.pendingReason)
@@ -122,6 +135,26 @@ object PanicHandler {
         // rather than sliding forward with every failed attempt.
         ProtectPrefsKeys.setPendingWipeAtMs(store, nowMs)
         return false
+    }
+
+    internal fun cancelGeneration(store: KvStore): Long = ProtectPrefsKeys.pendingWipeCancelGen(store)
+
+    /**
+     * The owner's cancel: drops the queue and bumps the cancel generation so an attempt in flight
+     * cannot re-queue it. Returns whether a wipe was queued.
+     */
+    internal fun cancelPending(store: KvStore): Boolean {
+        val had = ProtectPrefsKeys.pendingWipeReason(store) != null
+        ProtectPrefsKeys.setPendingWipeCancelGen(store, cancelGeneration(store) + 1)
+        clearPending(store)
+        return had
+    }
+
+    /** Gives the queued wipe up after its retry window; returns its reason, or null if none was queued. */
+    internal fun abandonPending(store: KvStore): String? {
+        val reason = ProtectPrefsKeys.pendingWipeReason(store) ?: return null
+        clearPending(store)
+        return reason
     }
 
     /** Drops the queued wipe, if any. */
@@ -155,10 +188,16 @@ object PanicHandler {
         when (val action = retryAction(ProtectPrefs.store(context), System.currentTimeMillis())) {
             Retry.None -> Unit
             Retry.Abandon -> {
-                // Give up rather than fire later, and take down the alert that promised a retry.
+                // Give up rather than fire later. The alert that promised a retry is replaced by
+                // one that says it is over, and the Timeline keeps a note of it.
                 DebugTelemetry.bump(context, "wipe_retry_abandoned")
-                clearPending(ProtectPrefs.store(context))
-                cancelWipeFailed(context)
+                val reason = abandonPending(ProtectPrefs.store(context)) ?: return
+                notifyWipeAbandoned(context, reason)
+                TamperLog.record(
+                    context,
+                    TamperKind.WIPE_QUEUE_ABANDONED,
+                    "Trigger \"$reason\": the wipe could not be completed within an hour; nothing will retry.",
+                )
             }
             is Retry.Run -> {
                 DebugTelemetry.bump(context, "wipe_retry_attempts")
@@ -203,10 +242,11 @@ object PanicHandler {
      * The owner cancels a queued wipe (Wipe tab, behind the App PIN): the queue, its snapshot and
      * the WIPE FAILED alert go, and the Timeline keeps a note of it.
      */
-    fun cancelQueuedWipe(context: Context) {
-        clearPending(ProtectPrefs.store(context))
+    fun cancelQueuedWipe(context: Context): Boolean {
+        if (!cancelPending(ProtectPrefs.store(context))) return false
         cancelWipeFailed(context)
         TamperLog.record(context, TamperKind.WIPE_QUEUE_CANCELLED, "Queued wipe cancelled with the App PIN.")
+        return true
     }
 
     private fun cancelWipeFailed(context: Context) {
@@ -231,6 +271,26 @@ object PanicHandler {
                 .setOngoing(true)
                 .build()
             // Fixed id so retries replace the alert instead of stacking one per attempt.
+            nm.notify(NotificationIds.WIPE_FAILED, notif)
+        }
+    }
+
+    /** Dismissible, replaces the retrying alert: the hour is over and nothing will try again. */
+    private fun notifyWipeAbandoned(context: Context, reason: String) {
+        runCatching {
+            val nm = context.getSystemService(NotificationManager::class.java) ?: return
+            val notif = Notification.Builder(context, "alerts")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("Norypt Protect: WIPE FAILED")
+                .setVisibility(Notification.VISIBILITY_SECRET)
+                .setContentText("The wipe could not be completed; nothing will retry.")
+                .setStyle(
+                    Notification.BigTextStyle().bigText(
+                        "Trigger \"$reason\" fired but the wipe could not be completed within an hour. " +
+                            "Your data is still on this device and nothing will retry the wipe.",
+                    ),
+                )
+                .build()
             nm.notify(NotificationIds.WIPE_FAILED, notif)
         }
     }
