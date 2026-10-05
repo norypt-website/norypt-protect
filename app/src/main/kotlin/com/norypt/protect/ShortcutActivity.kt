@@ -16,7 +16,8 @@ import com.norypt.protect.ui.theme.NoryptProtectTheme
 import com.norypt.protect.wipe.WipeEngine
 
 /**
- * Runs the launcher shortcuts, lock and wipe.
+ * Runs the launcher shortcuts, lock and wipe, and the quick-settings tile's wipe confirmation
+ * (the tile itself never wipes).
  *
  * Not exported: the launcher starts a shortcut as the app that published it, so it can reach
  * this activity and no other app can. The actions used to arrive as an extra on the exported

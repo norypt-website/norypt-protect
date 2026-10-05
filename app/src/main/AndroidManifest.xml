@@ -87,8 +87,8 @@
             </intent-filter>
         </activity>
 
-        <!-- Launcher shortcuts. Not exported: the launcher starts a shortcut as this app,
-             and no other app can reach it. -->
+        <!-- Launcher shortcuts and the panic tile's PIN confirmation. Not exported: the
+             launcher and the tile start it as this app, and no other app can reach it. -->
         <activity
             android:name=".ShortcutActivity"
             android:exported="false"
