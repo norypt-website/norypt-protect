@@ -154,4 +154,17 @@ class ExternalPanicPolicyTest {
     fun `an app reinstalled under the paired name with another key cannot unpair`() {
         assertTrue(call(ACTION_DISCONNECT, paired, paired, true, signer = false) is Decision.Refuse)
     }
+
+    // A rotation or a dark-mode switch recreates the prompt; the cooldown it stamped must not refuse it.
+    @Test
+    fun `a prompt recreated by a configuration change resumes for the same caller while armed`() {
+        assertTrue(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = paired, triggerEnabled = true))
+    }
+
+    @Test
+    fun `a recreated prompt does not resume for another caller, none, or once A5 is disarmed`() {
+        assertFalse(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = "evil.app", triggerEnabled = true))
+        assertFalse(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = null, triggerEnabled = true))
+        assertFalse(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = paired, triggerEnabled = false))
+    }
 }

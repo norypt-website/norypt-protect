@@ -99,5 +99,13 @@ object ExternalPanicPolicy {
         return age >= PAIRING_COOLDOWN_MS
     }
 
+    /**
+     * Whether a pairing prompt recreated by a configuration change (rotation, dark mode) carries on
+     * where it was instead of being decided afresh, which the cooldown it stamped would refuse. Only
+     * for the same caller that was shown, and only while A5 is still armed.
+     */
+    fun resumesPairing(savedPackage: String, callingPackage: String?, triggerEnabled: Boolean): Boolean =
+        triggerEnabled && callingPackage == savedPackage
+
     private fun refuse(reason: String) = Decision.Refuse(reason)
 }

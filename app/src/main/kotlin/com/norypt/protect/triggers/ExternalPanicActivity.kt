@@ -16,7 +16,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -57,6 +56,7 @@ class ExternalPanicActivity : ComponentActivity() {
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
 
         val caller = callingActivity?.packageName
+        if (savedInstanceState != null && resumePairing(savedInstanceState, caller)) return
         val decision = ExternalPanicPolicy.decide(
             action = intent?.action,
             callingPackage = caller,
@@ -100,7 +100,44 @@ class ExternalPanicActivity : ComponentActivity() {
         }
     }
 
+    /** The prompt on screen, kept across a configuration change: who asked, its key, and the step. */
+    private var pairingPackage: String? = null
+    private var pairingCert: String? = null
+    private var step by mutableStateOf(PairingStep.IDENTIFY)
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val pkg = pairingPackage ?: return
+        outState.putString(KEY_PACKAGE, pkg)
+        outState.putString(KEY_CERT, pairingCert)
+        outState.putString(KEY_STEP, step.name)
+    }
+
+    /**
+     * Brings back a prompt the system recreated (rotation, dark mode) at the step it was on, with
+     * the key recorded when it was first shown. Returns false when nothing was on screen. A prompt
+     * for another caller, or once A5 is disarmed, is refused.
+     */
+    private fun resumePairing(saved: Bundle, caller: String?): Boolean {
+        val pkg = saved.getString(KEY_PACKAGE) ?: return false
+        val cert = saved.getString(KEY_CERT)
+        val savedStep = PairingStep.entries.firstOrNull { it.name == saved.getString(KEY_STEP) }
+        val enabled = ProtectPrefs.isTriggerEnabled(this, ExternalPanicTrigger.id)
+        if (cert == null || savedStep == null || !ExternalPanicPolicy.resumesPairing(pkg, caller, enabled)) {
+            DebugTelemetry.log("A5 recreated pairing prompt refused")
+            setResult(Activity.RESULT_CANCELED)
+            finish()
+            return true
+        }
+        showPairing(pkg, cert, savedStep)
+        return true
+    }
+
     companion object {
+        private const val KEY_PACKAGE = "pairing.package"
+        private const val KEY_CERT = "pairing.cert"
+        private const val KEY_STEP = "pairing.step"
+
         /**
          * When the last pairing prompt was shown (elapsedRealtime), for the one-a-minute limit.
          * In memory: the foreground service keeps the process alive, and a restart only allows
@@ -143,6 +180,13 @@ class ExternalPanicActivity : ComponentActivity() {
             return
         }
         lastPairingOfferElapsedMs = SystemClock.elapsedRealtime()
+        showPairing(callerPackage, cert, PairingStep.IDENTIFY)
+    }
+
+    private fun showPairing(callerPackage: String, cert: String, firstStep: PairingStep) {
+        pairingPackage = callerPackage
+        pairingCert = cert
+        step = firstStep
         // Chosen by the caller, so shown only as a secondary hint under the package name.
         val label = runCatching {
             packageManager.getApplicationLabel(
@@ -152,7 +196,6 @@ class ExternalPanicActivity : ComponentActivity() {
 
         setContent {
             NoryptProtectTheme {
-                var step by remember { mutableStateOf(PairingStep.IDENTIFY) }
                 val cancel = {
                     step = PairingStep.DONE
                     setResult(Activity.RESULT_CANCELED)
