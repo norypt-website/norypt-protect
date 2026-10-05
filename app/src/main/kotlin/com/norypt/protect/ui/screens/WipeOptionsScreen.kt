@@ -63,6 +63,8 @@ fun WipeOptionsScreen(padding: PaddingValues) {
             )
         }
 
+        QueuedWipeSection()
+
         // Visible and PIN-guarded both ways: turning it on silently disarms every wipe, and
         // it used to be reachable only through a hidden long-press on the title.
         PinGuardedToggleCard(

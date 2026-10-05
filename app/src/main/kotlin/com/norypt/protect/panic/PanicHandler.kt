@@ -199,6 +199,16 @@ object PanicHandler {
         return age <= RETRY_WINDOW_MS
     }
 
+    /**
+     * The owner cancels a queued wipe (Wipe tab, behind the App PIN): the queue, its snapshot and
+     * the WIPE FAILED alert go, and the Timeline keeps a note of it.
+     */
+    fun cancelQueuedWipe(context: Context) {
+        clearPending(ProtectPrefs.store(context))
+        cancelWipeFailed(context)
+        TamperLog.record(context, TamperKind.WIPE_QUEUE_CANCELLED, "Queued wipe cancelled with the App PIN.")
+    }
+
     private fun cancelWipeFailed(context: Context) {
         runCatching { context.getSystemService(NotificationManager::class.java)?.cancel(NotificationIds.WIPE_FAILED) }
     }

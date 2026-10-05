@@ -41,6 +41,7 @@ enum class TamperKind(val label: String, val defaultSeverity: Severity) {
     SYS_WIPE_FAILURE("Wipe failed (system log)", Severity.Alert),
     SYS_LOG_STATUS("System log interrupted", Severity.Notable),
     SYS_INTEGRITY("Integrity warning", Severity.Notable),
+    WIPE_QUEUE_CANCELLED("Queued wipe cancelled", Severity.Notable),
 }
 
 data class TamperEvent(
