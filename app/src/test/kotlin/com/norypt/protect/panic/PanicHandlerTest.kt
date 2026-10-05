@@ -340,6 +340,32 @@ class PanicHandlerTest {
         assertEquals("usb", ProtectPrefsKeys.pendingWipeReason(store))
     }
 
+    // Only a retry is stopped by a cancel; a genuine new trigger carries no generation.
+    @Test
+    fun `a new trigger failing across a cancel stays queued`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        val startGen = PanicHandler.startGenFor(store, isRetry = false)
+        assertNull(startGen)
+        PanicHandler.cancelPending(store)
+        PanicHandler.recordOutcome(
+            store, PanicHandler.outcomeOf("usb", denied), dryRun = false, nowMs = t0 + 30_000, startGen = startGen,
+        )
+        assertEquals("usb", ProtectPrefsKeys.pendingWipeReason(store))
+        assertFalse(ProtectPrefsKeys.pendingWipeDryRun(store))
+    }
+
+    @Test
+    fun `a retry failing across a cancel stays cancelled`() {
+        PanicHandler.recordOutcome(store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0)
+        val startGen = PanicHandler.startGenFor(store, isRetry = true)
+        assertEquals(PanicHandler.cancelGeneration(store), startGen)
+        PanicHandler.cancelPending(store)
+        PanicHandler.recordOutcome(
+            store, PanicHandler.outcomeOf("deadman", denied), dryRun = false, nowMs = t0 + 30_000, startGen = startGen,
+        )
+        assertNull(ProtectPrefsKeys.pendingWipeReason(store))
+    }
+
     @Test
     fun `cancelling with nothing queued reports nothing cancelled`() {
         assertFalse(PanicHandler.cancelPending(store))

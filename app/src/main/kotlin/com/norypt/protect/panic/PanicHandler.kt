@@ -35,8 +35,8 @@ object PanicHandler {
     ): WipeError? {
         DebugTelemetry.bumpAll(context, "panic_total", "panic_$reason")
 
-        // Read before the attempt: a cancel by the owner while it runs must not be undone by it.
-        val startGen = cancelGeneration(ProtectPrefs.store(context))
+        // Read before the attempt: a cancel by the owner while it runs must not be undone by a retry.
+        val startGen = startGenFor(ProtectPrefs.store(context), isRetry = !logEvent)
         val opts = WipeOptions(
             wipeExternalStorage = ProtectPrefs.wipeExternalStorage(context),
             wipeEuicc = ProtectPrefs.wipeEuicc(context),
@@ -127,15 +127,20 @@ object PanicHandler {
         if (startGen != null && startGen != cancelGeneration(store)) return false
         // Something is queued already and this attempt is no upgrade of a dry-run to a real wipe.
         if (queuedReason != null && (realWipeQueued || dryRun)) return false
-        ProtectPrefsKeys.setPendingWipeReason(store, outcome.pendingReason)
         // Snapshot of the dry-run setting: switching dry-run while the wipe is queued must
         // neither turn it into a real wipe nor quietly settle it with a test broadcast.
+        // Written before the reason, so no reader sees a queued reason with a stale snapshot.
         ProtectPrefsKeys.setPendingWipeDryRun(store, dryRun)
+        ProtectPrefsKeys.setPendingWipeReason(store, outcome.pendingReason)
         // Stamped when first queued, so the retry window measures from the original trigger
         // rather than sliding forward with every failed attempt.
         ProtectPrefsKeys.setPendingWipeAtMs(store, nowMs)
         return false
     }
+
+    /** The generation a cancel is checked against: only a retry has one, a new trigger is never stopped by it. */
+    internal fun startGenFor(store: KvStore, isRetry: Boolean): Long? =
+        if (isRetry) cancelGeneration(store) else null
 
     internal fun cancelGeneration(store: KvStore): Long = ProtectPrefsKeys.pendingWipeCancelGen(store)
 
