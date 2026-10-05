@@ -38,3 +38,8 @@ NoryptProtect-Provisioning-Pack*.zip
 # OS
 .DS_Store
 Thumbs.db
+
+# Local assistant/tool state and environment files — never commit.
+.superpowers/
+.env
+.env.*
