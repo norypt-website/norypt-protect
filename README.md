@@ -37,6 +37,12 @@ The intended users are people who are responsible for data on a phone they own a
 
 ---
 
+## Editions
+
+This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes only; new features are not added here.
+
+Newer versions (1.4 and later: the sensitive space, duress PIN, SIM-swap trigger, always-on VPN control and more) are **Norypt Protect Pro**, a paid edition published by Norypt under its own license. See [norypt.com](https://norypt.com) for details.
+
 ## Intended use and restrictions
 
 Norypt Protect is published for lawful use on devices the operator owns or is authorised to administer. By using or redistributing this software you accept the conditions below. They are conditions of use, not merely guidance.
