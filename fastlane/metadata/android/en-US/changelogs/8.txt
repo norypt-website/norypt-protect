@@ -1,0 +1,5 @@
+v1.3.1 — security update
+• The panic tile always asks for the App PIN before a wipe.
+• Pairing a panic app needs A5 armed, shows its signing-key fingerprint and asks twice; one prompt a minute.
+• A queued wipe keeps its dry-run setting, a real wipe is never downgraded, and the Wipe tab can cancel it with the App PIN.
+• Build: dependency signatures and Docker downloads are verified.

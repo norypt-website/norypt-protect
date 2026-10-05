@@ -41,6 +41,8 @@ The intended users are people who are responsible for data on a phone they own a
 
 This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes only; new features are not added here.
 
+**1.3.1 (security update):** the panic tile asks for the App PIN before every wipe, locked or unlocked; pairing a panic app (`A5`) needs the trigger armed, shows the app's package and signing-key fingerprint, asks for an explicit confirmation and then the App PIN, and allows one prompt a minute; a queued wipe keeps the dry-run setting it was triggered with, a queued real wipe is never downgraded or settled by a later dry-run, and the Wipe tab can cancel it behind the App PIN; the build verifies dependency signatures against a committed keyring and the Docker image's downloads against pinned checksums.
+
 Newer versions (1.4 and later: the sensitive space, duress PIN, SIM-swap trigger, always-on VPN control and more) are **Norypt Protect Pro**, a paid edition published by Norypt under its own license. See [norypt.com](https://norypt.com) for details.
 
 ## Intended use and restrictions
@@ -241,7 +243,7 @@ Thirteen triggers plus the tile and the launcher shortcuts, each armed and disar
 | `C4` | Low-battery dead-man switch with 60-second countdown and cancel window | 2 |
 | `C6` | Not unlocked for N hours (default 12) — countdown with cancel window, for a phone seized, lost or left behind | 2 |
 
-`A7` accepts intents only from applications signed with the same key. `A5` accepts only the PanicKit app the owner paired with the App PIN, checked against its signing certificate.
+`A7` accepts intents only from applications signed with the same key. `A5` accepts only the PanicKit app the owner paired with the App PIN, checked against its signing certificate; pairing is offered only while `A5` is armed. The tile (`A3`) asks for the App PIN before a wipe.
 
 The notification-listener stub (`B6`) and the work-profile wipe (`A12`) were removed in 1.2.0: the first asked for access to every notification and used none, and nothing read the second's switch.
 
