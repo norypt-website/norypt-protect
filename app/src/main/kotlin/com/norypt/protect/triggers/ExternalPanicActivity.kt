@@ -116,14 +116,25 @@ class ExternalPanicActivity : ComponentActivity() {
     /**
      * Brings back a prompt the system recreated (rotation, dark mode) at the step it was on, with
      * the key recorded when it was first shown. Returns false when nothing was on screen. A prompt
-     * for another caller, or once A5 is disarmed, is refused.
+     * for another caller, a caller now signed with another key, or once A5 is disarmed, is refused;
+     * one that had already finished just finishes.
      */
     private fun resumePairing(saved: Bundle, caller: String?): Boolean {
         val pkg = saved.getString(KEY_PACKAGE) ?: return false
         val cert = saved.getString(KEY_CERT)
         val savedStep = PairingStep.entries.firstOrNull { it.name == saved.getString(KEY_STEP) }
+        if (savedStep == PairingStep.DONE) {
+            // Already decided before the recreation: nothing to show again.
+            val paired = ProtectPrefs.panicTriggerPackage(this) == pkg && ProtectPrefs.panicTriggerCert(this) == cert
+            setResult(if (paired) Activity.RESULT_OK else Activity.RESULT_CANCELED)
+            finish()
+            return true
+        }
         val enabled = ProtectPrefs.isTriggerEnabled(this, ExternalPanicTrigger.id)
-        if (cert == null || savedStep == null || !ExternalPanicPolicy.resumesPairing(pkg, caller, enabled)) {
+        // The caller must still be signed with the key the owner was shown: a re-signed reinstall
+        // between the two presentations is not the app being paired.
+        val sameSigner = cert != null && SignerDigest.matches(packageManager, pkg, cert)
+        if (cert == null || savedStep == null || !ExternalPanicPolicy.resumesPairing(pkg, caller, enabled, sameSigner)) {
             DebugTelemetry.log("A5 recreated pairing prompt refused")
             setResult(Activity.RESULT_CANCELED)
             finish()

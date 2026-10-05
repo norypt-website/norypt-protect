@@ -155,16 +155,26 @@ class ExternalPanicPolicyTest {
         assertTrue(call(ACTION_DISCONNECT, paired, paired, true, signer = false) is Decision.Refuse)
     }
 
+    private fun resumes(caller: String?, enabled: Boolean, signer: Boolean) =
+        ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = caller, triggerEnabled = enabled, signerMatches = signer)
+
     // A rotation or a dark-mode switch recreates the prompt; the cooldown it stamped must not refuse it.
     @Test
     fun `a prompt recreated by a configuration change resumes for the same caller while armed`() {
-        assertTrue(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = paired, triggerEnabled = true))
+        assertTrue(resumes(paired, enabled = true, signer = true))
     }
 
     @Test
     fun `a recreated prompt does not resume for another caller, none, or once A5 is disarmed`() {
-        assertFalse(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = "evil.app", triggerEnabled = true))
-        assertFalse(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = null, triggerEnabled = true))
-        assertFalse(ExternalPanicPolicy.resumesPairing(savedPackage = paired, callingPackage = paired, triggerEnabled = false))
+        assertFalse(resumes("evil.app", enabled = true, signer = true))
+        assertFalse(resumes(null, enabled = true, signer = true))
+        assertFalse(resumes(paired, enabled = false, signer = true))
+    }
+
+    @Test
+    fun `a recreated prompt does not resume once the caller is signed with another key`() {
+        assertFalse(
+            resumes(paired, enabled = true, signer = false),
+        )
     }
 }

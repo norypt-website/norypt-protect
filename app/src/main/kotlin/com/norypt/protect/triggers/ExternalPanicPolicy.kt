@@ -102,10 +102,11 @@ object ExternalPanicPolicy {
     /**
      * Whether a pairing prompt recreated by a configuration change (rotation, dark mode) carries on
      * where it was instead of being decided afresh, which the cooldown it stamped would refuse. Only
-     * for the same caller that was shown, and only while A5 is still armed.
+     * for the same caller that was shown, still signed with the key that was shown, and only while
+     * A5 is still armed.
      */
-    fun resumesPairing(savedPackage: String, callingPackage: String?, triggerEnabled: Boolean): Boolean =
-        triggerEnabled && callingPackage == savedPackage
+    fun resumesPairing(savedPackage: String, callingPackage: String?, triggerEnabled: Boolean, signerMatches: Boolean): Boolean =
+        triggerEnabled && signerMatches && callingPackage == savedPackage
 
     private fun refuse(reason: String) = Decision.Refuse(reason)
 }
