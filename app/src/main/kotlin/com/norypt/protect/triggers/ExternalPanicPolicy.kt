@@ -37,6 +37,8 @@ object ExternalPanicPolicy {
      * @param signerMatches whether the caller is signed with the key recorded at pairing.
      *   A package name alone is not an identity: if the paired app is uninstalled, any app
      *   later installed under the same name would inherit the pairing.
+     * @param pairingCooldownOver whether [PAIRING_COOLDOWN_MS] has passed since the last
+     *   pairing prompt (see [pairingCooldownOver]). Only pairing waits for it.
      */
     fun decide(
         action: String?,
@@ -45,6 +47,7 @@ object ExternalPanicPolicy {
         triggerEnabled: Boolean,
         selfPackage: String,
         signerMatches: Boolean,
+        pairingCooldownOver: Boolean,
     ): Decision = when (action) {
         ACTION_TRIGGER -> when {
             !triggerEnabled -> refuse("A5 disarmed")
@@ -59,10 +62,15 @@ object ExternalPanicPolicy {
         }
 
         ACTION_CONNECT -> when {
+            // Disarmed means no pairing prompt at all: otherwise any installed app could raise
+            // a "pair me" PIN prompt whenever it liked and wait for a hurried owner to type.
+            !triggerEnabled -> refuse("A5 disarmed")
             callingPackage.isNullOrEmpty() -> refuse("caller not identifiable")
             // Refuse to pair with ourselves — that would let our own exported surface
             // authorise itself.
             callingPackage == selfPackage -> refuse("cannot pair with self")
+            // One prompt a minute at most, so a caller cannot keep it on screen until it is accepted.
+            !pairingCooldownOver -> refuse("pairing prompt cooldown")
             else -> Decision.OfferPairing(callingPackage)
         }
 
@@ -76,6 +84,19 @@ object ExternalPanicPolicy {
         }
 
         else -> refuse("unsupported action")
+    }
+
+    /** Least time between two pairing prompts. */
+    const val PAIRING_COOLDOWN_MS = 60_000L
+
+    /**
+     * Whether a pairing prompt may be shown at [nowElapsedMs], the last one having been shown at
+     * [lastOfferElapsedMs] (null: none yet). A clock reading before the last prompt keeps waiting.
+     */
+    fun pairingCooldownOver(lastOfferElapsedMs: Long?, nowElapsedMs: Long): Boolean {
+        if (lastOfferElapsedMs == null) return true
+        val age = nowElapsedMs - lastOfferElapsedMs
+        return age >= PAIRING_COOLDOWN_MS
     }
 
     private fun refuse(reason: String) = Decision.Refuse(reason)

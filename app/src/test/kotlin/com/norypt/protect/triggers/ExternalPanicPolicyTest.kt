@@ -6,6 +6,7 @@ import com.norypt.protect.triggers.ExternalPanicPolicy.ACTION_TRIGGER
 import com.norypt.protect.triggers.ExternalPanicPolicy.Decision
 import com.norypt.protect.triggers.ExternalPanicPolicy.decide
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -15,12 +16,21 @@ class ExternalPanicPolicyTest {
     private val paired = "info.guardianproject.ripple"
     private val stranger = "com.evil.app"
 
+    private fun call(
+        action: String?,
+        caller: String?,
+        pairedPkg: String?,
+        enabled: Boolean,
+        signer: Boolean = true,
+        cooldownOver: Boolean = true,
+    ) = decide(action, caller, pairedPkg, enabled, self, signerMatches = signer, pairingCooldownOver = cooldownOver)
+
     private fun trigger(
         caller: String?,
         pairedPkg: String? = paired,
         enabled: Boolean = true,
         signerMatches: Boolean = true,
-    ) = decide(ACTION_TRIGGER, caller, pairedPkg, enabled, self, signerMatches)
+    ) = call(ACTION_TRIGGER, caller, pairedPkg, enabled, signerMatches)
 
     // --- The only path that may wipe the device ---
 
@@ -58,15 +68,15 @@ class ExternalPanicPolicyTest {
 
     @Test
     fun `an unsupported action cannot fire`() {
-        assertTrue(decide("android.intent.action.VIEW", paired, paired, true, self, signerMatches = true) is Decision.Refuse)
-        assertTrue(decide(null, paired, paired, true, self, signerMatches = true) is Decision.Refuse)
+        assertTrue(call("android.intent.action.VIEW", paired, paired, true) is Decision.Refuse)
+        assertTrue(call(null, paired, paired, true) is Decision.Refuse)
     }
 
     // --- Pairing ---
 
     @Test
     fun `connect from an identifiable app offers pairing rather than pairing silently`() {
-        val d = decide(ACTION_CONNECT, stranger, null, true, self, signerMatches = true)
+        val d = call(ACTION_CONNECT, stranger, null, true)
 
         // Offer, not Fire and not an automatic pairing: consent is the user's to give.
         assertEquals(Decision.OfferPairing(stranger), d)
@@ -74,31 +84,54 @@ class ExternalPanicPolicyTest {
 
     @Test
     fun `connect from an unidentifiable caller is refused`() {
-        assertTrue(decide(ACTION_CONNECT, null, null, true, self, signerMatches = true) is Decision.Refuse)
+        assertTrue(call(ACTION_CONNECT, null, null, true) is Decision.Refuse)
     }
 
     @Test
     fun `the app cannot pair with itself`() {
-        assertTrue(decide(ACTION_CONNECT, self, null, true, self, signerMatches = true) is Decision.Refuse)
+        assertTrue(call(ACTION_CONNECT, self, null, true) is Decision.Refuse)
+    }
+
+    // A disarmed A5 has no pairing to offer: otherwise any app could raise the PIN prompt at will.
+    @Test
+    fun `connect is refused while the trigger is disarmed`() {
+        assertTrue(call(ACTION_CONNECT, stranger, null, false) is Decision.Refuse)
+    }
+
+    // One prompt a minute at most, so a caller cannot keep the pairing prompt in the owner's face.
+    @Test
+    fun `connect is refused during the pairing cooldown`() {
+        assertTrue(call(ACTION_CONNECT, stranger, null, true, cooldownOver = false) is Decision.Refuse)
     }
 
     @Test
-    fun `connect does not depend on the trigger being armed`() {
-        // Pairing while disarmed is fine; firing while disarmed is not.
-        assertEquals(Decision.OfferPairing(stranger), decide(ACTION_CONNECT, stranger, null, false, self, signerMatches = true))
+    fun `the cooldown does not hold back firing or unpairing`() {
+        assertEquals(Decision.Fire, call(ACTION_TRIGGER, paired, paired, true, cooldownOver = false))
+        assertEquals(Decision.Unpair, call(ACTION_DISCONNECT, paired, paired, true, cooldownOver = false))
+    }
+
+    @Test
+    fun `the cooldown lasts a minute from the last pairing prompt`() {
+        val t0 = 5_000_000L
+        assertTrue(ExternalPanicPolicy.pairingCooldownOver(lastOfferElapsedMs = null, nowElapsedMs = t0))
+        assertFalse(ExternalPanicPolicy.pairingCooldownOver(t0, t0))
+        assertFalse(ExternalPanicPolicy.pairingCooldownOver(t0, t0 + ExternalPanicPolicy.PAIRING_COOLDOWN_MS - 1))
+        assertTrue(ExternalPanicPolicy.pairingCooldownOver(t0, t0 + ExternalPanicPolicy.PAIRING_COOLDOWN_MS))
+        // A clock that reads earlier than the last prompt cannot end the cooldown early.
+        assertFalse(ExternalPanicPolicy.pairingCooldownOver(t0, t0 - 1))
     }
 
     // --- Unpairing ---
 
     @Test
     fun `the paired app may unpair itself`() {
-        assertEquals(Decision.Unpair, decide(ACTION_DISCONNECT, paired, paired, true, self, signerMatches = true))
+        assertEquals(Decision.Unpair, call(ACTION_DISCONNECT, paired, paired, true))
     }
 
     @Test
     fun `a stranger cannot unpair the user's trigger app`() {
-        assertTrue(decide(ACTION_DISCONNECT, stranger, paired, true, self, signerMatches = true) is Decision.Refuse)
-        assertTrue(decide(ACTION_DISCONNECT, null, paired, true, self, signerMatches = true) is Decision.Refuse)
+        assertTrue(call(ACTION_DISCONNECT, stranger, paired, true) is Decision.Refuse)
+        assertTrue(call(ACTION_DISCONNECT, null, paired, true) is Decision.Refuse)
     }
 
     // --- A pairing does not generalise ---
@@ -119,6 +152,6 @@ class ExternalPanicPolicyTest {
 
     @Test
     fun `an app reinstalled under the paired name with another key cannot unpair`() {
-        assertTrue(decide(ACTION_DISCONNECT, paired, paired, true, self, signerMatches = false) is Decision.Refuse)
+        assertTrue(call(ACTION_DISCONNECT, paired, paired, true, signer = false) is Decision.Refuse)
     }
 }

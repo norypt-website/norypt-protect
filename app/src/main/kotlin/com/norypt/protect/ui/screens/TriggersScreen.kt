@@ -454,9 +454,10 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 InfoBlock(
                     title = "How to pair",
-                    body = "Open the panic app and connect it to Norypt Protect. This app will ask for your " +
-                        "App PIN to confirm. Only that one app can trigger a wipe, and only while this " +
-                        "switch is on — nothing else can, even if it sends the same intent.",
+                    body = "Turn this switch on, then open the panic app and connect it to Norypt Protect. " +
+                        "This app shows the panic app's package name and signing-key fingerprint; check " +
+                        "them, confirm, then enter your App PIN. Only that one app can trigger a wipe, and " +
+                        "only while this switch is on — nothing else can, even if it sends the same intent.",
                 )
                 Spacer(Modifier.height(10.dp))
                 Text(

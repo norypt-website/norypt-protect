@@ -25,6 +25,15 @@ object SignerDigest {
         }.getOrDefault(false)
     }
 
+    /**
+     * [hexDigest] as people compare fingerprints: upper-case byte pairs joined by colons, eight
+     * bytes per line, so a SHA-256 is four short lines rather than one 95-character run.
+     */
+    fun formatFingerprint(hexDigest: String): String =
+        hexDigest.uppercase().chunked(2).chunked(BYTES_PER_LINE).joinToString("\n") { it.joinToString(":") }
+
+    private const val BYTES_PER_LINE = 8
+
     internal fun toHex(bytes: ByteArray): String = bytes.joinToString("") { "%02x".format(it) }
 
     internal fun fromHex(hex: String): ByteArray? {
