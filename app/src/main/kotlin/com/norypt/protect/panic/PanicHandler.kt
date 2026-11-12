@@ -42,6 +42,7 @@ object PanicHandler {
             wipeEuicc = ProtectPrefs.wipeEuicc(context),
         )
         val dryRun = dryRunOverride ?: ProtectPrefs.dryRun(context)
+        DebugTelemetry.log("panic reason=$reason dryRun=$dryRun unlocked=${ProtectPrefs.userUnlocked(context)}")
         // Only ever readable after a dry run or a denied wipe: a real wipe takes the log with it.
         // TamperLog never throws, so the opt-in log cannot stand between a trigger and its wipe.
         // Retries are not logged again: one queued wipe is one entry, not one per 30 s tick.

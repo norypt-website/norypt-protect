@@ -380,8 +380,8 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     Spacer(Modifier.height(6.dp))
                     Text(
                         "GrapheneOS restarts a locked phone after its auto-reboot time (18 h by default). " +
-                            "After a restart nothing runs until you unlock, so keep this shorter than your " +
-                            "auto-reboot time or the countdown never comes.",
+                            "This keeps counting through a restart, before the first unlock too, so a longer " +
+                            "time still comes; no countdown starts in the first 5 minutes after a restart.",
                         color = NoryptColors.Amber,
                         fontSize = 11.sp,
                     )

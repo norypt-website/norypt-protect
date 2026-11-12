@@ -9,6 +9,7 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.util.DebugTelemetry
+import com.norypt.protect.util.StartupGrace
 
 /**
  * Fires only when USB DATA is negotiated while the screen is locked.
@@ -40,6 +41,7 @@ object UsbLockedMonitor {
     )
 
     private var receiver: BroadcastReceiver? = null
+    private val bootCable = BootCable()
 
     fun start(context: Context) {
         if (receiver != null) return
@@ -51,7 +53,11 @@ object UsbLockedMonitor {
                 if (!ProtectPrefs.isTriggerEnabled(ctx, "A9")) return
                 DebugTelemetry.bump(ctx, "a9_usb_state_when_enabled")
                 val connected = intent.getBooleanExtra(EXTRA_CONNECTED, false)
-                if (!connected) return
+                if (isInitialStickyBroadcast) bootCable.atStart(connected)
+                if (!connected) {
+                    bootCable.unplugged()
+                    return
+                }
                 DebugTelemetry.bump(ctx, "a9_usb_state_connected")
                 // Android replays the sticky USB_STATE to a newly registered receiver.
                 // Without this, restarting the service (an update, a reboot) with a cable
@@ -59,6 +65,12 @@ object UsbLockedMonitor {
                 // rather than guessed from a time window, which slow startup could outlast.
                 if (isInitialStickyBroadcast) {
                     DebugTelemetry.bump(ctx, "a9_sticky_replay_suppressed")
+                    return
+                }
+                // The monitor starts at boot, before the first unlock: the USB port setting up for a
+                // cable that was already plugged in sends fresh, non-sticky broadcasts; see BootCable.
+                if (bootCable.suppress(inGrace = StartupGrace.usbHeld())) {
+                    DebugTelemetry.bump(ctx, "a9_startup_grace_suppressed")
                     return
                 }
                 val km = ctx.getSystemService(KeyguardManager::class.java)
@@ -107,4 +119,29 @@ object UsbLockedTrigger : Trigger {
         "gating, so A9 works out of the box there."
     override fun arm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A9", true)
     override fun disarm(context: Context) = ProtectPrefs.setTriggerEnabled(context, "A9", false)
+}
+
+/**
+ * Tells the cable plugged in at boot, whose USB functions come up during [StartupGrace.USB_MS],
+ * from a new connection. Only a cable that the sticky USB_STATE replayed at registration already
+ * showed as connected, and that was never unplugged since, is ignored, and only within the grace:
+ * a cable plugged in after the monitor started, or after an unplug, counts at once.
+ */
+internal class BootCable {
+    private var inSinceStart = false
+
+    /** The sticky reading replayed when the receiver was registered. */
+    @Synchronized
+    fun atStart(connected: Boolean) {
+        inSinceStart = connected
+    }
+
+    @Synchronized
+    fun unplugged() {
+        inSinceStart = false
+    }
+
+    /** Whether a connected reading is ignored. */
+    @Synchronized
+    fun suppress(inGrace: Boolean): Boolean = inGrace && inSinceStart
 }

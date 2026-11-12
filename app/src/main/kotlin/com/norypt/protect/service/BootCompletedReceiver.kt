@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.norypt.protect.BuildConfig
+import com.norypt.protect.NoryptProtectApp
 import com.norypt.protect.admin.Provisioning
 import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
@@ -22,7 +23,10 @@ import com.norypt.protect.triggers.UnlockedTimer
  * restarting the service silently disarms those triggers.
  *
  * Covered here:
- * - **Reboot** (`BOOT_COMPLETED`).
+ * - **Reboot, before the first unlock** (`LOCKED_BOOT_COMPLETED`, direct boot). The service
+ *   starts with the monitors that work on device-protected settings alone (`C3`, `A9`, the
+ *   `C4`/`C6` alarm), and the admin receiver counts wrong PINs (`B1`, `A11`).
+ * - **Reboot** (`BOOT_COMPLETED`, after the first unlock).
  * - **App update** (`MY_PACKAGE_REPLACED`). An update stops the service and nothing else
  *   restarted it, so the monitors stayed down until the user next opened the app or
  *   rebooted — a silent false negative lasting until then.
@@ -37,12 +41,20 @@ import com.norypt.protect.triggers.UnlockedTimer
 class BootCompletedReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action
+        if (action == Intent.ACTION_LOCKED_BOOT_COMPLETED) {
+            // Before the first unlock only a Device Owner can wipe, so only it guards the phone then.
+            if (Provisioning.current(context) == Tier.DeviceOwner) ProtectForegroundService.start(context)
+            return
+        }
         if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         // The service first: the bookkeeping below reads encrypted storage, and a failure there
         // must not leave every trigger unregistered until the next time the app is opened.
         if (Provisioning.current(context) != Tier.None) {
             ProtectForegroundService.start(context)
         }
+        // A process started before the first unlock waits for ACTION_USER_UNLOCKED to finish its
+        // setup; this is the fallback should that broadcast have been missed.
+        runCatching { (context.applicationContext as? NoryptProtectApp)?.initAfterUnlock() }
         runCatching { record(context, action) }
     }
 

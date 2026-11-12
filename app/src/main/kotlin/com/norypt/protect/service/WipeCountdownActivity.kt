@@ -44,7 +44,8 @@ import kotlinx.coroutines.delay
  * [UnlockDeadlineMonitor] (C6); the [CountdownMode] extra says which.
  *
  * - Shows a countdown timer (grace period from prefs).
- * - Cancel button launches keyguard credential intent; RESULT_OK aborts wipe.
+ * - Cancel button launches keyguard credential intent; RESULT_OK aborts wipe. Before the first
+ *   unlock after a restart it raises the phone's unlock screen instead; unlocking ends C4 and C6.
  * - Re-checks the trigger's conditions on every tick; if they clear → silent abort.
  * - On countdown reaches 0 → [PanicHandler.panic] with the mode's reason.
  *
@@ -144,7 +145,9 @@ class WipeCountdownActivity : ComponentActivity() {
                     subtitle = COUNTDOWN_SUBTITLE,
                     onCancel = {
                         authInProgress.value = true
-                        launchKeyguardCancel()
+                        // Before the first unlock after a restart the credential prompt cannot be
+                        // used: unlocking the phone comes first, and is the cancel itself.
+                        if (ProtectPrefs.userUnlocked(this@WipeCountdownActivity)) launchKeyguardCancel() else unlockFirst()
                     },
                     onConditionsCleared = { finishWithOutcome() },
                     onTimerExpired = {
@@ -203,6 +206,27 @@ class WipeCountdownActivity : ComponentActivity() {
         ProtectPrefs.clearCountdownDeadline(this, mode.extraValue)
         CountdownAlert.clear(this, mode)
         finish()
+    }
+
+    /**
+     * Before the first unlock: raises the phone's own unlock screen. The condition check sees the
+     * phone open and ends the countdown. It pauses while the unlock screen is up, within the same
+     * budget as the credential prompt.
+     */
+    private fun unlockFirst() {
+        val km = getSystemService(KeyguardManager::class.java)
+        if (km == null) {
+            authInProgress.value = false
+            return
+        }
+        km.requestDismissKeyguard(
+            this,
+            object : KeyguardManager.KeyguardDismissCallback() {
+                override fun onDismissSucceeded() { authInProgress.value = false }
+                override fun onDismissCancelled() { authInProgress.value = false }
+                override fun onDismissError() { authInProgress.value = false }
+            },
+        )
     }
 
     private fun launchKeyguardCancel() {

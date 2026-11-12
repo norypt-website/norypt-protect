@@ -1,6 +1,8 @@
 package com.norypt.protect.prefs
 
 import android.content.Context
+import android.content.SharedPreferences
+import android.os.UserManager
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.norypt.protect.security.KeystoreHelper
@@ -407,8 +409,9 @@ internal object ProtectPrefsKeys {
     const val KEY_UNLOCK_DEADLINE_SEEN_UNLOCKED_MS = "unlock_deadline_seen_unlocked_ms"
 
     /**
-     * Default 12 h: on GrapheneOS a locked phone auto-reboots after 18 h by default, and after
-     * a reboot no app code runs until the owner unlocks, so a longer deadline never arrives.
+     * Default 12 h, chosen when C6 stopped at a restart (GrapheneOS auto-reboots a locked phone
+     * after 18 h by default). Since 1.3.2 C6 keeps counting across restarts, before the first
+     * unlock too, so a longer deadline also arrives.
      */
     fun unlockDeadlineHours(store: KvStore): Int =
         SettingBounds.deadlineHours(store.getInt(KEY_UNLOCK_DEADLINE_HOURS, DEFAULT_UNLOCK_DEADLINE_HOURS))
@@ -517,21 +520,93 @@ internal object ProtectPrefsKeys {
 
 /**
  * Typed singleton accessors for Norypt Protect preferences.
- * Backed by EncryptedSharedPreferences (file: "norypt_protect_prefs").
+ * Backed by EncryptedSharedPreferences (file: "norypt_protect_prefs"), except the keys in
+ * [DeviceProtectedKeys], which live in device-protected storage (file: "norypt_device_protected").
  */
 object ProtectPrefs {
 
     @Volatile private var cachedStore: KvStore? = null
 
+    /**
+     * The settings store. The keys in [DeviceProtectedKeys] live in device-protected storage and
+     * work before the first unlock after a restart; every other key lives in the encrypted file and
+     * throws until then, as before. See [RoutingKvStore].
+     */
     internal fun store(context: Context): KvStore {
         cachedStore?.let { return it }
         return synchronized(this) {
-            cachedStore ?: buildStore(context.applicationContext).also { cachedStore = it }
+            cachedStore ?: buildRoutingStore(context.applicationContext).also { cachedStore = it }
         }
     }
 
     /** Main configuration file. */
     private const val MAIN_FILE = "norypt_protect_prefs"
+
+    /** Whether credential-encrypted storage is open: false only before the first unlock after a restart. */
+    fun userUnlocked(context: Context): Boolean =
+        context.getSystemService(UserManager::class.java)?.isUserUnlocked ?: true
+
+    /** The device-protected file on its own, readable before the first unlock. */
+    internal fun deviceProtectedPrefs(context: Context): SharedPreferences =
+        context.applicationContext.createDeviceProtectedStorageContext()
+            .getSharedPreferences(DeviceProtectedKeys.FILE, Context.MODE_PRIVATE)
+
+    private fun buildRoutingStore(app: Context): KvStore {
+        val deviceProtected = deviceProtectedPrefs(app)
+        val encrypted = RetryingLazy {
+            // Checked first, so nothing touches the Keystore before the first unlock.
+            check(userUnlocked(app)) { "Encrypted settings are unavailable until the first unlock" }
+            openEncrypted(app, MAIN_FILE)
+        }
+        val encryptedStore = RetryingLazy { asKvStore(encrypted.get()) }
+        val migrate = { if (!migrated) migrateOnce(encrypted.get(), deviceProtected) }
+        migration = migrate
+        // Unlocked: open and move at once, so no routed key is read before the move from 1.3.1.
+        if (userUnlocked(app)) runCatching { migrate() }
+        return RoutingKvStore(asKvStore(deviceProtected), encrypted = { encryptedStore.get().also { migrate() } })
+    }
+
+    /** The move of [buildRoutingStore]'s store; null until the store is built. */
+    @Volatile private var migration: (() -> Unit)? = null
+    @Volatile private var migrated = false
+
+    /**
+     * Moves the routed keys still in the encrypted file, until one attempt succeeds; a volatile
+     * read once done. Until it succeeds the routed settings read their defaults (dry-run on,
+     * triggers off), never a wipe, so it is retried on each use of an encrypted key and on every
+     * service tick, not only at the next process start.
+     */
+    fun retryMigration(context: Context) {
+        if (migrated || !userUnlocked(context)) return
+        store(context)
+        runCatching { migration?.invoke() }
+    }
+
+    private fun migrateOnce(encrypted: SharedPreferences, deviceProtected: SharedPreferences) {
+        synchronized(this) {
+            if (!migrated) {
+                migrated = runCatching { migrateToDeviceProtected(encrypted, deviceProtected) }.getOrDefault(false)
+            }
+        }
+    }
+
+    /** Applies [DeviceProtectedMigration]; true once no routed key is left in the encrypted file. */
+    private fun migrateToDeviceProtected(encrypted: SharedPreferences, deviceProtected: SharedPreferences): Boolean {
+        val plan = DeviceProtectedMigration.plan(encrypted.all, deviceProtected.all.keys)
+        if (plan.remove.isEmpty()) return true
+        val edit = deviceProtected.edit()
+        plan.copy.forEach { (key, value) ->
+            when (value) {
+                is Boolean -> edit.putBoolean(key, value)
+                is Int -> edit.putInt(key, value)
+                is Long -> edit.putLong(key, value)
+                is String -> edit.putString(key, value)
+            }
+        }
+        // On disk before the encrypted copies go, so a crash in between loses nothing.
+        if (!edit.commit()) return false
+        return encrypted.edit().apply { plan.remove.forEach { remove(it) } }.commit()
+    }
 
     /**
      * Opens a separate encrypted file under the same master key. Not cached here; the caller
@@ -539,17 +614,20 @@ object ProtectPrefs {
      * configuration file that every trigger reads on each tick.
      */
     internal fun openStore(context: Context, fileName: String): KvStore =
-        buildStore(context.applicationContext, fileName)
+        asKvStore(openEncrypted(context.applicationContext, fileName))
 
-    private fun buildStore(appContext: Context, fileName: String = MAIN_FILE): KvStore {
+    private fun openEncrypted(appContext: Context, fileName: String): SharedPreferences {
         val masterKey: MasterKey = KeystoreHelper.masterKey(appContext)
-        val prefs = EncryptedSharedPreferences.create(
+        return EncryptedSharedPreferences.create(
             appContext,
             fileName,
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
         )
+    }
+
+    private fun asKvStore(prefs: SharedPreferences): KvStore {
         return object : KvStore {
             override fun getString(key: String, default: String?): String? = prefs.getString(key, default)
             override fun getInt(key: String, default: Int): Int = prefs.getInt(key, default)

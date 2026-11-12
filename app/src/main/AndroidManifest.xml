@@ -65,8 +65,10 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar"/>
 
+        <!-- Direct-boot aware: C4 and C6 also count down before the first unlock after a restart. -->
         <activity
             android:name=".service.WipeCountdownActivity"
+            android:directBootAware="true"
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
@@ -129,9 +131,12 @@
             <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts"/>
         </activity-alias>
 
+        <!-- Direct-boot aware so wrong PINs typed before the first unlock after a restart reach
+             B1 and A11; callbacks that need encrypted settings wait for that unlock. -->
         <receiver
             android:name=".admin.ProtectAdminReceiver"
             android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:directBootAware="true"
             android:exported="true">
             <meta-data
                 android:name="android.app.device_admin"
@@ -143,22 +148,29 @@
 
         <receiver
             android:name=".triggers.DeadmanAlarmReceiver"
+            android:directBootAware="true"
             android:exported="false"/>
 
         <!-- MY_PACKAGE_REPLACED re-arms the foreground service after an app update;
              without it every runtime-registered trigger stays down until the user next
-             opens the app or reboots. -->
+             opens the app or reboots. LOCKED_BOOT_COMPLETED (direct boot) starts it before
+             the first unlock after a restart. -->
         <receiver
             android:name=".service.BootCompletedReceiver"
+            android:directBootAware="true"
             android:exported="true">
             <intent-filter>
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.BOOT_COMPLETED"/>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
             </intent-filter>
         </receiver>
 
+        <!-- Direct-boot aware: before the first unlock after a restart it runs the monitors that
+             work on device-protected settings alone, and the rest from that unlock. -->
         <service
             android:name=".service.ProtectForegroundService"
+            android:directBootAware="true"
             android:foregroundServiceType="specialUse"
             android:exported="false">
             <property

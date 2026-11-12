@@ -61,6 +61,11 @@ object TamperLog {
     fun record(ctx: Context, kind: TamperKind, detail: String = "", severity: Severity = kind.defaultSeverity) {
         runCatching {
             if (!isEnabled(ctx)) return
+            // Before the first unlock after a restart the encrypted Timeline cannot be opened.
+            if (!ProtectPrefs.userUnlocked(ctx)) {
+                queueLocked(ctx, LockedTimelineQueue.Entry(System.currentTimeMillis(), kind, severity, detail))
+                return
+            }
             val event = TamperEvent(
                 epochMs = System.currentTimeMillis(),
                 elapsedMs = SystemClock.elapsedRealtime(),
@@ -81,8 +86,39 @@ object TamperLog {
     fun recordAt(ctx: Context, kind: TamperKind, detail: String, severity: Severity, epochMs: Long) {
         runCatching {
             if (!isEnabled(ctx)) return
+            if (!ProtectPrefs.userUnlocked(ctx)) {
+                queueLocked(ctx, LockedTimelineQueue.Entry(epochMs, kind, severity, detail))
+                return
+            }
             val event = TamperEvent(epochMs = epochMs, elapsedMs = 0L, kind = kind, severity = severity, detail = detail)
             synchronized(this) { store(ctx).append(event) }
+        }
+    }
+
+    /** Adds to the entries recorded before the first unlock ([LockedTimelineQueue]). */
+    private fun queueLocked(ctx: Context, entry: LockedTimelineQueue.Entry) = synchronized(this) {
+        val prefs = ProtectPrefs.deviceProtectedPrefs(ctx)
+        val next = LockedTimelineQueue.append(prefs.getString(LockedTimelineQueue.KEY, null), entry)
+        prefs.edit().putString(LockedTimelineQueue.KEY, next).commit()
+    }
+
+    /**
+     * Moves the entries recorded before the first unlock into the Timeline, with their own times.
+     * Called once the user is unlocked; never throws.
+     */
+    fun importLocked(ctx: Context) {
+        runCatching {
+            synchronized(this) {
+                val prefs = ProtectPrefs.deviceProtectedPrefs(ctx)
+                val queued = LockedTimelineQueue.decode(prefs.getString(LockedTimelineQueue.KEY, null))
+                if (queued.isNotEmpty() && isEnabled(ctx)) {
+                    queued.forEach {
+                        val event = TamperEvent(it.epochMs, elapsedMs = 0L, kind = it.kind, severity = it.severity, detail = it.detail)
+                        store(ctx).append(event)
+                    }
+                }
+                prefs.edit().remove(LockedTimelineQueue.KEY).commit()
+            }
         }
     }
 

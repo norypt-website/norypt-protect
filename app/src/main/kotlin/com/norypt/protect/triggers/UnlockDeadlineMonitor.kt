@@ -8,6 +8,7 @@ import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.CountdownAlert
 import com.norypt.protect.service.CountdownMode
 import com.norypt.protect.util.DebugTelemetry
+import com.norypt.protect.util.StartupGrace
 
 /**
  * C6 — Wipe if the device has not been unlocked for N hours.
@@ -80,6 +81,11 @@ object UnlockDeadlineMonitor {
 
         if (countdownActive || DeadmanMonitor.countdownActive || UnlockedTimerMonitor.countdownActive) {
             DebugTelemetry.bump(ctx, "c6_skip_countdown_active")
+            return
+        }
+        // Not a minute after a restart, before the owner has had the chance to unlock; see StartupGrace.
+        if (StartupGrace.countdownsHeld()) {
+            DebugTelemetry.bump(ctx, "c6_skip_startup_grace")
             return
         }
         DebugTelemetry.bump(ctx, "c6_countdown_launched")

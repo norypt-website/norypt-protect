@@ -16,6 +16,7 @@ import com.norypt.protect.service.CountdownAlert
 import com.norypt.protect.service.CountdownMode
 import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.util.DebugTelemetry
+import com.norypt.protect.util.StartupGrace
 
 /**
  * C4 — Low-battery dead-man switch.
@@ -119,6 +120,11 @@ object DeadmanMonitor {
 
         if (countdownActive || UnlockDeadlineMonitor.countdownActive || UnlockedTimerMonitor.countdownActive) {
             debugBump(ctx, "c4_skip_countdown_active")
+            return
+        }
+        // Radios still coming up after a restart read as no connection; see StartupGrace.
+        if (StartupGrace.countdownsHeld()) {
+            debugBump(ctx, "c4_skip_startup_grace")
             return
         }
 

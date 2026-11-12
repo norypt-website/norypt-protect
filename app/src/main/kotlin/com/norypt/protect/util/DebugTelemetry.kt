@@ -36,14 +36,14 @@ object DebugTelemetry {
     /** Increment a named counter. */
     fun bump(context: Context, key: String) {
         if (!BuildConfig.DEBUG) return
-        val sp = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        val sp = prefs(context) ?: return
         sp.edit().putInt(key, sp.getInt(key, 0) + 1).apply()
     }
 
     /** Increment several named counters in one write. */
     fun bumpAll(context: Context, vararg keys: String) {
         if (!BuildConfig.DEBUG) return
-        val sp = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+        val sp = prefs(context) ?: return
         val editor = sp.edit()
         keys.forEach { editor.putInt(it, sp.getInt(it, 0) + 1) }
         editor.apply()
@@ -52,20 +52,27 @@ object DebugTelemetry {
     /** Record the latest value of a named field. */
     fun put(context: Context, key: String, value: String) {
         if (!BuildConfig.DEBUG) return
-        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putString(key, value).apply()
+        prefs(context)?.edit()?.putString(key, value)?.apply()
     }
 
     /** Record the latest value of a named field. */
     fun put(context: Context, key: String, value: Int) {
         if (!BuildConfig.DEBUG) return
-        context.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putInt(key, value).apply()
+        prefs(context)?.edit()?.putInt(key, value)?.apply()
     }
 
     /** Current value of a counter, used to sequence multi-part records. */
     fun count(context: Context, key: String): Int {
         if (!BuildConfig.DEBUG) return 0
-        return context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getInt(key, 0)
+        return prefs(context)?.getInt(key, 0) ?: 0
     }
+
+    /**
+     * The counter file, or null before the first unlock after a restart: it lives in
+     * credential-encrypted storage, and a counter must never throw on the way to a wipe there.
+     */
+    private fun prefs(context: Context) =
+        runCatching { context.getSharedPreferences(FILE, Context.MODE_PRIVATE) }.getOrNull()
 
     /**
      * A plaintext file that no build writes any more: up to 1.1.1 the USB trigger kept its own

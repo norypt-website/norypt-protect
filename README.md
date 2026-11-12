@@ -41,6 +41,8 @@ The intended users are people who are responsible for data on a phone they own a
 
 This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes only; new features are not added here.
 
+**1.3.2 (security update):** protection no longer waits for the first unlock after a restart. A Device Owner install starts at boot, before the PIN is entered: wrong PINs count towards `B1` and `A11`, `B4` notifies, `C3` and `A9` watch, `C4` and `C6` keep their alarm and countdown, and a queued wipe is retried. See [Safety model](#safety-model).
+
 **1.3.1 (security update):** the panic tile asks for the App PIN before every wipe, locked or unlocked; pairing a panic app (`A5`) needs the trigger armed, shows the app's package and signing-key fingerprint, asks for an explicit confirmation and then the App PIN, and allows one prompt a minute; a queued wipe keeps the dry-run setting it was triggered with, a queued real wipe is never downgraded or settled by a later dry-run, and the Wipe tab can cancel it behind the App PIN; the build verifies dependency signatures against a committed keyring and the Docker image's downloads against pinned checksums.
 
 Newer versions (1.4 and later: the sensitive space, duress PIN, SIM-swap trigger, always-on VPN control and more) are **Norypt Protect Pro**, a paid edition published by Norypt under its own license. See [norypt.com](https://norypt.com) for details.
@@ -114,7 +116,7 @@ The destructive path is deliberately hard to reach by accident.
 - **Lockdown mode always has an owner exit.** Holding a finger on the blank screen for three seconds and entering the App PIN opens a panel with an Exit button. It is the same PIN that gates every other setting, and it is the only way out short of a factory reset, which the warning says before the mode is enabled.
 - **External triggers are bound to a key.** `A7` requires the signature-level permission `com.norypt.protect.permission.TRIGGER`, so only an app signed with the Norypt key can send it. `A5` (PanicKit) fires only for the one app the owner paired with the App PIN, identified by its signing certificate; an app later installed under the same name cannot inherit the pairing.
 - **Armed means able to fire.** A trigger that is armed but cannot fire (no code, no pairing, a missing permission) says why on the Triggers tab, and Home counts only triggers that can fire.
-- **Triggers start after the first unlock.** After a restart, nothing of the app runs until the owner unlocks once; until then the data is encrypted at rest and only the system's own protections apply. On GrapheneOS, keep `C6` shorter than the auto-reboot time.
+- **Protection before the first unlock.** Since 1.3.2, on a Device Owner install, `B1`, `A11`, `B4`, `C3`, `A9`, `C4`, `C6` and a queued wipe work from boot, before the PIN is entered after a restart. For that, their switches and limits, the wrong-PIN count and the queued-wipe record live in Android's device-protected storage, which the phone opens at boot; it is encrypted with the device's hardware-bound key, not with the screen lock. The App PIN, the SMS code, the PanicKit pairing and every other setting stay in the encrypted file, readable only after the first unlock, and the triggers that need them wait for it. Trade-offs: `A6` cannot fire then, because Android holds incoming texts until the first unlock; on GrapheneOS, USB data is blocked while locked, so `A9` stays inert; no `C4` or `C6` countdown starts in the first 5 minutes after a restart, and `A9` ignores a cable that was already plugged in at boot for 2 minutes, so radios and the USB port coming up are not read as evidence. A countdown shown before the first unlock is cancelled by unlocking the phone: its Cancel button raises the unlock screen. Timeline entries recorded then are kept in device-protected storage and moved into the Timeline at the first unlock.
 
 **There is no PIN recovery.** The App PIN is derived with PBKDF2-HMAC-SHA256 (120,000 rounds) and bound to the Android Keystore. A recovery path would also be an attacker's path, so none exists. A forgotten PIN means factory-resetting the phone.
 
@@ -344,6 +346,10 @@ Verified on 2026-10-03 with the debug build and dry-run on, after a factory rese
 | Crashes | Pass | None in the crash buffer during the session |
 
 Not exercised on a device: Android 13 (where 2G offers no fix; covered by unit tests), an outside accessibility service, and a pre-reboot log import on a device that keeps those logs (the Pixel 10a returned nothing newer than what had already been imported).
+
+### Version 1.3.2 — protection before the first unlock
+
+Covered by unit tests: which settings live in device-protected storage and that nothing secret does, the move of an existing 1.3.1 settings file, the wrong-PIN count and the queued wipe on a store whose encrypted half is still locked, the Timeline queue, the start-up grace and the boot-cable rule for `A9`. The same mechanism was checked on a device in the paid edition, on a Pixel 9a with GrapheneOS: the service running before the first unlock, `B1` and `A11` from wrong PINs at the lock screen (also with a real wipe), `C3`, `C6` with its countdown over the lock screen, the Timeline queue and the update of existing settings. This free build itself has not been run on a device yet.
 
 ### Android 14+ platform findings
 

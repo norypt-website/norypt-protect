@@ -71,12 +71,18 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         // B4 — failed-auth notification
         postFailedAuthNotification(context)
 
-        // Shared run length (used by both A11 and B1)
+        // Shared run length (used by both A11 and B1). Kept in device-protected storage, so wrong
+        // PINs typed before the first unlock after a restart count too (this receiver is direct-boot aware).
         val count = ProtectPrefs.recordFailedAttempt(context)
+        DebugTelemetry.log("password failed count=$count unlocked=${ProtectPrefs.userUnlocked(context)}")
         // With Android's security log on, failed unlocks reach the Timeline from it (it also sees attempts
         // before the first unlock after a restart); A11 and B1 below keep counting from this callback.
+        // Whether the log is unavailable is an encrypted setting: before the first unlock it reads as
+        // available, so an entry is queued only when the log is off.
         val logOn = SecurityLogFeature.isOn(context)
-        if (SecurityLogFeature.recordsOwnFailedUnlock(logOn, SecurityLogFeature.unavailable(context))) {
+        val unavailable = ProtectPrefs.userUnlocked(context) &&
+            runCatching { SecurityLogFeature.unavailable(context) }.getOrDefault(false)
+        if (SecurityLogFeature.recordsOwnFailedUnlock(logOn, unavailable)) {
             TamperLog.record(context, TamperKind.UNLOCK_FAILED, "$count in a row.")
         }
 
@@ -113,6 +119,10 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
         importSecurityLogInBackground(context)
     }
 
+    // This receiver is direct-boot aware, so the wrong-PIN callbacks above work before the first
+    // unlock after a restart. The security log import below writes the encrypted Timeline, so it
+    // waits for that unlock (BootCompletedReceiver imports the logs from before it).
+
     // Android pauses the security log while any user or profile is not affiliated with the Device
     // Owner; asking for a batch after a user comes or goes updates whether the log is delivered.
     override fun onUserAdded(context: Context, intent: Intent, addedUser: UserHandle) {
@@ -127,6 +137,7 @@ class ProtectAdminReceiver : DeviceAdminReceiver() {
 
     /** A batch can hold thousands of events: read it off the main thread. */
     private fun importSecurityLogInBackground(context: Context) {
+        if (!ProtectPrefs.userUnlocked(context)) return
         val pending = goAsync()
         Thread {
             try {
