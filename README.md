@@ -41,6 +41,8 @@ The intended users are people who are responsible for data on a phone they own a
 
 This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes only; new features are not added here.
 
+**1.3.3:** the Timeline's restart entry says protection was on before the first unlock, instead of "monitoring resumed" at the unlock time; restarts that were never unlocked read "Booted, never unlocked".
+
 **1.3.2 (security update):** protection no longer waits for the first unlock after a restart. A Device Owner install starts at boot, before the PIN is entered: wrong PINs count towards `B1` and `A11`, `B4` notifies, `C3` and `A9` watch, `C4` and `C6` keep their alarm and countdown, and a queued wipe is retried. See [Safety model](#safety-model).
 
 **1.3.1 (security update):** the panic tile asks for the App PIN before every wipe, locked or unlocked; pairing a panic app (`A5`) needs the trigger armed, shows the app's package and signing-key fingerprint, asks for an explicit confirmation and then the App PIN, and allows one prompt a minute; a queued wipe keeps the dry-run setting it was triggered with, a queued real wipe is never downgraded or settled by a later dry-run, and the Wipe tab can cancel it behind the App PIN; the build verifies dependency signatures against a committed keyring and the Docker image's downloads against pinned checksums.

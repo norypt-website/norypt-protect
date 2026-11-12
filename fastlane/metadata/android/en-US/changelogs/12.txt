@@ -1,0 +1,2 @@
+v1.3.3
+• Timeline: the restart entry now says protection was on before the first unlock, instead of "monitoring resumed" at the unlock time. Restarts that were never unlocked read "Booted, never unlocked".
