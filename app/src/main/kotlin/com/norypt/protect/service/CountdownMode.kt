@@ -15,6 +15,9 @@ enum class CountdownMode(val extraValue: String, val notificationId: Int, val re
 
     /** A8 — the device has stayed unlocked longer than the configured maximum. */
     UNLOCKED_TOO_LONG("unlocked_too_long", NotificationIds.COUNTDOWN_UNLOCKED_TOO_LONG, "unlocked.timer"),
+
+    /** C9 — the phone restarted without shutting down (a button held until it restarted). */
+    FORCED_RESTART("forced_restart", NotificationIds.COUNTDOWN_FORCED_RESTART, "forced.restart"),
     ;
 
     companion object {

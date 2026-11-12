@@ -25,6 +25,7 @@ import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.DeadmanScheduler
+import com.norypt.protect.triggers.ForcedRestartMonitor
 import com.norypt.protect.triggers.PowerGestureMonitor
 import com.norypt.protect.triggers.UnlockedTimer
 import com.norypt.protect.triggers.UsbLockedMonitor
@@ -85,6 +86,10 @@ class ProtectForegroundService : Service() {
             .setOngoing(true)
             .build()
         startForeground(NotificationIds.SERVICE, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // C9 first: the shutdown watch must be up as early as possible in every boot, and a
+        // forced restart is decided before anything that could take long.
+        runCatching { ForcedRestartMonitor.startWatch(this) }
+        runCatching { ForcedRestartMonitor.onServiceStart(this) }
         // Each on its own: one monitor throwing must not leave every later one, and the
         // dead-man alarm, unstarted. These read only device-protected settings, so they also run
         // before the first unlock after a restart (this service is direct-boot aware).
@@ -144,6 +149,7 @@ class ProtectForegroundService : Service() {
         handler.removeCallbacks(tickRunnable)
         unlockReceiver?.let { runCatching { unregisterReceiver(it) } }
         unlockReceiver = null
+        ForcedRestartMonitor.stopWatch(this)
         PowerGestureMonitor.stop(this)
         UsbLockedMonitor.stop(this)
         PowerMenuGuard.stop(this)
@@ -163,12 +169,13 @@ class ProtectForegroundService : Service() {
         private val tickListeners = mutableListOf<(Context) -> Unit>()
 
         /**
-         * What the tick runs before the first unlock after a restart: the queued-wipe retry, which
-         * touches only device-protected settings. After the unlock the app's own list
+         * What the tick runs before the first unlock after a restart: the queued-wipe retry and C9's
+         * countdown, which touch only device-protected settings. After the unlock the app's own list
          * ([registerTick]) covers it.
          */
         private val BEFORE_UNLOCK_TICKS: List<(Context) -> Unit> = listOf(
             { PanicHandler.retryPendingWipe(it) },
+            { ForcedRestartMonitor.tick(it) },
         )
 
         fun registerTick(fn: (Context) -> Unit) {

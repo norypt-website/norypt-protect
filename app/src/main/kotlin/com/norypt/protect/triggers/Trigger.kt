@@ -44,12 +44,12 @@ object TriggerRegistry {
         PowerGestureTrigger,
         DeadmanTrigger,
         UnlockDeadlineTrigger,
+        ForcedRestartTrigger,
         PackageInternetTrigger,
         // B6 (notification listener) removed: it asked for access to every notification on
         // the phone and did nothing with it. A12 (work-profile wipe) removed: nothing read
         // its switch, so arming it changed nothing.
-        // C5 ShutdownTrigger removed — ACTION_SHUTDOWN isn't delivered to user apps
-        // on Android 14+ (both stock Pixel and GrapheneOS). See memory lesson #7
-        // and #21. Removed for v1.0 rather than shipping dead code.
+        // C5 ShutdownTrigger removed: it waited for ACTION_SHUTDOWN on a manifest receiver, where
+        // Android 14+ never delivers it. C9 registers for it at runtime, where it is delivered.
     )
 }

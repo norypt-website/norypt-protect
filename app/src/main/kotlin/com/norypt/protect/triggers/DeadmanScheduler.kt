@@ -34,10 +34,11 @@ object DeadmanScheduler {
 
     private const val REQUEST_CODE = 4001
 
-    /** Whether any trigger that rides this alarm chain is armed. */
+    /** Whether any trigger that rides this alarm chain is armed, or C9's countdown is pending. */
     fun anyArmed(context: Context): Boolean =
         ProtectPrefs.isTriggerEnabled(context, DeadmanTrigger.id) ||
-            ProtectPrefs.isTriggerEnabled(context, UnlockDeadlineTrigger.id)
+            ProtectPrefs.isTriggerEnabled(context, UnlockDeadlineTrigger.id) ||
+            ForcedRestartMonitor.pending(context)
 
     fun schedule(context: Context) {
         if (!anyArmed(context)) {
@@ -112,5 +113,7 @@ class DeadmanAlarmReceiver : BroadcastReceiver() {
             .onFailure { DebugTelemetry.log("c4 tick threw: ${it.javaClass.simpleName}: ${it.message}") }
         runCatching { UnlockDeadlineMonitor.tick(context) }
             .onFailure { DebugTelemetry.log("c6 tick threw: ${it.javaClass.simpleName}: ${it.message}") }
+        runCatching { ForcedRestartMonitor.tick(context) }
+            .onFailure { DebugTelemetry.log("c9 tick threw: ${it.javaClass.simpleName}: ${it.message}") }
     }
 }

@@ -30,6 +30,7 @@ import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.triggers.DeadmanMonitor
+import com.norypt.protect.triggers.ForcedRestartMonitor
 import com.norypt.protect.triggers.UnlockDeadlineMonitor
 import com.norypt.protect.triggers.UnlockedTimer
 import com.norypt.protect.triggers.UnlockedTimerMonitor
@@ -83,6 +84,8 @@ class WipeCountdownActivity : ComponentActivity() {
                 )
                 // The credential is a fresh unlock: A8 measures again from now.
                 CountdownMode.UNLOCKED_TOO_LONG -> UnlockedTimer.stamp(this)
+                // The credential is the owner: settled in finishWithOutcome.
+                CountdownMode.FORCED_RESTART -> Unit
             }
             finishWithOutcome()
         } else {
@@ -97,6 +100,10 @@ class WipeCountdownActivity : ComponentActivity() {
         // Not screenshot- or recording-able: this screen is shown over the lockscreen and
         // discloses both that the device is armed and that a wipe is imminent.
         window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        // C9's 30 seconds must not stall behind a screen that turned itself off.
+        if (mode == CountdownMode.FORCED_RESTART) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
 
         // Show over lockscreen
         setShowWhenLocked(true)
@@ -123,7 +130,8 @@ class WipeCountdownActivity : ComponentActivity() {
         countdown = SuspendableCountdown(
             startElapsedMs = now,
             graceMs = graceMs,
-            maxPauseMs = MAX_PAUSE_MS,
+            // C9 is 30 seconds and no more: opening the unlock screen does not hold it.
+            maxPauseMs = if (mode == CountdownMode.FORCED_RESTART) 0L else MAX_PAUSE_MS,
             pauseUsedMs = savedInstanceState?.getLong(STATE_PAUSE_USED) ?: 0L,
             deadlineElapsedMs = deadline,
         )
@@ -166,6 +174,7 @@ class WipeCountdownActivity : ComponentActivity() {
         CountdownMode.DEADMAN -> ProtectPrefs.deadmanGraceSeconds(this)
         CountdownMode.UNLOCK_DEADLINE -> ProtectPrefs.unlockDeadlineGraceSeconds(this)
         CountdownMode.UNLOCKED_TOO_LONG -> ProtectPrefs.unlockedTimerGraceSeconds(this)
+        CountdownMode.FORCED_RESTART -> ForcedRestartMonitor.GRACE_SECONDS
     }
 
 
@@ -193,6 +202,7 @@ class WipeCountdownActivity : ComponentActivity() {
             CountdownMode.DEADMAN -> DeadmanMonitor.countdownActive = false
             CountdownMode.UNLOCK_DEADLINE -> UnlockDeadlineMonitor.countdownActive = false
             CountdownMode.UNLOCKED_TOO_LONG -> UnlockedTimerMonitor.countdownActive = false
+            CountdownMode.FORCED_RESTART -> ForcedRestartMonitor.countdownActive = false
         }
         super.onDestroy()
     }
@@ -203,6 +213,8 @@ class WipeCountdownActivity : ComponentActivity() {
      * that merely closed keeps both, so it resumes where it was instead of starting over.
      */
     private fun finishWithOutcome() {
+        // Unlocked, cancelled or expired: a restart from now on is not one during the countdown.
+        if (mode == CountdownMode.FORCED_RESTART) ForcedRestartMonitor.settle(this)
         ProtectPrefs.clearCountdownDeadline(this, mode.extraValue)
         CountdownAlert.clear(this, mode)
         finish()
@@ -249,6 +261,9 @@ class WipeCountdownActivity : ComponentActivity() {
         CountdownMode.UNLOCK_DEADLINE -> unlockDeadlineCleared()
         // A8 is about an unlocked phone; once it is locked, its purpose is served.
         CountdownMode.UNLOCKED_TOO_LONG -> getSystemService(KeyguardManager::class.java)?.isDeviceLocked == true
+        // C9: only the phone open right now cancels it, never the stored last-unlock time, a
+        // wall-clock stamp from before the restart that a clock moved back would make look new.
+        CountdownMode.FORCED_RESTART -> getSystemService(KeyguardManager::class.java)?.isDeviceLocked == false
     }
 
     /** C6 clears the moment the device is opened, by whichever route. */

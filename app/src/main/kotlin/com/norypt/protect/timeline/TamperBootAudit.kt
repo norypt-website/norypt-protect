@@ -8,8 +8,9 @@ import com.norypt.protect.prefs.ProtectPrefs
 /**
  * Records boots, and boots that happened while nothing was watching.
  *
- * Android 14+ does not deliver ACTION_SHUTDOWN to user apps, so a shutdown cannot be observed.
- * Two things can: the boot itself (its time comes from the monotonic clock, so it is exact
+ * A shutdown is announced only to receivers registered at runtime (C9 records it,
+ * [com.norypt.protect.triggers.ForcedRestartMonitor]); this audit does not depend on it. Two things
+ * are always seen: the boot itself (its time comes from the monotonic clock, so it is exact
  * even when the entry is written hours later), and `Settings.Global.BOOT_COUNT`, which the
  * platform increments on every boot and which any app may read. The entry is written at the
  * first unlock (the Timeline needs it), so if the count moved by more than one since then, the

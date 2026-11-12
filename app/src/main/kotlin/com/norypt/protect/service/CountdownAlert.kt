@@ -54,10 +54,13 @@ object CountdownAlert {
         // use (A8's whole situation), or when the permission was revoked. A Device Owner is
         // exempt from the background activity-start limits, so it starts the countdown itself.
         val fullScreenAllowed = Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE || nm.canUseFullScreenIntent()
-        if (mode == CountdownMode.UNLOCKED_TOO_LONG || !fullScreenAllowed) {
+        // C9 too: its countdown is only 30 seconds, so it is not left to the notification.
+        if (mode in STARTS_ITSELF || !fullScreenAllowed) {
             runCatching { ctx.startActivity(activityIntent) }
         }
     }
+
+    private val STARTS_ITSELF = setOf(CountdownMode.UNLOCKED_TOO_LONG, CountdownMode.FORCED_RESTART)
 
     /**
      * Clears the alert. It is posted setOngoing(true), so nothing dismisses it on its own:

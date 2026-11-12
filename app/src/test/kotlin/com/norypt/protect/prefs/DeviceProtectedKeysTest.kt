@@ -28,7 +28,7 @@ class DeviceProtectedKeysTest {
 
     @Test
     fun `the switches of the triggers that run before the first unlock are routed, no others`() {
-        listOf("A9", "A11", "B1", "B4", "C3", "C4", "C6").forEach {
+        listOf("A9", "A11", "B1", "B4", "C3", "C4", "C6", "C9").forEach {
             assertTrue(it, DeviceProtectedKeys.routed("trigger_enabled_$it"))
         }
         // A6's texts are held by Android until the first unlock; the rest need the owner or other apps.

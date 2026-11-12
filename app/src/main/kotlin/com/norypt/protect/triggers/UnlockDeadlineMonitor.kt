@@ -79,7 +79,9 @@ object UnlockDeadlineMonitor {
             return
         }
 
-        if (countdownActive || DeadmanMonitor.countdownActive || UnlockedTimerMonitor.countdownActive) {
+        val otherActive = DeadmanMonitor.countdownActive || UnlockedTimerMonitor.countdownActive ||
+            ForcedRestartMonitor.countdownActive
+        if (countdownActive || otherActive) {
             DebugTelemetry.bump(ctx, "c6_skip_countdown_active")
             return
         }

@@ -43,6 +43,7 @@ enum class TamperKind(val label: String, val defaultSeverity: Severity) {
     SYS_INTEGRITY("Integrity warning", Severity.Notable),
     WIPE_QUEUE_CANCELLED("Queued wipe cancelled", Severity.Notable),
     WIPE_QUEUE_ABANDONED("Queued wipe given up", Severity.Alert),
+    FORCED_RESTART("Forced restart", Severity.Alert),
 }
 
 data class TamperEvent(

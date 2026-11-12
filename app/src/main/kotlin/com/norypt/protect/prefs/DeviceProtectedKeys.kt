@@ -14,7 +14,7 @@ internal object DeviceProtectedKeys {
     const val FILE = "norypt_device_protected"
 
     /** Triggers that run before the first unlock; their switches are routed. */
-    val TRIGGER_IDS: Set<String> = setOf("A9", "A11", "B1", "B4", "C3", "C4", "C6")
+    val TRIGGER_IDS: Set<String> = setOf("A9", "A11", "B1", "B4", "C3", "C4", "C6", "C9")
 
     private val EXACT: Set<String> = setOf(
         // B1 / A11 wrong-PIN wipe

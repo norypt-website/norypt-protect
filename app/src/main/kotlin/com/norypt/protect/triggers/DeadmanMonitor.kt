@@ -118,7 +118,7 @@ object DeadmanMonitor {
             return
         }
 
-        if (countdownActive || UnlockDeadlineMonitor.countdownActive || UnlockedTimerMonitor.countdownActive) {
+        if (countdownActive || otherCountdownActive()) {
             debugBump(ctx, "c4_skip_countdown_active")
             return
         }
@@ -132,6 +132,10 @@ object DeadmanMonitor {
         countdownActive = true
         CountdownAlert.post(ctx, CountdownMode.DEADMAN)
     }
+
+    private fun otherCountdownActive(): Boolean =
+        UnlockDeadlineMonitor.countdownActive || UnlockedTimerMonitor.countdownActive ||
+            ForcedRestartMonitor.countdownActive
 
     /** Plugged into any power source, from the sticky battery broadcast. */
     fun isCharging(ctx: Context): Boolean {

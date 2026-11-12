@@ -76,7 +76,9 @@ object UnlockedTimerMonitor {
             CountdownAlert.forgetDeadline(context, CountdownMode.UNLOCKED_TOO_LONG)
             return
         }
-        if (countdownActive || DeadmanMonitor.countdownActive || UnlockDeadlineMonitor.countdownActive) return
+        val otherActive = DeadmanMonitor.countdownActive || UnlockDeadlineMonitor.countdownActive ||
+            ForcedRestartMonitor.countdownActive
+        if (countdownActive || otherActive) return
         countdownActive = true
         CountdownAlert.post(context, CountdownMode.UNLOCKED_TOO_LONG)
     }

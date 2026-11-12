@@ -404,6 +404,13 @@ private fun ConfigSheet(trigger: Trigger, onDone: () -> Unit) {
                     fontSize = 11.sp,
                 )
             }
+            "C9" -> Text(
+                "Countdown: 30 seconds, from the lock screen right after the restart. Unlock the phone to " +
+                    "cancel it. A restart while it is pending wipes at once. Restart from the power menu " +
+                    "yourself: that is a normal shutdown and starts nothing.",
+                color = NoryptColors.Muted,
+                fontSize = 12.sp,
+            )
             "A7" -> {
                 InfoBlock(
                     title = "What this is",

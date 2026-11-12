@@ -19,6 +19,7 @@ import com.norypt.protect.shield.AccessShield
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
+import com.norypt.protect.triggers.ForcedRestartMonitor
 import com.norypt.protect.triggers.PackageInternetWatcher
 import com.norypt.protect.triggers.UnlockedTimerMonitor
 import com.norypt.protect.util.DebugTelemetry
@@ -119,6 +120,8 @@ class NoryptProtectApp : Application() {
         ProtectForegroundService.registerTick { PackageInternetWatcher.tick(it) }
         // Retries a wipe that was attempted and denied — see PanicHandler.retryPendingWipe.
         ProtectForegroundService.registerTick { PanicHandler.retryPendingWipe(it) }
+        // C9: settles a forced-restart countdown on an unlock, brings a closed screen back, wipes when overdue.
+        ProtectForegroundService.registerTick { ForcedRestartMonitor.tick(it) }
         // Tamper-timeline sentinels: SIM, USB debugging, lock screen, biometrics, failed unlocks.
         ProtectForegroundService.registerTick { TamperMonitor.tick(it) }
         // Power-menu guard self-heal: a lock task held into an unlocked session, or a keyguard
