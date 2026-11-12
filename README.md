@@ -39,7 +39,9 @@ The intended users are people who are responsible for data on a phone they own a
 
 ## Editions
 
-This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes only; new features are not added here.
+This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes; a protection from Pro is brought over now and then, as `C9` was in 1.3.4.
+
+**1.3.4:** new trigger `C9`, wipe after a forced restart. A locked phone with the power menu blocked can still be forced off by holding the power button, alone or with a volume key, until it restarts. Norypt now records every clean shutdown; a start without that record opens a 30-second countdown on the lock screen, before the first unlock too. Only unlocking the phone cancels it, and any restart while it is pending wipes at the next start. A crash or a power loss looks the same and starts it too. Off by default; Device Owner only. See [docs/design/2026-11-12-forced-restart-design.md](docs/design/2026-11-12-forced-restart-design.md).
 
 **1.3.3:** the Timeline's restart entry says protection was on before the first unlock, instead of "monitoring resumed" at the unlock time; restarts that were never unlocked read "Booted, never unlocked".
 
@@ -113,12 +115,12 @@ The destructive path is deliberately hard to reach by accident.
 - **Dry-run is ON for every fresh install.** Every trigger — manual hold-to-wipe, scheduled, and external broadcast — emits a local test broadcast (`com.norypt.protect.action.WIPED_DRYRUN`) and erases nothing, until the owner turns dry-run off in the Wipe tab. The switch needs the App PIN in both directions, and Home says when dry-run is on. A misconfigured trigger on an unattended fresh install cannot reset the phone.
 - **A real wipe requires Device Owner.** On Android 14 and later, `wipeData()` no longer factory-resets user 0. Only a promoted Device Owner can call `wipeDevice()`, and promotion requires a deliberate ADB command on a device with no accounts (see [Tier 2](#tier-2--device-owner)).
 - **The App PIN gates configuration.** After the system unlock, the app requires its own PIN before revealing configured triggers or wipe options, and asks again once the screen has gone off or the app has been left for 30 seconds. Every PIN prompt shares one lockout: eight wrong entries block PIN entry for five minutes. Trivial PINs (one repeated digit, a straight sequence, a repeated short block) are refused at setup.
-- **Countdown and cancel window.** The low-battery trigger (`C4`), the unlock-deadline trigger (`C6`) and the unlocked-too-long trigger (`A8`) show a full-screen countdown (60 seconds by default, 15 to 600) that the screen-lock credential cancels. Back does not end it, and a countdown that is closed resumes where it was instead of starting over. Locking the phone ends `A8`'s countdown; unlocking or charging ends `C4`'s.
+- **Countdown and cancel window.** The low-battery trigger (`C4`), the unlock-deadline trigger (`C6`) and the unlocked-too-long trigger (`A8`) show a full-screen countdown (60 seconds by default, 15 to 600) that the screen-lock credential cancels. Back does not end it, and a countdown that is closed resumes where it was instead of starting over. Locking the phone ends `A8`'s countdown; unlocking or charging ends `C4`'s. The forced-restart trigger (`C9`) has a fixed 30-second countdown with no pause: opening the unlock screen does not hold it, only the phone being unlocked ends it, and a restart while it is pending wipes at the next start instead of starting it again.
 - **Settings stay in safe ranges.** Number settings are saved when editing ends, not on every keystroke, and are clamped: at least 3 failed attempts for `B1`, 2 for `A11`, 15 minutes for `A8`, 15 seconds for any countdown.
 - **Lockdown mode always has an owner exit.** Holding a finger on the blank screen for three seconds and entering the App PIN opens a panel with an Exit button. It is the same PIN that gates every other setting, and it is the only way out short of a factory reset, which the warning says before the mode is enabled.
 - **External triggers are bound to a key.** `A7` requires the signature-level permission `com.norypt.protect.permission.TRIGGER`, so only an app signed with the Norypt key can send it. `A5` (PanicKit) fires only for the one app the owner paired with the App PIN, identified by its signing certificate; an app later installed under the same name cannot inherit the pairing.
 - **Armed means able to fire.** A trigger that is armed but cannot fire (no code, no pairing, a missing permission) says why on the Triggers tab, and Home counts only triggers that can fire.
-- **Protection before the first unlock.** Since 1.3.2, on a Device Owner install, `B1`, `A11`, `B4`, `C3`, `A9`, `C4`, `C6` and a queued wipe work from boot, before the PIN is entered after a restart. For that, their switches and limits, the wrong-PIN count and the queued-wipe record live in Android's device-protected storage, which the phone opens at boot; it is encrypted with the device's hardware-bound key, not with the screen lock. The App PIN, the SMS code, the PanicKit pairing and every other setting stay in the encrypted file, readable only after the first unlock, and the triggers that need them wait for it. Trade-offs: `A6` cannot fire then, because Android holds incoming texts until the first unlock; on GrapheneOS, USB data is blocked while locked, so `A9` stays inert; no `C4` or `C6` countdown starts in the first 5 minutes after a restart, and `A9` ignores a cable that was already plugged in at boot for 2 minutes, so radios and the USB port coming up are not read as evidence. A countdown shown before the first unlock is cancelled by unlocking the phone: its Cancel button raises the unlock screen. Timeline entries recorded then are kept in device-protected storage and moved into the Timeline at the first unlock.
+- **Protection before the first unlock.** Since 1.3.2, on a Device Owner install, `B1`, `A11`, `B4`, `C3`, `A9`, `C4`, `C6` and a queued wipe work from boot (and `C9` since 1.3.4), before the PIN is entered after a restart. For that, their switches and limits, the wrong-PIN count and the queued-wipe record live in Android's device-protected storage, which the phone opens at boot; it is encrypted with the device's hardware-bound key, not with the screen lock. The App PIN, the SMS code, the PanicKit pairing and every other setting stay in the encrypted file, readable only after the first unlock, and the triggers that need them wait for it. Trade-offs: `A6` cannot fire then, because Android holds incoming texts until the first unlock; on GrapheneOS, USB data is blocked while locked, so `A9` stays inert; no `C4` or `C6` countdown starts in the first 5 minutes after a restart, and `A9` ignores a cable that was already plugged in at boot for 2 minutes, so radios and the USB port coming up are not read as evidence. A countdown shown before the first unlock is cancelled by unlocking the phone: its Cancel button raises the unlock screen. Timeline entries recorded then are kept in device-protected storage and moved into the Timeline at the first unlock.
 
 **There is no PIN recovery.** The App PIN is derived with PBKDF2-HMAC-SHA256 (120,000 rounds) and bound to the Android Keystore. A recovery path would also be an attacker's path, so none exists. A forgotten PIN means factory-resetting the phone.
 
@@ -246,6 +248,7 @@ Thirteen triggers plus the tile and the launcher shortcuts, each armed and disar
 | `C3` | Power button pressed five times | 2 |
 | `C4` | Low-battery dead-man switch with 60-second countdown and cancel window | 2 |
 | `C6` | Not unlocked for N hours (default 12) — countdown with cancel window, for a phone seized, lost or left behind | 2 |
+| `C9` | Forced restart — the phone restarted without shutting down (the power button held, alone or with a volume key, until it restarts). A 30-second countdown starts at the lock screen as soon as Norypt is up, before the first unlock; only unlocking cancels it, and any restart while it is pending wipes at the next start. A crash or a power loss looks the same and starts it too | 2 |
 
 `A7` accepts intents only from applications signed with the same key. `A5` accepts only the PanicKit app the owner paired with the App PIN, checked against its signing certificate; pairing is offered only while `A5` is armed. The tile (`A3`) asks for the App PIN before a wipe.
 
@@ -368,12 +371,27 @@ Checked on a freshly reset Pixel 9a with GrapheneOS (Android 16), debug build as
 
 Not exercised on a device: `A9` (GrapheneOS blocks USB data while locked), `A11` (the same wrong-PIN count as `B1`, covered by unit tests) and the `C4` countdown (a low battery cannot be simulated before the first unlock).
 
+### Version 1.3.4 — wipe after a forced restart
+
+Unit-tested: the decision at each start (a clean shutdown, a hardware reset, a boot Norypt never reached, a restart while the countdown is pending, a service restart within one boot, the first start with this code) and the wipe without the screen past the deadline. The device check below was made on a Pixel 9a (GrapheneOS, Android 16) with a Device Owner debug build of the same trigger code:
+
+| Check | Result |
+|---|---|
+| Restart reason readable by an app | No: SELinux denies it, so Norypt records clean shutdowns itself |
+| Clean restart | Pass: shutdown recorded, no countdown at the next start |
+| Power held; power + volume down; power + volume up | Pass: none left a clean-shutdown record |
+| Forced restart, then unlock | Pass: countdown right after boot, cancelled by unlocking with 20 s left; "Forced restart" in the Timeline |
+| Forced restart, countdown left alone | Pass: dry-run wipe 30.2 s after the countdown started |
+| Restart during the countdown | Pass: the next start wiped at once (dry-run) |
+| Screen turned off during the countdown | Pass: dry-run wipe 34 s after the countdown started |
+| Real wipe | Pass: the phone factory-reset itself at the end of the countdown |
+
 ### Android 14+ platform findings
 
 These platform behaviours shaped the current design. They apply to stock Android and GrapheneOS alike and are documented here because they are not obvious from the Android reference.
 
 1. **`DevicePolicyManager.wipeData(flags)` no longer factory-resets user 0.** It removes only the calling user and throws `IllegalStateException: User 0 is a system user and cannot be removed`. The replacement is `wipeDevice(flags)` (API 34+), used on Android 14+ with `wipeData` retained as the Android 13 fallback.
-2. **`ACTION_SHUTDOWN` is no longer delivered to user applications.** A shutdown-triggered wipe is not implementable on modern Android, so that trigger was removed rather than shipped as a control that silently does nothing.
+2. **`ACTION_SHUTDOWN` reaches only receivers registered at runtime, not manifest ones.** The early shutdown trigger (`C5`) declared its receiver in the manifest and never fired, so it was removed. A wipe *during* a shutdown is still not possible, but a running app is told before every clean shutdown; since 1.3.4 the service records it, and a boot without that record is a forced restart (`C9`). Android's own restart reason (`sys.boot.reason`) is not readable by apps.
 3. **`PACKAGE_ADDED` manifest receivers are filtered for third-party applications** even with `QUERY_ALL_PACKAGES` granted. The `B5` reactive path was removed; polling catches new installs within roughly one tick.
 4. **A Device Owner does not stop the owner from adding users, and any user not affiliated with it pauses the security log.** `setSecurityLoggingEnabled(true)` still succeeds and `isSecurityLoggingEnabled` still returns true, but no batch arrives and retrieval throws `SecurityException`. Norypt asks for a batch when the switch is turned on and whenever a user is added or removed, and records failed unlocks itself while the log is not delivered.
 5. **`DevicePolicyManager.setLocationEnabled(true)` posts "Apps can access your location — Contact your IT admin to learn more" every time it turns location on.** Writing the location setting with `WRITE_SECURE_SETTINGS` does not, so "location off while locked" does that when provisioning granted the permission.
@@ -484,6 +502,7 @@ apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk
 - A phone handled while out of its owner's hands: the tamper timeline records what Android exposes about boots, unlocks, USB, SIM and biometric changes, so the owner can tell afterwards.
 - A phone pulled from the owner's hand while unlocked (anti-snatch lock).
 - A locked phone that is never unlocked again by its owner (`C6`).
+- A locked phone forced off with a held button, the only way left to turn it off with the power menu blocked (`C9`, at the next start).
 
 **Out of scope.** The application does not defend against:
 
