@@ -1,4 +1,4 @@
-# Norypt Protect 1.3.1 — Provisioning Pack
+# Norypt Protect 1.3.2 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.3.1.apk` | The signed app |
-| `norypt-protect-1.3.1.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.3.2.apk` | The signed app |
+| `norypt-protect-1.3.2.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  840cf27de30ca9cd3506a972299aea5389df949a53fdd5b21c39c1e6c1bbaa83
+SHA-256  4378cba33f35fc1366dffcd0cae4124ce3f1aa60f4be99b231513efd3b880db0
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -63,6 +63,13 @@ stops — because this app can erase the phone it is installed on.
    tab. Tell them to test first, arm second.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.3.2
+
+- **Protection from the moment the phone starts.** After a restart, before anyone enters the screen lock, wrong PINs count towards B1 and A11, B4 notifies, C3 and A9 watch, C4 and C6 keep running, and a queued wipe is retried (Device Owner). Their settings live in storage Android opens at boot; the App PIN and other secrets stay encrypted.
+- **Before the first unlock, Cancel on a countdown opens the unlock screen.**
+- **No new countdown starts in the first 5 minutes after a restart,** and a USB cable plugged in at boot does not fire A9 until it is unplugged and plugged in again. On GrapheneOS, USB data stays blocked while locked, so A9 is inert then. A6 texts are held by Android until the first unlock.
+- Tell customers to test in dry-run once after updating: restart, type wrong PINs at the lock screen, and check the Timeline after unlocking.
 
 ## New in 1.3
 
