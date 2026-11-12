@@ -349,7 +349,22 @@ Not exercised on a device: Android 13 (where 2G offers no fix; covered by unit t
 
 ### Version 1.3.2 — protection before the first unlock
 
-Covered by unit tests: which settings live in device-protected storage and that nothing secret does, the move of an existing 1.3.1 settings file, the wrong-PIN count and the queued wipe on a store whose encrypted half is still locked, the Timeline queue, the start-up grace and the boot-cable rule for `A9`. The same mechanism was checked on a device in the paid edition, on a Pixel 9a with GrapheneOS: the service running before the first unlock, `B1` and `A11` from wrong PINs at the lock screen (also with a real wipe), `C3`, `C6` with its countdown over the lock screen, the Timeline queue and the update of existing settings. This free build itself has not been run on a device yet.
+Covered by unit tests: which settings live in device-protected storage and that nothing secret does, the move of an existing 1.3.1 settings file, the wrong-PIN count and the queued wipe on a store whose encrypted half is still locked, the Timeline queue, the start-up grace and the boot-cable rule for `A9`.
+
+Checked on a freshly reset Pixel 9a with GrapheneOS (Android 16), debug build as Device Owner, dry-run on except for the last check:
+
+| Check | Result | Evidence |
+|---|---|---|
+| Update from 1.3.1 | Pass | Every armed switch, the `B1` limit and the Timeline switch were in device-protected storage afterwards and unchanged; the encrypted file kept only the other settings |
+| Service before the first unlock | Pass | The service started at boot with the user still locked, and the `C4` alarm kept running every minute or two while locked |
+| `B1` before the first unlock | Pass | Three wrong PINs at the lock screen were counted 1, 2, 3 and the third fired a simulated wipe; the count reset after the unlock |
+| `C3` before the first unlock | Pass | Five power presses at the lock screen fired a simulated wipe |
+| `C6` before the first unlock | Pass | With the last unlock 13 hours back (limit 12), the countdown appeared over the lock screen 5 min 26 s after boot, after the start-up grace; Cancel raised the unlock screen and unlocking ended it, with no wipe |
+| Timeline queue | Pass | Entries recorded before the first unlock appeared after it, with their original times |
+| Real wipe before the first unlock | Pass | Dry-run off, `B1` at 3: three wrong PINs at the lock screen factory-reset the phone |
+| Crashes | Pass | None in the crash buffer |
+
+Not exercised on a device: `A9` (GrapheneOS blocks USB data while locked), `A11` (the same wrong-PIN count as `B1`, covered by unit tests) and the `C4` countdown (a low battery cannot be simulated before the first unlock).
 
 ### Android 14+ platform findings
 
