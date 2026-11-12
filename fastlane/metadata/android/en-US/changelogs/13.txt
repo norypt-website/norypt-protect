@@ -1,0 +1,2 @@
+v1.3.4
+• New trigger C9, wipe after a forced restart: a restart that skipped Android's shutdown (a button held until the phone restarts) opens a 30-second countdown on the lock screen. Only unlocking cancels it; a restart while it is pending wipes at the next start. Off by default, Device Owner only.
