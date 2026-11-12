@@ -2,6 +2,7 @@ package com.norypt.protect.timeline
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -56,5 +57,35 @@ class TamperBootAuditTest {
         val detail = TamperBootAudit.unobservedDetail(2, 10, 13)
         assertTrue(detail.startsWith("2 boot(s)"))
         assertTrue(detail.contains("10 → 13"))
+    }
+
+    @Test
+    fun `a boot protected before the first unlock says so instead of monitoring resumed`() {
+        val bootAt = 1_700_000_000_000L
+        val detail = TamperBootAudit.bootDetail(
+            bootAt, bootAt + 600_000L, lastAliveMs = 0L, fromBootBroadcast = false, protectedFromMs = bootAt + 20_000L,
+        )
+        assertTrue(detail.contains("protection on from"))
+        assertTrue(detail.contains("before the first unlock; unlocked by"))
+        assertFalse(detail.contains("monitoring resumed"))
+        val fromBroadcast = TamperBootAudit.bootDetail(bootAt, bootAt + 600_000L, 0L, true, bootAt + 20_000L)
+        assertTrue(fromBroadcast.contains("before the first unlock; first unlocked"))
+    }
+
+    @Test
+    fun `only a locked service start in this boot counts as protection before the first unlock`() {
+        val bootAt = 1_700_000_000_000L
+        assertEquals(bootAt + 20_000L, TamperBootAudit.startedLockedAt(7, 20_000L, true, currentBoot = 7, bootAtMs = bootAt))
+        // Started after the unlock (an update, or not a Device Owner), or in an earlier boot.
+        assertNull(TamperBootAudit.startedLockedAt(7, 20_000L, false, currentBoot = 7, bootAtMs = bootAt))
+        assertNull(TamperBootAudit.startedLockedAt(6, 20_000L, true, currentBoot = 7, bootAtMs = bootAt))
+        assertNull(TamperBootAudit.startedLockedAt(-1, 0L, false, currentBoot = 7, bootAtMs = bootAt))
+    }
+
+    @Test
+    fun `the service-start stamp is written before the first unlock, so it is routed`() {
+        listOf("protection_start_boot", "protection_start_elapsed", "protection_start_locked").forEach {
+            assertTrue(it, com.norypt.protect.prefs.DeviceProtectedKeys.routed(it))
+        }
     }
 }

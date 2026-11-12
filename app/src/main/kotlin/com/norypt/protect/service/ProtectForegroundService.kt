@@ -94,6 +94,7 @@ class ProtectForegroundService : Service() {
             { DeadmanScheduler.schedule(this) },
         ).forEach { start -> runCatching { start() } }
         val unlocked = ProtectPrefs.userUnlocked(this)
+        runCatching { TamperBootAudit.markServiceStart(this, locked = !unlocked) }
         DebugTelemetry.log("service start unlocked=$unlocked")
         if (unlocked) startAfterUnlock() else waitForUnlock()
         handler.postDelayed(tickRunnable, TICK_INTERVAL_MS)

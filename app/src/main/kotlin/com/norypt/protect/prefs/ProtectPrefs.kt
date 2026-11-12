@@ -382,6 +382,21 @@ internal object ProtectPrefsKeys {
     fun timelineLastBootCount(store: KvStore): Int = store.getInt(KEY_TIMELINE_LAST_BOOT_COUNT, 0)
     fun setTimelineLastBootCount(store: KvStore, value: Int) = store.putInt(KEY_TIMELINE_LAST_BOOT_COUNT, value)
 
+    // When the monitoring service first started in a boot, and whether the user was still locked
+    // then; the Timeline's boot entry says protection was on before the first unlock.
+    const val KEY_PROTECTION_START_BOOT = "protection_start_boot"
+    const val KEY_PROTECTION_START_ELAPSED = "protection_start_elapsed"
+    const val KEY_PROTECTION_START_LOCKED = "protection_start_locked"
+
+    fun protectionStartBoot(store: KvStore): Int = store.getInt(KEY_PROTECTION_START_BOOT, -1)
+    fun protectionStartElapsed(store: KvStore): Long = store.getLong(KEY_PROTECTION_START_ELAPSED, 0L)
+    fun protectionStartLocked(store: KvStore): Boolean = store.getBoolean(KEY_PROTECTION_START_LOCKED, false)
+    fun setProtectionStart(store: KvStore, boot: Int, elapsedMs: Long, locked: Boolean) {
+        store.putLong(KEY_PROTECTION_START_ELAPSED, elapsedMs)
+        store.putBoolean(KEY_PROTECTION_START_LOCKED, locked)
+        store.putInt(KEY_PROTECTION_START_BOOT, boot)
+    }
+
     fun timelineSimSnapshot(store: KvStore): String? = store.getString(KEY_TIMELINE_SIM_SNAPSHOT, null)
     fun setTimelineSimSnapshot(store: KvStore, value: String?) = store.putString(KEY_TIMELINE_SIM_SNAPSHOT, value)
 
@@ -867,6 +882,12 @@ object ProtectPrefs {
     fun timelineLastBootCount(context: Context): Int = ProtectPrefsKeys.timelineLastBootCount(store(context))
     fun setTimelineLastBootCount(context: Context, value: Int) =
         ProtectPrefsKeys.setTimelineLastBootCount(store(context), value)
+
+    fun protectionStartBoot(context: Context): Int = ProtectPrefsKeys.protectionStartBoot(store(context))
+    fun protectionStartElapsed(context: Context): Long = ProtectPrefsKeys.protectionStartElapsed(store(context))
+    fun protectionStartLocked(context: Context): Boolean = ProtectPrefsKeys.protectionStartLocked(store(context))
+    fun setProtectionStart(context: Context, boot: Int, elapsedMs: Long, locked: Boolean) =
+        ProtectPrefsKeys.setProtectionStart(store(context), boot, elapsedMs, locked)
 
     fun timelineSimSnapshot(context: Context): String? = ProtectPrefsKeys.timelineSimSnapshot(store(context))
     fun setTimelineSimSnapshot(context: Context, value: String?) =

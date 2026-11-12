@@ -12,7 +12,7 @@ enum class Severity { Info, Notable, Alert }
  */
 enum class TamperKind(val label: String, val defaultSeverity: Severity) {
     BOOT("Device booted", Severity.Notable),
-    UNOBSERVED_BOOTS("Booted while monitoring was off", Severity.Alert),
+    UNOBSERVED_BOOTS("Booted, never unlocked", Severity.Alert),
     MONITOR_STARTED("Monitoring started", Severity.Info),
     APP_UPDATED("Norypt Protect updated", Severity.Notable),
     UNLOCK("Device unlocked", Severity.Info),

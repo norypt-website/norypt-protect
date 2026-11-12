@@ -38,6 +38,7 @@ internal object DeviceProtectedKeys {
         "unlock_deadline_",     // C6 settings and stamps
         "countdown_deadline_",  // every open countdown
         "countdown_boot_",
+        "protection_start_",    // when monitoring first started in this boot (Timeline boot entry)
     )
 
     /** Keys that must never leave the encrypted file. The PIN keys are private to AppPin. */
