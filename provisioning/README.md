@@ -1,4 +1,4 @@
-# Norypt Protect 1.3.3 — Provisioning Pack
+# Norypt Protect 1.3.4 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.3.3.apk` | The signed app |
-| `norypt-protect-1.3.3.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.3.4.apk` | The signed app |
+| `norypt-protect-1.3.4.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  76ed617a56adf7bd7d43270c9c8218889ec0d2783fdb1d2ef0821bacc9a2f6df
+SHA-256  91abfa4a9fe16fc64e1d50f46678cc5e4e8b2174780c80b58780fcfbfbaaf2cc
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -63,6 +63,10 @@ stops — because this app can erase the phone it is installed on.
    tab. Tell them to test first, arm second.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.3.4
+
+- **C9 — forced restart.** With the power menu blocked while locked, holding the power button (alone or with a volume key) until the phone restarts is the only way left to turn it off. After such a restart a 30-second wipe countdown starts on the lock screen as soon as Norypt is up, before the first unlock. Unlocking the phone cancels it; restarting again while it is pending wipes at the next start. A crash or a sudden power loss also starts it, so unlock when you see it. Restart from the power menu yourself: that is a normal shutdown and starts nothing.
 
 ## New in 1.3.3
 

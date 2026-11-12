@@ -1,4 +1,4 @@
-# Norypt Protect 1.3.3 — Installation Guide
+# Norypt Protect 1.3.4 — Installation Guide
 
 Norypt Protect turns an Android phone into a device that can lock or erase itself in an
 emergency. It runs entirely on the phone: **no internet permission, no server, no account,
@@ -40,19 +40,19 @@ in transit.
 **Windows (PowerShell):**
 
 ```powershell
-Get-FileHash norypt-protect-1.3.3.apk -Algorithm SHA256
+Get-FileHash norypt-protect-1.3.4.apk -Algorithm SHA256
 ```
 
 **macOS / Linux:**
 
 ```bash
-shasum -a 256 norypt-protect-1.3.3.apk
+shasum -a 256 norypt-protect-1.3.4.apk
 ```
 
 The result must be exactly:
 
 ```
-76ed617a56adf7bd7d43270c9c8218889ec0d2783fdb1d2ef0821bacc9a2f6df
+91abfa4a9fe16fc64e1d50f46678cc5e4e8b2174780c80b58780fcfbfbaaf2cc
 ```
 
 **If it does not match, stop.** Do not install it. Ask for a fresh copy.
@@ -160,6 +160,10 @@ Commonly used:
   unlocked for the number of hours you set (12 by default) — for a phone that was seized,
   lost or left behind. Entering the lock-screen credential cancels the countdown. On
   GrapheneOS, keep it shorter than the auto-reboot time, or the countdown never comes.
+- **C9 — Forced restart.** After a restart forced by holding the power button (alone or
+  with a volume key), a 30-second wipe countdown starts on the lock screen. Unlocking the
+  phone cancels it; restarting again while it is pending wipes. A crash or a power loss also
+  starts it, so unlock when you see it. Restart from the power menu yourself: that starts nothing.
 
 Only turn on the ones you actually want. Every one of them erases the phone. A trigger
 that is switched on but cannot fire (no code, a missing permission) says why in red.
@@ -254,5 +258,5 @@ Being explicit, so you can plan around it:
 
 ---
 
-*Norypt Protect — [norypt.com](https://norypt.com). Version 1.3.3, certificate fingerprint
+*Norypt Protect — [norypt.com](https://norypt.com). Version 1.3.4, certificate fingerprint
 `13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95`.*
