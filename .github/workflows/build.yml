@@ -27,7 +27,7 @@ jobs:
       - name: Install required SDK packages
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" >/dev/null
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" "ndk;27.3.13750724" "cmake;3.22.1" >/dev/null
 
       - uses: gradle/actions/setup-gradle@48b5f213c81028ace310571dc5ec0fbbca0b2947 # v4
         with:

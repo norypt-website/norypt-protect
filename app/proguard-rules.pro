@@ -25,3 +25,9 @@
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
 -dontwarn javax.annotation.concurrent.**
+
+# C9's orderly-reboot mark: the JNI symbols Java_com_norypt_protect_triggers_ShutdownSignalNative_* need this class
+# and its native method names exactly (src/main/jni/shutdown_signal.c).
+-keep class com.norypt.protect.triggers.ShutdownSignalNative {
+    native <methods>;
+}

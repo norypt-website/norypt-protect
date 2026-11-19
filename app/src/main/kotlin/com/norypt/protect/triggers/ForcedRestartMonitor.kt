@@ -19,11 +19,14 @@ import com.norypt.protect.util.DebugTelemetry
 /**
  * C9's decision, kept free of Android so it can be unit tested.
  *
- * Android tells running apps before it shuts down ([Intent.ACTION_SHUTDOWN], delivered to receivers
- * registered at runtime: the power-menu restart and power off, GrapheneOS's auto-reboot, updates, an
- * empty battery). A hardware reset does not: holding the power button (alone or with a volume key)
- * until the phone restarts cuts Android off at once. So a boot is forced when Norypt watched the boot
- * before it and that boot left no clean-shutdown record.
+ * A clean shutdown leaves a record one of two ways. Android tells running apps before the framework
+ * shuts down ([Intent.ACTION_SHUTDOWN], delivered to receivers registered at runtime: the power-menu
+ * restart and power off, updates, an empty battery). A reboot init performs itself (GrapheneOS's
+ * auto-reboot, `adb reboot`) skips the framework and sends no broadcast, but init sends SIGTERM to every
+ * process group first, which [ShutdownSignal] records (since 1.3.5; before that an auto-reboot read as
+ * forced). A hardware reset does neither: holding the power button (alone or with a volume key) until
+ * the phone restarts cuts Android off at once. So a boot is forced when Norypt watched the boot before
+ * it and that boot left no clean-shutdown record ([CleanShutdownRule]).
  */
 object ForcedRestartRule {
 
@@ -32,7 +35,7 @@ object ForcedRestartRule {
     /**
      * @param watchedBoot the boot count Norypt last ran in, 0 when never recorded (first run with C9's code).
      * @param currentBoot this boot's count.
-     * @param cleanBoot the boot count whose shutdown Norypt saw, 0 when none.
+     * @param cleanBoot the boot count whose shutdown Norypt saw ([CleanShutdownRule.cleanBoot]), 0 when none.
      * @param pending a forced-restart countdown from an earlier boot ended with neither an unlock nor a wipe.
      */
     fun decide(watchedBoot: Int, currentBoot: Int, cleanBoot: Int, pending: Boolean): Action = when {
@@ -137,8 +140,11 @@ object ForcedRestartMonitor {
             settle(ctx)
             return
         }
-        val action = ForcedRestartRule.decide(watched, current, RestartRecord.cleanBoot(ctx), pending(ctx))
-        DebugTelemetry.log("c9 boot=$current watched=$watched clean=${RestartRecord.cleanBoot(ctx)} action=$action")
+        // ACTION_SHUTDOWN seen by the service, or init's orderly reboot (GrapheneOS auto-reboot, fix 1.3.5).
+        val signal = ShutdownSignal.vouchedBoot(ctx)
+        val clean = CleanShutdownRule.cleanBoot(RestartRecord.cleanBoot(ctx), signal, current)
+        val action = ForcedRestartRule.decide(watched, current, clean, pending(ctx))
+        DebugTelemetry.log("c9 boot=$current watched=$watched clean=$clean signal=$signal action=$action")
         when (action) {
             ForcedRestartRule.Action.NONE -> Unit
             ForcedRestartRule.Action.WIPE -> {
@@ -146,7 +152,7 @@ object ForcedRestartMonitor {
                 PanicHandler.panic(ctx, REPEAT_REASON)
                 // Reached only in dry-run or after a failed wipe: this restart was forced too, so it counts again.
                 settle(ctx)
-                if (RestartRecord.cleanBoot(ctx) != current - 1) startCountdown(ctx, current)
+                if (clean != current - 1) startCountdown(ctx, current)
             }
             ForcedRestartRule.Action.COUNTDOWN -> {
                 TamperLog.record(ctx, TamperKind.FORCED_RESTART, COUNTDOWN_DETAIL)
@@ -168,6 +174,8 @@ object ForcedRestartMonitor {
      * back; past its deadline with no outcome (the screen never opened, or stalled) the phone is wiped.
      */
     fun tick(ctx: Context) {
+        // A watcher that is gone is started again; a process that could not arm yet tries again.
+        ShutdownSignal.ensure(ctx)
         if (!pending(ctx)) return
         if (!ProtectPrefs.isTriggerEnabled(ctx, ForcedRestartTrigger.id) || !lockedNow(ctx)) {
             settle(ctx)
@@ -222,6 +230,7 @@ object ForcedRestartTrigger : Trigger {
             "key, until the phone restarts — a ${ForcedRestartMonitor.GRACE_SECONDS}-second wipe countdown " +
             "starts at the lock screen. Unlocking the phone cancels it. Restarting again while it is pending " +
             "wipes at the next start. A crash or a power loss looks the same, so the countdown starts then too. " +
+            "A restart the system makes itself, such as GrapheneOS's auto-reboot, is a normal restart on current Android. " +
             "Requires Device Owner."
     override val requiredTier = Tier.DeviceOwner
 
@@ -230,6 +239,7 @@ object ForcedRestartTrigger : Trigger {
         // This boot is watched from now; its own clean shutdown is what the next start looks for.
         TamperBootAudit.bootCount(context)?.let { RestartRecord.setWatchedBoot(context, it) }
         ForcedRestartMonitor.startWatch(context)
+        ShutdownSignal.arm(context)
     }
 
     override fun disarm(context: Context) {

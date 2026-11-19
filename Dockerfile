@@ -32,9 +32,9 @@ RUN mkdir -p /opt/android-sdk/cmdline-tools && \
     mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && \
     rm /tmp/cmdline-tools.zip
 
-# Pin SDK platforms + build-tools (sdkmanager checks each one against the checksum in
-# Google's repository index)
+# Pin SDK platforms + build-tools + the NDK and CMake for C9's native watcher (sdkmanager checks each
+# one against the checksum in Google's repository index)
 RUN yes | sdkmanager --licenses && \
-    sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+    sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "ndk;27.3.13750724" "cmake;3.22.1"
 
 WORKDIR /workspace

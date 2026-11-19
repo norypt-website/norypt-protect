@@ -20,6 +20,7 @@ import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.timeline.TamperMonitor
 import com.norypt.protect.triggers.FakeMessengerMonitor
 import com.norypt.protect.triggers.ForcedRestartMonitor
+import com.norypt.protect.triggers.ShutdownSignal
 import com.norypt.protect.triggers.PackageInternetWatcher
 import com.norypt.protect.triggers.UnlockedTimerMonitor
 import com.norypt.protect.util.DebugTelemetry
@@ -31,6 +32,9 @@ class NoryptProtectApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // C9's orderly-reboot mark, first and before the first unlock too: a GrapheneOS auto-reboot sends no
+        // ACTION_SHUTDOWN, only init's SIGTERM.
+        ShutdownSignal.armIfWanted(this)
         // Before the first unlock after a restart, credential-encrypted storage is closed: only the
         // direct-boot-aware components run (the service with its before-unlock monitors, the admin
         // receiver, the alarm), on device-protected settings. This process lives on through the

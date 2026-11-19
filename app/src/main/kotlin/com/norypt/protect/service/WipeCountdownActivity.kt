@@ -108,8 +108,12 @@ class WipeCountdownActivity : ComponentActivity() {
         // Show over lockscreen
         setShowWhenLocked(true)
         setTurnScreenOn(true)
-        val km = getSystemService(KeyguardManager::class.java)
-        km.requestDismissKeyguard(this, null)
+        // C9 raises the unlock screen only from Cancel: raised at once, its keyboard covered the timer and
+        // the Cancel button for the whole 30 seconds (device check, Pro 1.9.1).
+        if (mode != CountdownMode.FORCED_RESTART) {
+            val km = getSystemService(KeyguardManager::class.java)
+            km.requestDismissKeyguard(this, null)
+        }
 
         val graceMs = graceSeconds() * 1_000L
         val now = SystemClock.elapsedRealtime()
@@ -154,8 +158,10 @@ class WipeCountdownActivity : ComponentActivity() {
                     onCancel = {
                         authInProgress.value = true
                         // Before the first unlock after a restart the credential prompt cannot be
-                        // used: unlocking the phone comes first, and is the cancel itself.
-                        if (ProtectPrefs.userUnlocked(this@WipeCountdownActivity)) launchKeyguardCancel() else unlockFirst()
+                        // used: unlocking the phone comes first, and is the cancel itself. Only the
+                        // phone unlocked ends C9, so its Cancel always opens the phone's unlock screen.
+                        val unlocked = ProtectPrefs.userUnlocked(this@WipeCountdownActivity)
+                        if (unlocked && mode != CountdownMode.FORCED_RESTART) launchKeyguardCancel() else unlockFirst()
                     },
                     onConditionsCleared = { finishWithOutcome() },
                     onTimerExpired = {

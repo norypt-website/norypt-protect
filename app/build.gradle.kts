@@ -37,6 +37,9 @@ android {
     }
     namespace = "com.norypt.protect"
     compileSdk = 35
+    // libnorypt_shutdown and the norypt_watcher executable (src/main/jni): C9's orderly-reboot mark. NDK r27d (LTS),
+    // CMake 3.22.1 (the CI workflows and the Dockerfile install both).
+    ndkVersion = "27.3.13750724"
 
     defaultConfig {
         applicationId = "com.norypt.protect"
@@ -49,6 +52,24 @@ android {
         versionName = "1.3.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += listOf("en")
+
+        ndk {
+            // Phones only (no emulator ABIs); must match copyNoryptWatcher below.
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+        externalNativeBuild {
+            cmake {
+                // No C++ runtime (plain C); 16 KB page devices (Android 15+).
+                arguments += listOf("-DANDROID_STL=none", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/jni/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {
@@ -98,12 +119,68 @@ android {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
-        jniLibs.useLegacyPackaging = false
+        // Compressed in the APK and extracted at install: libnorypt_watcher.so is executed from the native library
+        // directory, which only holds files when they are extracted (C9's orderly-reboot mark, 1.3.5).
+        jniLibs.useLegacyPackaging = true
     }
 
     androidComponents.onVariants(androidComponents.selector().withBuildType("release")) { variant ->
         variant.packaging.resources.excludes.add("**/kotlin/**")
         variant.packaging.resources.excludes.add("META-INF/*.version")
+    }
+}
+
+// C9's orderly-reboot watcher (src/main/jni/shutdown_watcher.c) is an executable: CMake builds it as
+// `norypt_watcher`, but AGP only packages libraries, so each variant copies it in as libnorypt_watcher.so (the native
+// library directory is the only place an app may execute its own files). Runs every build (cheap) and fails the build
+// when the binary is missing or older than any of its sources: a stale watcher never ships silently. The release
+// build strips it with the libraries.
+abstract class CopyNoryptWatcher : DefaultTask() {
+    @get:Internal abstract val cxxDir: DirectoryProperty
+    @get:InputFiles @get:PathSensitive(PathSensitivity.RELATIVE) abstract val sources: ConfigurableFileCollection
+    @get:Input abstract val debugBuild: Property<Boolean>
+    @get:Input abstract val abis: ListProperty<String>
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        val newestSource = sources.files.maxOfOrNull { it.lastModified() }
+            ?: throw GradleException("norypt_watcher sources missing")
+        for (abi in abis.get()) {
+            // intermediates/cxx/<Debug|RelWithDebInfo>/<hash>/obj/<abi>/norypt_watcher; the newest of this type.
+            val found = cxxDir.get().asFile.listFiles().orEmpty()
+                .filter { (it.name == "Debug") == debugBuild.get() }
+                .flatMap { it.listFiles().orEmpty().toList() }
+                .map { File(it, "obj/$abi/norypt_watcher") }
+                .filter { it.isFile }
+                .maxByOrNull { it.lastModified() }
+                ?: throw GradleException("norypt_watcher not built for $abi")
+            if (found.lastModified() < newestSource) {
+                throw GradleException("norypt_watcher for $abi is older than its sources: clean the native build")
+            }
+            found.copyTo(File(out, "$abi/libnorypt_watcher.so"), overwrite = true)
+        }
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val cap = variant.name.replaceFirstChar { it.uppercase() }
+        val debug = variant.buildType == "debug"
+        val copy = tasks.register<CopyNoryptWatcher>("copyNoryptWatcher$cap") {
+            dependsOn("externalNativeBuild$cap")
+            cxxDir.set(layout.buildDirectory.dir("intermediates/cxx"))
+            sources.from(
+                "src/main/jni/shutdown_watcher.c", "src/main/jni/shutdown_record.h", "src/main/jni/CMakeLists.txt",
+            )
+            doNotTrackState("picks the newest ndk-build output; always re-checked")
+            debugBuild.set(debug)
+            // Same as android.defaultConfig.ndk.abiFilters.
+            abis.set(listOf("arm64-v8a", "armeabi-v7a"))
+        }
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(copy, CopyNoryptWatcher::outputDir)
     }
 }
 
