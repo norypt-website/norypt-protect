@@ -1,4 +1,4 @@
-# Norypt Protect 1.3.4 — Provisioning Pack
+# Norypt Protect 1.3.5 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.3.4.apk` | The signed app |
-| `norypt-protect-1.3.4.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.3.5.apk` | The signed app |
+| `norypt-protect-1.3.5.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  91abfa4a9fe16fc64e1d50f46678cc5e4e8b2174780c80b58780fcfbfbaaf2cc
+SHA-256  9ca32e7d645e91a947877416068d36d0f62c014196b42359db8db853a3469cde
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -63,6 +63,11 @@ stops — because this app can erase the phone it is installed on.
    tab. Tell them to test first, arm second.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.3.5
+
+- **C9 fix: GrapheneOS's auto-reboot is a normal restart.** 1.3.4 counted it as a forced restart, because the system restarts the phone itself and tells apps nothing; a locked GrapheneOS phone with C9 armed could start the countdown at its own auto-reboot, before anyone was there to unlock it, and wipe. **If you run 1.3.4 with C9 armed on GrapheneOS, update now.** A held power button still starts the countdown.
+- The C9 countdown no longer hides its timer and Cancel button behind the unlock keyboard: tap **Cancel** to open the unlock screen.
 
 ## New in 1.3.4
 
