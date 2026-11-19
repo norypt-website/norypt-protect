@@ -8,11 +8,18 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 
 set(HARDENING_CFLAGS -O2 -Wall -Wextra -Werror -fvisibility=hidden -fstack-protector-strong -D_FORTIFY_SOURCE=2)
+# The same binaries whatever folder the build runs in: the build ID is a hash of the linked file before stripping,
+# whose debug info names the source, build and NDK folders. Mapped to fixed names, a rebuild elsewhere (another CI
+# runner, F-Droid, an auditor) gets the same bytes.
+set(REPRODUCIBLE_CFLAGS
+    -ffile-prefix-map=${CMAKE_SOURCE_DIR}=src
+    -ffile-prefix-map=${CMAKE_BINARY_DIR}=build
+    -ffile-prefix-map=${ANDROID_NDK}=ndk)
 set(HARDENING_LDFLAGS -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--build-id=sha1)
 
 # Loaded by the app (System.loadLibrary): the second-chance SIGTERM handler and the watcher's start.
 add_library(norypt_shutdown SHARED shutdown_signal.c)
-target_compile_options(norypt_shutdown PRIVATE ${HARDENING_CFLAGS})
+target_compile_options(norypt_shutdown PRIVATE ${HARDENING_CFLAGS} ${REPRODUCIBLE_CFLAGS})
 target_link_options(norypt_shutdown PRIVATE ${HARDENING_LDFLAGS})
 
 # Executed by the app (fork + execve). AGP packages only libraries, so app/build.gradle.kts (CopyNoryptWatcher) copies
@@ -20,5 +27,5 @@ target_link_options(norypt_shutdown PRIVATE ${HARDENING_LDFLAGS})
 # files. A PIE executable, never loaded as a library.
 add_executable(norypt_watcher shutdown_watcher.c)
 set_target_properties(norypt_watcher PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_compile_options(norypt_watcher PRIVATE ${HARDENING_CFLAGS})
+target_compile_options(norypt_watcher PRIVATE ${HARDENING_CFLAGS} ${REPRODUCIBLE_CFLAGS})
 target_link_options(norypt_watcher PRIVATE ${HARDENING_LDFLAGS})
