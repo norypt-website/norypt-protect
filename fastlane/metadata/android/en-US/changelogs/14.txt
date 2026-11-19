@@ -1,0 +1,3 @@
+v1.3.5
+• Fix for C9, forced restart: a restart the system makes itself, such as GrapheneOS's auto-reboot, no longer starts the wipe countdown. Up to 1.3.4 it did, so a locked GrapheneOS phone with C9 armed could wipe itself at its own auto-reboot. A held power button still starts the countdown.
+• The forced-restart countdown no longer covers its timer and Cancel button with the unlock keyboard; Cancel opens the unlock screen.
