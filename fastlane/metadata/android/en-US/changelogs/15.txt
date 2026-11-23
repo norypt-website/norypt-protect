@@ -1,0 +1,3 @@
+v1.3.6
+• Fix for C9, forced restart: Android restarting itself after a system crash, with the phone still on, no longer starts the wipe countdown. Up to 1.3.5 it did, so an unattended phone could wipe itself 30 seconds after such a crash. A held power button still starts the countdown, and a restart during a pending countdown still wipes.
+• A running wipe countdown no longer gets its full time back when Android restarts itself.
