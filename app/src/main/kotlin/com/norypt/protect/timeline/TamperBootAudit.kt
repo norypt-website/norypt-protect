@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.SystemClock
 import android.provider.Settings
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.triggers.ClockBoot
 
 /**
  * Records boots, and boots that happened while nothing was watching.
@@ -38,11 +39,25 @@ object TamperBootAudit {
         lastAliveMs: Long,
         fromBootBroadcast: Boolean,
         protectedFromMs: Long? = null,
+        userspaceRestart: Boolean = false,
     ): String {
-        val sb = StringBuilder("Booted ${TimelineFormat.dateTime(bootAtMs)}")
+        // system_server or zygote restarted inside one kernel boot (1.3.6): the phone never powered off, so the kernel's
+        // boot time is the same as before and only Android started again.
+        val sb = StringBuilder(
+            if (userspaceRestart) {
+                "Android restarted itself (system crash, no power-off); on since ${TimelineFormat.dateTime(bootAtMs)}"
+            } else {
+                "Booted ${TimelineFormat.dateTime(bootAtMs)}"
+            },
+        )
         val unlocked = if (fromBootBroadcast) "first unlocked" else "unlocked by"
         sb.append(
             when {
+                // Nobody unlocked: the credential-encrypted storage stayed unlocked through the restart, and the
+                // lock screen came back. "Before the first unlock" and "unlocked by" would both be wrong.
+                userspaceRestart && protectedFromMs != null ->
+                    "; protection back on ${TimelineFormat.time(protectedFromMs)} with the phone locked"
+                userspaceRestart -> "; monitoring resumed ${TimelineFormat.time(nowMs)}"
                 protectedFromMs != null ->
                     "; protection on from ${TimelineFormat.time(protectedFromMs)}, before the first unlock; " +
                         "$unlocked ${TimelineFormat.time(nowMs)}"
@@ -101,13 +116,14 @@ object TamperBootAudit {
             bootAt,
         )
         val unobserved = unobservedBoots(previous, current)
+        val userspace = previous > 0 && ClockBoot.userspaceRestartSince(ctx, previous, current)
         if (unobserved > 0) {
             TamperLog.record(ctx, TamperKind.UNOBSERVED_BOOTS, unobservedDetail(unobserved, previous, current))
         }
         TamperLog.record(
             ctx,
             TamperKind.BOOT,
-            bootDetail(bootAt, now, lastAlive, fromBootBroadcast, protectedFrom),
+            bootDetail(bootAt, now, lastAlive, fromBootBroadcast, protectedFrom, userspace),
             if (unobserved > 0) Severity.Alert else Severity.Notable,
         )
     }

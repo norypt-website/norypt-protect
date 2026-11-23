@@ -24,6 +24,7 @@ import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.timeline.TamperMonitor
+import com.norypt.protect.triggers.ClockBoot
 import com.norypt.protect.triggers.DeadmanScheduler
 import com.norypt.protect.triggers.ForcedRestartMonitor
 import com.norypt.protect.triggers.PowerGestureMonitor
@@ -88,6 +89,10 @@ class ProtectForegroundService : Service() {
         startForeground(NotificationIds.SERVICE, notification, FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         // C9 first: the shutdown watch must be up as early as possible in every boot, and a
         // forced restart is decided before anything that could take long.
+        // Records the boot count of this kernel at every start, not only when a stamp is first written: a later
+        // userspace restart is then known as one (the Timeline, the last-unlock stamp below and in the boot
+        // receiver) even when nothing was stamped before it.
+        runCatching { ClockBoot.of(this) }
         runCatching { ForcedRestartMonitor.startWatch(this) }
         runCatching { ForcedRestartMonitor.onServiceStart(this) }
         // Each on its own: one monitor throwing must not leave every later one, and the

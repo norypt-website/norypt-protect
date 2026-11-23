@@ -53,6 +53,34 @@ class TamperBootAuditTest {
     }
 
     @Test
+    fun `a userspace restart is told as Android restarting itself, not as a boot`() {
+        val bootAt = 1_700_000_000_000L
+        val detail = TamperBootAudit.bootDetail(
+            bootAt, bootAt + 3_600_000L, lastAliveMs = bootAt + 3_000_000L, fromBootBroadcast = true, userspaceRestart = true,
+        )
+        assertTrue(detail, detail.startsWith("Android restarted itself (system crash, no power-off); on since "))
+        assertFalse(detail.contains("Booted"))
+        assertFalse(TamperBootAudit.bootDetail(bootAt, bootAt + 60_000L, 0L, true).contains("Android restarted itself"))
+    }
+
+    @Test
+    fun `a userspace restart never claims an unlock nobody made`() {
+        val bootAt = 1_700_000_000_000L
+        // Seen on a phone: the entry said "before the first unlock; unlocked by" the time of the restart.
+        val locked = TamperBootAudit.bootDetail(
+            bootAt, bootAt + 3_600_000L, 0L, fromBootBroadcast = false, protectedFromMs = bootAt + 3_590_000L,
+            userspaceRestart = true,
+        )
+        assertTrue(locked, locked.contains("protection back on") && locked.contains("with the phone locked"))
+        listOf(true, false).forEach { fromBroadcast ->
+            val d = TamperBootAudit.bootDetail(bootAt, bootAt + 3_600_000L, 0L, fromBroadcast, userspaceRestart = true)
+            assertTrue(d, d.contains("monitoring resumed"))
+            assertFalse(d, d.contains("unlocked"))
+        }
+        assertFalse(locked.contains("unlocked"))
+    }
+
+    @Test
     fun `unobserved detail states the count and the counter movement`() {
         val detail = TamperBootAudit.unobservedDetail(2, 10, 13)
         assertTrue(detail.startsWith("2 boot(s)"))

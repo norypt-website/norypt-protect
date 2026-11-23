@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.os.UserManager
 import com.norypt.protect.admin.ProtectAdminReceiver
 import com.norypt.protect.admin.Provisioning
@@ -15,6 +16,7 @@ import com.norypt.protect.dpm.LauncherAlias
 import com.norypt.protect.dpm.LockdownMode
 import com.norypt.protect.motion.MotionLockMonitor
 import com.norypt.protect.prefs.ProtectPrefs
+import com.norypt.protect.service.CountdownMode
 import com.norypt.protect.timeline.TamperLog
 import com.norypt.protect.triggers.UnlockDeadlineMonitor
 import com.norypt.protect.dpm.PowerMenuGuard
@@ -148,9 +150,24 @@ class DpmTestReceiver : BroadcastReceiver() {
                 ProtectPrefs.setLastUnlockElapsed(
                     ctx,
                     android.os.SystemClock.elapsedRealtime() - minutes * 60_000L,
-                    com.norypt.protect.timeline.TamperBootAudit.bootCount(ctx) ?: 0,
+                    com.norypt.protect.triggers.ClockBoot.of(ctx),
                 )
                 log("a8.backdate -> $minutes min ago")
+            }
+            // C9 countdown owed, as ForcedRestartMonitor.startCountdown records it, without opening the screen: for the
+            // device check "a countdown pending when Android restarts itself wipes at the next start". `--ei seconds`
+            // outlasts the restart itself (about 90 s with am hang); a 30-second countdown has expired by then.
+            "c9_pending" -> {
+                val boot = com.norypt.protect.triggers.ClockBoot.of(ctx)
+                val seconds = intent.getIntExtra("seconds", com.norypt.protect.triggers.ForcedRestartMonitor.GRACE_SECONDS)
+                com.norypt.protect.triggers.RestartRecord.setPendingBoot(ctx, boot)
+                ProtectPrefs.setCountdownDeadline(
+                    ctx,
+                    CountdownMode.FORCED_RESTART.extraValue,
+                    SystemClock.elapsedRealtime() + seconds * 1_000L,
+                    boot,
+                )
+                log("c9.pending -> state=${com.norypt.protect.triggers.RestartRecord.pendingState(ctx)}")
             }
             "a8_tick" -> {
                 UnlockedTimerMonitor.countdownActive = false

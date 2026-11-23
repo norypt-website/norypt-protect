@@ -28,7 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.norypt.protect.panic.PanicHandler
 import com.norypt.protect.prefs.ProtectPrefs
-import com.norypt.protect.timeline.TamperBootAudit
+import com.norypt.protect.triggers.ClockBoot
 import com.norypt.protect.triggers.DeadmanMonitor
 import com.norypt.protect.triggers.ForcedRestartMonitor
 import com.norypt.protect.triggers.UnlockDeadlineMonitor
@@ -80,7 +80,7 @@ class WipeCountdownActivity : ComponentActivity() {
                 CountdownMode.DEADMAN -> ProtectPrefs.setDeadmanSnooze(
                     this,
                     SystemClock.elapsedRealtime() + DeadmanMonitor.SNOOZE_AFTER_CANCEL_MS,
-                    TamperBootAudit.bootCount(this) ?: 0,
+                    ClockBoot.of(this),
                 )
                 // The credential is a fresh unlock: A8 measures again from now.
                 CountdownMode.UNLOCKED_TOO_LONG -> UnlockedTimer.stamp(this)
@@ -117,7 +117,8 @@ class WipeCountdownActivity : ComponentActivity() {
 
         val graceMs = graceSeconds() * 1_000L
         val now = SystemClock.elapsedRealtime()
-        val boot = TamperBootAudit.bootCount(this) ?: 0
+        // The boot of this kernel's clock: a userspace restart keeps the deadline, so it buys no fresh grace (1.3.6).
+        val boot = ClockBoot.of(this)
         startWallMs = savedInstanceState?.getLong(STATE_START_WALL) ?: System.currentTimeMillis()
         // A configuration change restores the deadline from saved state; a screen that was
         // closed and relaunched by the next alarm resumes the stored one. Either way the

@@ -12,6 +12,8 @@ import com.norypt.protect.timeline.SecurityLogFeature
 import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
+import com.norypt.protect.triggers.ClockBoot
+import com.norypt.protect.triggers.ForcedRestartMonitor
 import com.norypt.protect.triggers.UnlockedTimer
 
 /**
@@ -47,6 +49,8 @@ class BootCompletedReceiver : BroadcastReceiver() {
             return
         }
         if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        // Before the service starts: an update inside the watched boot pairs it with its kernel (C9, 1.3.6).
+        if (action == Intent.ACTION_MY_PACKAGE_REPLACED) runCatching { ForcedRestartMonitor.onAppUpdated(context) }
         // The service first: the bookkeeping below reads encrypted storage, and a failure there
         // must not leave every trigger unregistered until the next time the app is opened.
         if (Provisioning.current(context) != Tier.None) {
@@ -66,7 +70,10 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 // was registered for. Stamping it here keeps A8, the C4 disarm window and C6
                 // measuring from a real unlock. Before this, A8 could fire on its first tick
                 // after a reboot against a stale pre-reboot timestamp.
-                UnlockedTimer.stamp(context)
+                // Not after a userspace restart (fix 1.3.6): Android sends this broadcast again then, because the
+                // credential-encrypted storage stayed unlocked, but nobody unlocked the phone. A stamp would end a
+                // running C6 countdown, restart C6's deadline and open C4's disarm window on a locked phone.
+                if (!ClockBoot.restartedInKernel(context)) UnlockedTimer.stamp(context)
                 TamperBootAudit.check(context, fromBootBroadcast = true)
                 // The logs from before this restart, once per boot; the service started above keeps the process up.
                 if (SecurityLogFeature.isOn(context)) Thread { SecurityLogFeature.importNew(context, fromBoot = true) }.start()

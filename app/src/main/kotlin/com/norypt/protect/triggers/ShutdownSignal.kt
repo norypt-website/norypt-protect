@@ -33,7 +33,6 @@ object ShutdownSignal {
 
     private const val LIBRARY = "norypt_shutdown"
     private const val WATCHER = "libnorypt_watcher.so"
-    private const val BOOT_ID_PATH = "/proc/sys/kernel/random/boot_id"
 
     /** Device-protected: the boot (count and boot_id) of the last arming, for [ShutdownSignalRules.countIsStale]. */
     private const val PREFS = "norypt_shutdown_signal_arm"
@@ -81,12 +80,13 @@ object ShutdownSignal {
             return
         }
         val prefs = dpContext(app).getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val f = file(app)
+        // First, even when arming waits: a mark of the running kernel vouches for nothing (fix 1.3.6).
+        if (ShutdownSignalRules.clearAtArm(ShutdownSignalRules.parse(read(f)), bootId)) clear(f)
         if (ShutdownSignalRules.countIsStale(prefs.getString(K_BOOT_ID, null), prefs.getInt(K_BOOT, 0), bootId, boot)) {
             DebugTelemetry.log("c9 orderly-reboot mark not armed yet: boot count not raised for this boot")
             return
         }
-        val f = file(app)
-        if (ShutdownSignalRules.clearAtArm(ShutdownSignalRules.parse(read(f)), bootId)) clear(f)
         val watcher = File(app.applicationInfo.nativeLibraryDir, WATCHER)
         System.loadLibrary(LIBRARY)
         if (!ShutdownSignalNative.nativeArm(f.absolutePath, record, watcher.absolutePath)) {
@@ -131,17 +131,18 @@ object ShutdownSignal {
         -1
     }
 
-    /** The running kernel's boot_id, or null when it cannot be read or is not one. */
-    private fun bootId(): String? = try {
-        val s = String(readAtMost(File(BOOT_ID_PATH), ShutdownSignalRules.BOOT_ID_LENGTH + 2), Charsets.US_ASCII)
-        if (s.length == ShutdownSignalRules.BOOT_ID_LENGTH + 1 && s.endsWith('\n')) {
-            s.substring(0, ShutdownSignalRules.BOOT_ID_LENGTH).takeIf { ShutdownSignalRules.validBootId(it) }
-        } else {
-            null
-        }
-    } catch (_: Throwable) {
+    /**
+     * The record in the mark file, of whichever boot wrote it (fix 1.3.6: C9 checks its count and boot_id against the
+     * watched boot, [KernelIds.vouchesFor]); null when none, malformed or unreadable. Never throws.
+     */
+    fun mark(ctx: Context): ShutdownSignalRules.Read.Mark? = try {
+        ShutdownSignalRules.parse(read(file(ctx))) as? ShutdownSignalRules.Read.Mark
+    } catch (e: Throwable) {
+        DebugTelemetry.log("c9 orderly-reboot mark not readable: ${e.javaClass.simpleName}")
         null
     }
+
+    private fun bootId(): String? = KernelBootId.read()
 
     // At most MAX_BYTES + 1 bytes: a longer file parses as malformed without reading it all.
     private fun read(f: File): ByteArray? = if (f.exists()) readAtMost(f, ShutdownSignalRules.MAX_BYTES + 1) else null

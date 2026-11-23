@@ -10,7 +10,6 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.CountdownAlert
 import com.norypt.protect.service.CountdownMode
-import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.timeline.TamperKind
 import com.norypt.protect.timeline.TamperLog
 
@@ -30,7 +29,7 @@ object UnlockedTimer {
     /** Records "unlocked now" on both clocks. */
     fun stamp(context: Context) {
         ProtectPrefs.setLastUnlockMs(context, System.currentTimeMillis())
-        ProtectPrefs.setLastUnlockElapsed(context, SystemClock.elapsedRealtime(), TamperBootAudit.bootCount(context) ?: 0)
+        ProtectPrefs.setLastUnlockElapsed(context, SystemClock.elapsedRealtime(), ClockBoot.of(context))
     }
 }
 
@@ -69,7 +68,7 @@ object UnlockedTimerMonitor {
             ProtectPrefs.lastUnlockElapsedMs(context),
             ProtectPrefs.lastUnlockBoot(context),
             SystemClock.elapsedRealtime(),
-            TamperBootAudit.bootCount(context) ?: 0,
+            ClockBoot.of(context),
         ) ?: return
 
         if (unlockedFor <= ProtectPrefs.maxUnlockedMinutes(context) * 60_000L) {

@@ -14,7 +14,6 @@ import com.norypt.protect.admin.Tier
 import com.norypt.protect.prefs.ProtectPrefs
 import com.norypt.protect.service.CountdownAlert
 import com.norypt.protect.service.CountdownMode
-import com.norypt.protect.timeline.TamperBootAudit
 import com.norypt.protect.util.DebugTelemetry
 import com.norypt.protect.util.StartupGrace
 
@@ -147,7 +146,7 @@ object DeadmanMonitor {
         val until = ProtectPrefs.deadmanSnoozeUntil(ctx)
         if (until <= 0L) return false
         // elapsedRealtime restarts at boot, so a snooze from an earlier boot no longer applies.
-        if (ProtectPrefs.deadmanSnoozeBoot(ctx) != (TamperBootAudit.bootCount(ctx) ?: 0)) return false
+        if (ProtectPrefs.deadmanSnoozeBoot(ctx) != ClockBoot.of(ctx)) return false
         return SystemClock.elapsedRealtime() < until
     }
 

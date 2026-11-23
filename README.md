@@ -41,6 +41,8 @@ The intended users are people who are responsible for data on a phone they own a
 
 This repository is the **free edition** of Norypt Protect: version 1.3 and its security updates, under the GNU General Public License v3. It stays free and open source. It receives security fixes; a protection from Pro is brought over now and then, as `C9` was in 1.3.4.
 
+**1.3.6:** fix for `C9`. Android can restart itself after a system crash (system_server or zygote) while the phone stays on: the boot count goes up and no shutdown notice is sent, so 1.3.5 counted it as a forced restart and an unattended phone wiped 30 seconds later. The kernel keeps running then and unlocked storage stays open, so it is not the case `C9` exists for. The kernel's boot ID now tells the two apart; a held power button still starts the countdown, and a restart during a pending countdown still wipes. A running countdown also no longer gets its full time back from such a restart. Ported from Pro 1.9.2 and checked on a GrapheneOS Pixel 9a.
+
 **1.3.5:** fix for `C9`. A reboot the system makes itself, such as GrapheneOS's auto-reboot, sends apps no shutdown notice, so 1.3.4 counted it as a forced restart: a locked GrapheneOS phone with `C9` armed started the countdown at its own auto-reboot, before the first unlock, and wiped. Every such reboot sends a termination signal from Android's init process first; a small native watcher now records it, and the next start counts as normal. A held power button still starts the countdown. The countdown screen also no longer covers its timer and Cancel with the unlock keyboard. Ported from Pro 1.9.1, where it was checked on a GrapheneOS Pixel 9a (auto-reboot, `adb reboot`, power-menu restart and held power button).
 
 **1.3.4:** new trigger `C9`, wipe after a forced restart. A locked phone with the power menu blocked can still be forced off by holding the power button, alone or with a volume key, until it restarts. Norypt now records every clean shutdown; a start without that record opens a 30-second countdown on the lock screen, before the first unlock too. Only unlocking the phone cancels it, and any restart while it is pending wipes at the next start. A crash or a power loss looks the same and starts it too. Off by default; Device Owner only. See [docs/design/2026-11-12-forced-restart-design.md](docs/design/2026-11-12-forced-restart-design.md).
@@ -250,7 +252,7 @@ Thirteen triggers plus the tile and the launcher shortcuts, each armed and disar
 | `C3` | Power button pressed five times | 2 |
 | `C4` | Low-battery dead-man switch with 60-second countdown and cancel window | 2 |
 | `C6` | Not unlocked for N hours (default 12) — countdown with cancel window, for a phone seized, lost or left behind | 2 |
-| `C9` | Forced restart — the phone restarted without shutting down (the power button held, alone or with a volume key, until it restarts). A 30-second countdown starts at the lock screen as soon as Norypt is up, before the first unlock; only unlocking cancels it, and any restart while it is pending wipes at the next start. A crash or a power loss looks the same and starts it too. A restart the system makes itself, such as GrapheneOS's auto-reboot, is a normal restart (since 1.3.5; 1.3.4 counted it as forced) | 2 |
+| `C9` | Forced restart — the phone restarted without shutting down (the power button held, alone or with a volume key, until it restarts). A 30-second countdown starts at the lock screen as soon as Norypt is up, before the first unlock; only unlocking cancels it, and any restart while it is pending wipes at the next start. A kernel crash or a power loss looks the same and starts it too. A restart the system makes itself, such as GrapheneOS's auto-reboot, is a normal restart (since 1.3.5; 1.3.4 counted it as forced), and so is Android restarting itself after a system crash with the phone still on (since 1.3.6; up to 1.3.5 an unattended phone could wipe) | 2 |
 
 `A7` accepts intents only from applications signed with the same key. `A5` accepts only the PanicKit app the owner paired with the App PIN, checked against its signing certificate; pairing is offered only while `A5` is armed. The tile (`A3`) asks for the App PIN before a wipe.
 
@@ -387,6 +389,19 @@ Unit-tested: the decision at each start (a clean shutdown, a hardware reset, a b
 | Restart during the countdown | Pass: the next start wiped at once (dry-run) |
 | Screen turned off during the countdown | Pass: dry-run wipe 34 s after the countdown started |
 | Real wipe | Pass: the phone factory-reset itself at the end of the countdown |
+
+### Version 1.3.6 — Android restarting itself is not a forced restart for `C9`
+
+Unit-tested (`UserspaceRestartTest`): a userspace restart (same kernel boot_id, boot count up) starts nothing, a held-power reset counts down, a restart during a pending countdown still wipes, and a running countdown gets no fresh grace. Device-checked on a Pixel 9a (GrapheneOS, Android 17) with the Device Owner debug build, `C9` armed, phone locked, dry-run on. A userspace restart was made with `am hang --allow-restart`: system_server hangs and its watchdog restarts Android, as after a real system crash:
+
+| Check | Result |
+|---|---|
+| Update from 1.3.5 while locked, then a userspace restart | Pass: the watched boot was paired with its kernel at the update; same boot_id, boot count up; no countdown |
+| Userspace restart while the countdown is pending | Pass: the next start wiped at once (dry-run), twice |
+| `adb reboot` | Pass: new boot_id, clean mark; no countdown |
+| Held power button | Pass: new boot_id, no mark; countdown at the lock screen, cancelled by unlocking |
+
+The same trigger code was checked in more depth in Pro 1.9.2 on the same phone (several userspace restarts in a row, a power-menu restart, a held power button after a userspace restart, and the last-unlock and Timeline fixes found there).
 
 ### Android 14+ platform findings
 
