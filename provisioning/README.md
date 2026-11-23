@@ -1,4 +1,4 @@
-# Norypt Protect 1.3.5 — Provisioning Pack
+# Norypt Protect 1.3.6 — Provisioning Pack
 
 Everything needed to install Norypt Protect on a customer phone and promote it to
 **Device Owner**, the privilege tier that unlocks the full protection set.
@@ -12,8 +12,8 @@ doing the install. Everything below is reference.
 
 | File | What it is |
 |---|---|
-| `norypt-protect-1.3.5.apk` | The signed app |
-| `norypt-protect-1.3.5.apk.sha256` | Checksum — verify before installing |
+| `norypt-protect-1.3.6.apk` | The signed app |
+| `norypt-protect-1.3.6.apk.sha256` | Checksum — verify before installing |
 | `norypt-protect-release.cert.pem` | Public signing certificate |
 | `provision-windows.bat` | **Windows: double-click this** |
 | `provision-windows.ps1` | The logic the .bat runs |
@@ -23,7 +23,7 @@ doing the install. Everything below is reference.
 ## Verify before you install
 
 ```
-SHA-256  9ca32e7d645e91a947877416068d36d0f62c014196b42359db8db853a3469cde
+SHA-256  82695e4c263e7ec3ae6a060d281f3a34f12c7892bbe24ba986836a166390605f
 Signer   CN=Norypt Protect, OU=Mobile, O=Norypt, L=Internet, ST=Internet, C=XX
 Cert     13:50:25:10:A5:B5:0D:59:BF:78:23:CB:E5:96:B8:8C:7B:4C:B5:4B:41:BC:21:7A:AC:7C:25:19:17:53:6E:95
 ```
@@ -63,6 +63,11 @@ stops — because this app can erase the phone it is installed on.
    tab. Tell them to test first, arm second.
 3. **Lockdown mode is a black screen on purpose.** The way back in is to hold a finger
    anywhere on the screen for three seconds, enter the App PIN, and tap Exit lockdown.
+
+## New in 1.3.6
+
+- **C9 fix: Android restarting itself is not a forced restart.** After a system crash Android can restart itself while the phone stays on; it never powers off. 1.3.5 counted it as a forced restart, so an unattended phone with C9 armed could wipe itself 30 seconds after such a crash. **If you run C9, update now.** A held power button still starts the countdown, and a restart during a pending countdown still wipes.
+- A running wipe countdown no longer gets its full time back when Android restarts itself.
 
 ## New in 1.3.5
 
